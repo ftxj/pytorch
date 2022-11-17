@@ -636,6 +636,15 @@ static const char* ternary_op_type2string(TernaryOpType t) {
   }
 }
 
+static const char* torch_gather_op_type2string(TorchGatherOpType t) {
+  switch (t) {
+    case TorchGatherOpType::TorchGather:
+      return "torch.gather";
+    default:
+      TORCH_INTERNAL_ASSERT(false, "Unexpected TorchGather");
+  }
+}
+
 static const char* rng_op_type2string(RNGOpType t) {
   switch (t) {
     case RNGOpType::Uniform:
@@ -1007,6 +1016,11 @@ std::ostream& operator<<(std::ostream& out, const BinaryOpType botype) {
 std::ostream& operator<<(std::ostream& out, const TernaryOpType totype) {
   return out << ternary_op_type2string(totype);
 }
+
+std::ostream& operator<<(std::ostream& out, const TorchGatherOpType rngtype) {
+  return out << torch_gather_op_type2string(rngtype);
+}
+
 
 std::ostream& operator<<(std::ostream& out, const RNGOpType rngtype) {
   return out << rng_op_type2string(rngtype);

@@ -496,6 +496,36 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
     return index.str();
   }
+  
+  std::string genTensorIndexWithIndex(const kir::TensorIndex* ti, int dim, const std::string& idx) {
+    bool first = true;
+    std::stringstream index;
+    int d = 0;
+    for (auto* ind : ti->indices()) {
+      if(d == dim) {
+        if (!first) {
+          index << " + ";
+        }
+        index << idx;
+        first = false;
+      }
+      else if (!ind->isZeroInt()) {
+        if (!first) {
+          index << " + ";
+        }
+        index << genInline(ind);
+        first = false;
+      }
+      d++;
+    }
+
+    if (first) {
+      index << "0";
+    }
+
+    return index.str();
+  }
+
 
   void handle(const kir::TensorIndex* ti) final {
     bool is_volatile = ti->view()->getMemoryType() == MemoryType::Global &&
@@ -1103,6 +1133,17 @@ class CudaKernelGenerator : private OptOutConstDispatch {
              << getOutputRegisterSize(options.macro) << ","
              << getOutputRegisterSize(options.macro) << ">*>"
              << "(&" << gen(uop->out()) << "));\n";
+  }
+
+  void handle(const TorchGatherOp *top) final {
+    auto lookup_var = varName(top->in1()->as<kir::TensorIndex>()->view());
+    int dim = top->in2();
+    auto idx_var = gen(top->in3());
+    auto out_var = gen(top->out());
+    auto lut_index =
+        genTensorIndexWithIndex(top->in1()->as<kir::TensorIndex>(), dim, idx_var);
+    auto lut_var = lookup_var + "[" + lut_index + "]";
+    code_ << out_var << " = " << lut_var << ";\n";
   }
 
   void handle(const MmaOp* mma) final {

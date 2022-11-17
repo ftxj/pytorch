@@ -131,6 +131,7 @@ bool isTvOp(const Expr* expr) {
           WelfordOp,
           GroupedWelfordOp,
           LoadStoreOp,
+          TorchGatherOp,
           MmaOp,
           BroadcastOp,
           SqueezeOp,
@@ -537,6 +538,19 @@ class ReplaceExprInput : private kir::ExprMutator {
     }
   }
 
+  void handle(TorchGatherOp* node) final {
+    auto replaced_inputs = getMaybeInputReplacementMap(node);
+    if (replaced_inputs.has_value()) {
+      auto replacement = IrBuilder::create<TorchGatherOp>(
+          node->getTorchGatherOpType(),
+          node->out(),
+          node->in1(),
+          node->in2(),
+          node->in3());
+      registerReplaceWithPredicate(node, replacement);
+    }
+  }
+  
   void handle(MmaOp* node) final {
     auto replaced_inputs = getMaybeInputReplacementMap(node);
     if (replaced_inputs.has_value()) {

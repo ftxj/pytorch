@@ -1233,6 +1233,52 @@ Val* GroupedWelfordOp::getInitValOfOutput(Val* output_val) const {
   return initVals().at(expr_index).get(val_name);
 }
 
+//
+TorchGatherOp::TorchGatherOp(
+  IrBuilderPasskey passkey,
+  TorchGatherOpType type,
+  Val* out,
+  Val* in1,
+  int dim,
+  Val* in3)
+  : Expr(passkey),
+    torch_gather_op_type_{type},
+    out_{out},
+    in1_{in1},
+    in2_{dim},
+    in3_{in3} {
+  addOutput(out);
+  addInput(in1);
+  addInput(in3);
+}
+
+TorchGatherOp::TorchGatherOp(const TorchGatherOp* src, IrCloner* ir_cloner)
+    : Expr(src, ir_cloner),
+      torch_gather_op_type_(src->torch_gather_op_type_),
+      out_(ir_cloner->clone(src->out_)),
+      in1_(ir_cloner->clone(src->in1_)),
+      in2_(src->in2_),
+      in3_(ir_cloner->clone(src->in3_)) {}
+
+bool TorchGatherOp::sameAs(const Statement* other) const {
+  if (this == other) {
+    return true;
+  }
+  if (!other->isA<TorchGatherOp>()) {
+    return false;
+  }
+  const auto other_op = other->as<TorchGatherOp>();
+  if (getTorchGatherOpType() != other_op->getTorchGatherOpType())
+    return false;
+  return Expr::sameAs(other);
+}
+
+Expr* TorchGatherOp::shallowCopy() const {
+  auto result = IrBuilder::create<TorchGatherOp>(torch_gather_op_type_, 
+    out_, in1_, in2_, in3_);
+  return result;
+}
+
 MmaOp::MmaOp(
     IrBuilderPasskey passkey,
     Val* out,

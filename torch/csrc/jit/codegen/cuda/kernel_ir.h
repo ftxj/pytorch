@@ -41,6 +41,7 @@ class BinaryOp;
 class TernaryOp;
 class RNGOp;
 class ReductionOp;
+class TorchGatherOp;
 class WelfordOp;
 class BroadcastOp;
 

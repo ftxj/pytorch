@@ -564,6 +564,12 @@ TORCH_CUDA_CU_API TensorView* addcmul(
     TensorView* v3,
     Val* s);
 
+TORCH_CUDA_CU_API TensorView* torch_gather(
+    TensorView* input,
+    int dim,
+    TensorView* index
+);
+
 // TERNARY OPERATIONS
 // where
 TORCH_CUDA_CU_API Val* where(Val* c, Val* v1, Val* v2);

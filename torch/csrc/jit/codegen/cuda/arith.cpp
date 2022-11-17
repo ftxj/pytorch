@@ -1964,6 +1964,30 @@ TensorView* addcmul(TensorView* v1, TensorView* v2, TensorView* v3, Val* v4) {
   return arithOpOverloads(addcmul, v1, v2, v3, v4);
 }
 
+template <typename T1, typename T3>
+TensorView* arithOpOverloadsForTorchGather(
+    Val* (*func)(Val*, int, Val*),
+    T1* v1,
+    int dim,
+    T3* v3) {
+  Val* out =
+      func(v1->template as<Val>(), dim, v3->template as<Val>());
+  TORCH_INTERNAL_ASSERT(out->isA<TensorView>());
+  return out->as<TensorView>();
+}
+
+Val* torch_gather(Val* input, int dim, Val* index) {
+  Val* out = newValLike(index, input->getDataType().value()); // shape = index, type = input
+  IrBuilder::create<TorchGatherOp>(
+      TorchGatherOpType::TorchGather, out, input, dim, index);
+  return out->as<TensorView>();
+}
+
+TensorView* torch_gather(TensorView* input, int dim, TensorView* index) {
+  return torch_gather(input->as<Val>(), dim, index->as<Val>())->as<TensorView>();
+}
+
+
 // TERNARY OPERATIONS
 // where (c ? v1 : v2)
 Val* where(Val* c, Val* v1, Val* v2) {

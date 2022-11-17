@@ -471,6 +471,20 @@ void IrGraphGenerator::handle(const TernaryOp* op) {
   addArc(op, op->out());
 }
 
+void IrGraphGenerator::handle(const TorchGatherOp* op) {
+  // node
+  std::stringstream label;
+
+  label << "torch.gather";
+  printExpr(op, label.str());
+
+  // inputs & outputs
+  addArc(op->in1(), op);
+  addArc(IrBuilder::create<Int>(op->in2()), op, "[color=blue]");
+  addArc(op->in3(), op, "[color=brown]");
+  addArc(op, op->out());
+} 
+
 void IrGraphGenerator::handle(const SelectOp* op) {
   // node
   printExpr(op, "select");

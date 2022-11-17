@@ -82,6 +82,7 @@ class TORCH_CUDA_CU_API IrCloner : private OptInConstDispatch {
   void handle(const GroupedReductionOp*) override;
   void handle(const WelfordOp*) override;
   void handle(const LoadStoreOp*) override;
+  void handle(const TorchGatherOp*) override;
   void handle(const MmaOp*) override;
   void handle(const TransposeOp*) override;
   void handle(const ExpandOp*) override;

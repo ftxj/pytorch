@@ -913,6 +913,57 @@ class TORCH_CUDA_CU_API GroupedWelfordOp : public Expr {
   bool is_allreduce_ = false;
 };
 
+class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
+public:
+  TorchGatherOp(
+    IrBuilderPasskey, 
+    TorchGatherOpType,
+    Val* out, 
+    Val* in1,
+    int dim,
+    Val* in3
+  );
+
+  TorchGatherOp(const TorchGatherOp* src, IrCloner* ir_cloner);
+  
+  virtual const char* getOpString() const override {
+    return "TorchGatherOp";
+  }
+
+  Expr* shallowCopy() const override;
+
+  Val* out() const {
+    return out_;
+  }
+
+  Val* in1() const {
+    return in1_;
+  }
+  
+  int in2() const {
+    return in2_;
+  }
+  
+  Val* in3() const {
+    return in3_;
+  }
+
+  TorchGatherOpType getTorchGatherOpType() const {
+    return torch_gather_op_type_;
+  }
+
+  bool sameAs(const Statement* other) const override;
+
+private:
+  const TorchGatherOpType torch_gather_op_type_;
+  Val* const out_ = nullptr;
+  Val* const in1_ = nullptr;
+  const int in2_ = 0;
+  Val* const in3_ = nullptr;
+
+};
+
+
 //! Fused Matmul operation
 class TORCH_CUDA_CU_API MmaOp : public Expr {
  public:

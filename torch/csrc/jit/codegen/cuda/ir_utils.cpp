@@ -522,6 +522,23 @@ struct SubstituteInExpr : public OptInDispatch {
         ldst_expr->container(), ldst_expr->opType(), out, in);
   }
 
+  void handle(TorchGatherOp* top) final {
+    auto in1 = reference_->sameAs(top->in1()) ? substitute_
+                                                      : top->in1();
+    auto in3 = reference_->sameAs(top->in3()) ? substitute_
+                                                      : top->in3();
+    auto out = reference_->sameAs(top->out()) ? substitute_
+                                                      : top->out();
+
+    expr_ = IrBuilder::create<TorchGatherOp>(
+        top->container(),
+        top->getTorchGatherOpType(),
+        out,
+        in1,
+        top->in2(),
+        in3);
+  }
+
   void handle(MmaOp* mma_expr) final {
     TORCH_INTERNAL_ASSERT(
         substitute_->isA<TensorView>(),
@@ -776,6 +793,13 @@ std::vector<SelectOp*> getSelectOps(Fusion* fusion) {
   return select_ops;
 }
 
+std::vector<Expr*> getTorchGatherOp(Fusion* fusion) {
+  // pass 
+  std::vector<Expr*> x;
+  return x;
+}
+
+
 namespace {
 
 class ValReplacementMutator : private OptOutMutator {
@@ -988,6 +1012,22 @@ struct ReplaceValInIndexVal : public OptInDispatch {
         uop->toInlineString());
     auto out = IrBuilder::create<Int>(c10::nullopt);
     IrBuilder::create<UnaryOp>(uop->getUnaryOpType(), out, inp);
+    last_visited_val_ = out;
+  }
+
+  void handle(TorchGatherOp* top) final {
+    handle(top->in1());
+    auto in1 = last_visited_val_;
+    handle(top->in3());
+    auto in3 = last_visited_val_;
+    TORCH_INTERNAL_ASSERT(top->out()->isA<Int>());
+    auto out = IrBuilder::create<Int>(c10::nullopt);
+    IrBuilder::create<TorchGatherOp>(
+        top->getTorchGatherOpType(),
+        out,
+        in1,
+        top->in2(),
+        in3);
     last_visited_val_ = out;
   }
 

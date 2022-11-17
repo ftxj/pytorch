@@ -308,6 +308,8 @@ TORCH_CUDA_CU_API std::vector<Expr*> getReductionOps(Fusion* fusion);
 
 TORCH_CUDA_CU_API std::vector<SelectOp*> getSelectOps(Fusion* fusion);
 
+TORCH_CUDA_CU_API std::vector<Expr*> getTorchGatherOp(Fusion* fusion);
+
 // Returns the initialization value of tv or nullptr if not initialized.
 TORCH_CUDA_CU_API Val* getReductionInitValOf(TensorView* tv);
 

@@ -400,6 +400,8 @@ void OptOutMutator::mutate(GroupedWelfordOp* wop) {
       container, output_vals, input_vals, init_vals, wop->isAllreduce());
 }
 
+void OptOutMutator::mutate(TorchGatherOp* top) {}
+
 void OptOutMutator::mutate(MmaOp* mma) {
   Val* out = maybeMutated(mma->out());
   Val* in_a = maybeMutated(mma->inA());
