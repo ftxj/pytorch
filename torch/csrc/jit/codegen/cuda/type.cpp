@@ -636,10 +636,14 @@ static const char* ternary_op_type2string(TernaryOpType t) {
   }
 }
 
-static const char* torch_gather_op_type2string(TorchGatherOpType t) {
+static const char* select_op_type2string(SelectOpType t) {
   switch (t) {
-    case TorchGatherOpType::TorchGather:
+    case SelectOpType::TorchGather:
       return "torch.gather";
+    case SelectOpType::Select:
+      return "select";
+    case SelectOpType::IndexSelect:
+      return "index_select";
     default:
       TORCH_INTERNAL_ASSERT(false, "Unexpected TorchGather");
   }
@@ -1017,8 +1021,8 @@ std::ostream& operator<<(std::ostream& out, const TernaryOpType totype) {
   return out << ternary_op_type2string(totype);
 }
 
-std::ostream& operator<<(std::ostream& out, const TorchGatherOpType rngtype) {
-  return out << torch_gather_op_type2string(rngtype);
+std::ostream& operator<<(std::ostream& out, const SelectOpType sltype) {
+  return out << select_op_type2string(sltype);
 }
 
 

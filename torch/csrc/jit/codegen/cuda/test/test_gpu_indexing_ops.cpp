@@ -12,6 +12,35 @@ namespace jit {
 
 using namespace torch::jit::fuser::cuda;
 
+TEST_F(NVFuserTest, SelectCodeCheck_CUDA) {
+  Fusion fusion;
+  FusionGuard fg(&fusion);
+
+  auto tv0 = makeSymbolicTensor(3);
+  auto index = IrBuilder::create<Int>();
+
+  fusion.addInput(tv0);
+  fusion.addInput(index);
+  auto tv1 = select(tv0, 0, index);
+  fusion.addOutput(tv1);
+
+  std::cout << fusion << std::endl;
+
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+  auto input0 = at::randn({2, 2, 2}, options);
+  auto output = at::empty_like(input0);
+  auto tv0_ref = at::select(input0, 1, 1);
+  std::vector<IValue> aten_inputs = {input0, 1};
+
+  FusionExecutor fe;
+  fe.compileFusion(&fusion, aten_inputs);
+  std::cout << fe.kernelString() << std::endl;
+  fe.runFusion(aten_inputs, {output});
+
+  TORCH_CHECK(tv0_ref.allclose(output));
+}
+
+
 TEST_F(NVFuserTest, FusionSelectOpPointwise_CUDA) {
   auto fusion_ptr = std::make_unique<Fusion>();
   Fusion& fusion = *fusion_ptr.get();

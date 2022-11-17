@@ -297,7 +297,7 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
   // all IterDomains
   dumpExprsIfEnabled(fusion_->exprs(), "Before build HaloInfo");
   halo_info_ = std::make_shared<HaloInfo>(fusion_, compute_at_map_);
-
+  
   // Want to run this after parallel map and halo info map are
   // created. vectorized_accesses_ and vectorized_set_info_ are filled.
   dumpExprsIfEnabled(
@@ -370,7 +370,7 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
   // Reuse memory locations
   dumpExprsIfEnabled(exprs_raw_sync, "Before reuseMemoryAllocations");
   const auto exprs_reuse_mem = reuseMemoryAllocations(exprs_raw_sync);
-
+  
   // Insert SyncThreads at end of for-loop to avoid WAR race condition
   dumpExprsIfEnabled(exprs_reuse_mem, "Before insertWarThreadSynchronization");
   const auto exprs_war_sync = insertWarThreadSynchronization(exprs_reuse_mem);

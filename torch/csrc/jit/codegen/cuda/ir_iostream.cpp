@@ -654,43 +654,10 @@ void IrPrinter::handle(const ShiftOp* sop) {
 }
 
 void IrPrinter::handle(const TorchGatherOp* top) {
-  bool istvop = ir_utils::isTvOp(top);
-  if (!print_inline_) {
-    indent();
-    os_ << top->out();
-
-    // tensor operations tend to be long, break them up into multiple lines
-    if (istvop) {
-      os_ << "\n";
-      indent_size_++;
-      indent();
-    }
-
-    os_ << " = ";
-  } else {
-    checkInlineable(top);
-  }
-  os_ << "torch.gather"
-      << "(";
-  handle(top->in1());
-  if (istvop) {
-    os_ << "\n";
-    indent();
-  }
-  os_ << ", " << top->in2();
-  if (istvop) {
-    os_ << "\n";
-    indent();
-  }
-  os_ << ", ";
-  handle(top->in3());
-  os_ << ")";
-
-  if (istvop)
-    indent_size_--;
-
-  if (!print_inline_)
-    os_ << ";\n";
+  indent() << top->output(0) << "\n";
+  indent() << "   = gather( " << top->input(0)
+           << ", axis = " << top->getSelectAxis()
+           << ", index = " << top->input(1) << " )\n";
 }
 
 void IrPrinter::handle(const MmaOp* mma) {

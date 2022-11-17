@@ -211,9 +211,13 @@ enum class RNGOpType {
   Uniform, // Uniform in [0, 1)
   UniformRange, // Uniform in [low, high]
 };
-enum class TorchGatherOpType {
+
+enum class SelectOpType {
+  Select,
+  IndexSelect,
   TorchGather
 };
+
 // Return if output of operator should be a boolean
 bool isIntegerOp(const BinaryOpType bopt);
 

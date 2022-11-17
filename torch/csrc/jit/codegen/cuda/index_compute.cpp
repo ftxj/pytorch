@@ -1620,6 +1620,13 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
 
     root_ind = getProducerIndexWithPartialSplit(
         root_ind, root_dom[i], producer_tv, consumer_tv);
+    
+    
+    if(auto x= dynamic_cast<TensorView*>(root_ind)) {
+      // make tensorview into tensor index << std::endl;
+      root_ind = getProducerIndex(x, consumer_tv, loops);
+      // std::cout << root_ind << std::endl;
+    }
 
     if (root_ind->isZeroInt()) {
       continue;

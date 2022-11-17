@@ -179,8 +179,8 @@ void IndexLowering::handle(const UnaryOp* uop) {
 }
 
 void IndexLowering::handle(const BinaryOp* bop) {
-  const auto lhs = lowerSrcIndex(bop->lhs(), bop->out());
   const auto rhs = lowerSrcIndex(bop->rhs(), bop->out());
+  const auto lhs = lowerSrcIndex(bop->lhs(), bop->out());
   const auto out = lowerDstIndex(bop->out());
   pushBack(IrBuilder::create<BinaryOp>(bop->getBinaryOpType(), out, lhs, rhs));
   GpuLower::current()->propagateExprInfo(bop, back());
@@ -197,19 +197,12 @@ void IndexLowering::handle(const TernaryOp* top) {
 }
 
 void IndexLowering::handle(const TorchGatherOp* top) {
-  TORCH_CHECK(
-      top->in1()->isA<TensorView>(),
-      "torch gather's first input must be TensorView");
-  TORCH_CHECK(
-      top->in1()->as<TensorView>()->domain() != nullptr,
-      "torch gather's first input's domian is nullptr");
-  const auto in1 = lowerSrcIndex(top->in1(), top->out());
-  const auto in2 = top->in2();
-  const auto in3 = lowerSrcIndex(top->in3(), top->out());
-  const auto out = lowerDstIndex(top->out());
-
-  pushBack(IrBuilder::create<TorchGatherOp>(
-      top->getTorchGatherOpType(), out, in1, in2, in3));
+  // const auto lowering = lowerSrcIndex(
+  //   top->in3(), top->out());
+  const auto input = lowerSrcIndex(
+    top->input(0), top->output(0), top->getIndexOverridingMap());
+  const auto out = lowerDstIndex(top->output(0));
+  pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));
   GpuLower::current()->propagateExprInfo(top, back());
 }
 

@@ -13,7 +13,7 @@
 #include <typeindex>
 #include <typeinfo>
 #include <vector>
-
+#include <iostream>
 namespace torch {
 namespace jit {
 namespace fuser {
@@ -549,7 +549,9 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     TORCH_INTERNAL_ASSERT(false, "Unreachable");
   }
 
-  void handle(const TensorView*) final {
+  
+  void handle(const TensorView* tv) final {
+    // indent() << gen(tv);
     TORCH_INTERNAL_ASSERT(false, "Unreachable");
   }
 
@@ -1135,16 +1137,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
              << "(&" << gen(uop->out()) << "));\n";
   }
 
-  void handle(const TorchGatherOp *top) final {
-    auto lookup_var = varName(top->in1()->as<kir::TensorIndex>()->view());
-    int dim = top->in2();
-    auto idx_var = gen(top->in3());
-    auto out_var = gen(top->out());
-    auto lut_index =
-        genTensorIndexWithIndex(top->in1()->as<kir::TensorIndex>(), dim, idx_var);
-    auto lut_var = lookup_var + "[" + lut_index + "]";
-    code_ << out_var << " = " << lut_var << ";\n";
-  }
 
   void handle(const MmaOp* mma) final {
     auto options = mma->options();

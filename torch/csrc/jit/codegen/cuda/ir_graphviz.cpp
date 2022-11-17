@@ -480,7 +480,7 @@ void IrGraphGenerator::handle(const TorchGatherOp* op) {
 
   // inputs & outputs
   addArc(op->in1(), op);
-  addArc(IrBuilder::create<Int>(op->in2()), op, "[color=blue]");
+  addArc(IrBuilder::create<Int>(0), op, "[color=blue]");
   addArc(op->in3(), op, "[color=brown]");
   addArc(op, op->out());
 } 

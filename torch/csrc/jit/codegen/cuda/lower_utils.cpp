@@ -545,12 +545,12 @@ class ReplaceExprInput : private kir::ExprMutator {
           node->getTorchGatherOpType(),
           node->out(),
           node->in1(),
-          node->in2(),
+          node->getSelectAxis(),
           node->in3());
       registerReplaceWithPredicate(node, replacement);
     }
   }
-  
+
   void handle(MmaOp* node) final {
     auto replaced_inputs = getMaybeInputReplacementMap(node);
     if (replaced_inputs.has_value()) {

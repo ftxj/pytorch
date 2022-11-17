@@ -470,6 +470,9 @@ TensorView* select(TensorView* tv, int dim, Int* index) {
   auto td = IrBuilder::create<TensorDomain>(
       new_root, TensorDomain::getContiguousContiguity(new_root));
   auto out = IrBuilder::create<TensorView>(td, *tv->getDataType());
+
+
+
   IrBuilder::create<SelectOp>(out, tv, dom[dim], index);
   return out;
 }
@@ -1976,15 +1979,46 @@ TensorView* arithOpOverloadsForTorchGather(
   return out->as<TensorView>();
 }
 
-Val* torch_gather(Val* input, int dim, Val* index) {
-  Val* out = newValLike(index, input->getDataType().value()); // shape = index, type = input
-  IrBuilder::create<TorchGatherOp>(
-      TorchGatherOpType::TorchGather, out, input, dim, index);
-  return out->as<TensorView>();
-}
+TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
+  auto dom = TensorDomain::noReductions(tv->getMaybeRFactorDomain());
+  TORCH_CHECK(dom.size() > 0, "gather can not be applied to 0d tensor.");
 
-TensorView* torch_gather(TensorView* input, int dim, TensorView* index) {
-  return torch_gather(input->as<Val>(), dim, index->as<Val>())->as<TensorView>();
+  // std::vector<IterDomain*> new_root;
+  // new_root.reserve(dom.size() - 1);
+
+
+  if (dim < 0) {
+    dim += dom.size();
+  }
+  TORCH_CHECK(
+      dim >= 0 && dim < dom.size(),
+      "Gather on invalid axis, received: ",
+      dim,
+      " however tensor view only has ",
+      dom.size(),
+      " non-reduction dims.");
+  
+  // for (auto i : c10::irange(dom.size())) {
+  //   if (i != dim) {
+  //     new_root.emplace_back(dom[i]->cloneWithoutRFactor());
+  //   }
+  // }
+
+  // auto td = IrBuilder::create<TensorDomain>(
+  //     new_root, TensorDomain::getContiguousContiguity(new_root));
+  // auto out = IrBuilder::create<TensorView>(td, *tv->getDataType());
+  
+  // IrBuilder::create<TorchGatherOp>(SelectOpType::TorchGather, 
+  //   out, tv, dom[dim], index);
+  // return out;
+
+  Val* out = newValLike(index, tv->getDataType().value()); // shape = index, type = input
+
+  std::cout << "init replace: " << dom[dim] << std::endl;
+
+  IrBuilder::create<TorchGatherOp>(
+      SelectOpType::TorchGather, out, tv, dom[dim], index);
+  return out->as<TensorView>();
 }
 
 

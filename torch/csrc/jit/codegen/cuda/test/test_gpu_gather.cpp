@@ -84,7 +84,7 @@ TEST_F(NVFuserTest, GatherNodeOutDim_CUDA) {
   std::cout << fusion << std::endl;
 }
 
-
+// pass
 TEST_F(NVFuserTest, GatherCodeCheck_CUDA) {
   Fusion fusion;
   FusionGuard fg(&fusion);
@@ -126,7 +126,7 @@ TEST_F(NVFuserTest, GatherCodeCheck_CUDA) {
   std::cout << "index :" << std::endl;
   std::cout << input1 << std::endl;
 
-  auto tv0_ref = at::gather(input0, 1, input1);
+  auto tv0_ref = at::gather(input0, 0, input1);
 
   std::cout << "ref output :" << std::endl;
   std::cout << tv0_ref << std::endl;
@@ -146,15 +146,13 @@ TEST_F(NVFuserTest, GatherCodeCheck_CUDA) {
   TORCH_CHECK(tv0_ref.allclose(output));
 }
 
-// TODO: split on look_up bugs?
+// error
 TEST_F(NVFuserTest, TorchGatherHandsOnFusion_CUDA) {
   Fusion fusion;
   FusionGuard fg(&fusion);
   // dimensionality of the problem
   int nDims = 2;
-  int nElem = 1023;
-  int nFeat = 128;
-
+  int nElem = 4;
   // Set up your input tensor views
   TensorView* tv0 = makeContigTensor(nDims);
   TensorView* tv1 = makeContigTensor(nDims, DataType::Int);
@@ -173,19 +171,34 @@ TEST_F(NVFuserTest, TorchGatherHandsOnFusion_CUDA) {
 
   std::cout << fusion << std::endl;
 
-  std::vector<std::vector<int64_t>> storage(nElem, std::vector<int64_t>(nElem, 0));
+  std::vector<int64_t> storage(nElem * nElem ,0);
   for (int i = 0; i < nElem; ++i) {
     for (int j = 0; j < nElem; ++j) {
-      storage[i][j] = std::rand() % nElem;
-      }
+      storage[i * nElem + j] = std::abs(std::rand()) % nElem;
+    }
   }
+
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
   auto input0 = at::randn({nElem, nElem}, options);
+  auto input2 = at::randn({nElem, nElem}, options);
 
   auto opts = torch::TensorOptions().dtype(torch::kLong);
   auto input1 = torch::from_blob(storage.data(), {nElem, nElem}, opts).clone().to(torch::kCUDA);
-  auto input2 = at::randn({nElem, nElem}, options);
+
   auto output = at::empty_like(input0);
+
+  std::cout << "input :" << std::endl;
+  std::cout << input0 << std::endl;
+
+  std::cout << "index :" << std::endl;
+  std::cout << input1 << std::endl;
+
+  auto tmp = at::gather(input0, 0, input1);
+  auto tv0_ref = at::mul(tmp, input2);
+
+  std::cout << "ref output :" << std::endl;
+  std::cout << tv0_ref << std::endl;
+
   std::vector<IValue> aten_inputs = {input0, input1, input2};
 
   auto lparams = schedulePointwise(&fusion, aten_inputs);
@@ -193,12 +206,15 @@ TEST_F(NVFuserTest, TorchGatherHandsOnFusion_CUDA) {
 
   FusionExecutor fe;
   fe.compileFusion(&fusion, aten_inputs, lparams);
+  std::cout << fe.kernelString() << std::endl;
+
   fe.runFusion(aten_inputs, {output}, lparams);
 
-  auto tv0_ref = at::gather(input0, 0, input1);
-  at::Tensor output_ref = tv0_ref * input1;
 
-  TORCH_CHECK(output_ref.allclose(output));
+  std::cout << "output :" << std::endl;
+  std::cout << output << std::endl;
+
+  TORCH_CHECK(tv0_ref.allclose(output));
 }
 
 

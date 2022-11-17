@@ -93,6 +93,10 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
   if (SelectOp* sop = dynamic_cast<SelectOp*>(consumer_tv_->definition())) {
     selected_id = sop->getSelectAxis();
   }
+  // torch.gather does not need recompute produce-consumer relationship
+  // else if (TorchGatherOp* sop = dynamic_cast<TorchGatherOp*>(consumer_tv_->definition())) {
+  //   selected_id = sop->getSelectAxis();
+  // } 
 
   std::unordered_map<IterDomain*, IterDomain*> dom_map;
   const auto producer_root =

@@ -535,7 +535,7 @@ struct SubstituteInExpr : public OptInDispatch {
         top->getTorchGatherOpType(),
         out,
         in1,
-        top->in2(),
+        top->getSelectAxis(),
         in3);
   }
 
@@ -1026,7 +1026,7 @@ struct ReplaceValInIndexVal : public OptInDispatch {
         top->getTorchGatherOpType(),
         out,
         in1,
-        top->in2(),
+        top->getSelectAxis(),
         in3);
     last_visited_val_ = out;
   }

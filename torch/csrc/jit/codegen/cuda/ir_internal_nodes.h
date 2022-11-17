@@ -917,11 +917,11 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
 public:
   TorchGatherOp(
     IrBuilderPasskey, 
-    TorchGatherOpType,
+    SelectOpType,
     Val* out, 
-    Val* in1,
-    int dim,
-    Val* in3
+    Val* in,
+    IterDomain* select_id,
+    Val* index
   );
 
   TorchGatherOp(const TorchGatherOp* src, IrCloner* ir_cloner);
@@ -940,26 +940,29 @@ public:
     return in1_;
   }
   
-  int in2() const {
-    return in2_;
+  IterDomain* getSelectAxis() const {
+    return select_id_;
   }
-  
+
   Val* in3() const {
     return in3_;
   }
 
-  TorchGatherOpType getTorchGatherOpType() const {
+  std::unordered_map<IterDomain*, Val*> getIndexOverridingMap() const;
+
+  SelectOpType getTorchGatherOpType() const {
     return torch_gather_op_type_;
   }
 
   bool sameAs(const Statement* other) const override;
 
 private:
-  const TorchGatherOpType torch_gather_op_type_;
+  const SelectOpType torch_gather_op_type_;
   Val* const out_ = nullptr;
   Val* const in1_ = nullptr;
   const int in2_ = 0;
   Val* const in3_ = nullptr;
+  IterDomain* select_id_;
 
 };
 
