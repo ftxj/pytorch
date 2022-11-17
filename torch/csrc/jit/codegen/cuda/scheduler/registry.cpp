@@ -1235,6 +1235,7 @@ class ReductionScheduler : public SchedulerEntry {
       }
     }
 
+    
     auto reduction_tvs = scheduler_utils::getReductionTvs(fusion);
 
     if (reduction_tvs.size() == 0) {

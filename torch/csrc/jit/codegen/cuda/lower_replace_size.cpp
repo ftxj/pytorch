@@ -88,6 +88,9 @@ std::unordered_map<Val*, Val*> getSimplificationMap(Fusion* fusion) {
       for (auto entry : c2p_root_map) {
         auto c_id = entry.first;
         auto p_id = entry.second;
+        if(c_id->isTorchGatherIter()) {
+          continue;
+        }
         map_root_ids(p_id, c_id);
       }
     }
@@ -217,7 +220,6 @@ void replaceSymbolicSizes(Fusion* fusion) {
       }
     }
   }
-
   // Run mutation on the fusion with the tensor_dim_map
   ir_utils::replaceValue(fusion, tensor_dim_map);
 }

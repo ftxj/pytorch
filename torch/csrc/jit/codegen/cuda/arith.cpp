@@ -133,10 +133,10 @@ IterType promoteIterType(IterType type1, IterType type2) {
       type2);
 
   // Do not propagate Gather and VectorComponent
-  if (type1 == IterType::Gather || type1 == IterType::VectorComponent) {
+  if (type1 == IterType::TorchGatherIter || type1 == IterType::Gather || type1 == IterType::VectorComponent) {
     type1 = IterType::Iteration;
   }
-  if (type2 == IterType::Gather || type2 == IterType::VectorComponent) {
+  if (type2 == IterType::TorchGatherIter || type2 == IterType::Gather || type2 == IterType::VectorComponent) {
     type2 = IterType::Iteration;
   }
 
@@ -158,7 +158,7 @@ IterType promoteIterType(IterType type1, IterType type2) {
   }
 }
 
-TensorView* newOutputTV(const std::vector<Val*>& vals, DataType dtype) {
+TensorView* newOutputTV(const std::vector<Val*>& vals, DataType dtype, bool is_gather = false) {
   std::vector<TensorView*> tvs;
   for (auto val : vals) {
     if (val->getValType() == ValType::TensorView) {
@@ -202,7 +202,10 @@ TensorView* newOutputTV(const std::vector<Val*>& vals, DataType dtype) {
         continue;
       }
       extent_vals[i] = promoteSize(extent_vals[i], dom[i]->extent());
-      if (iter_types[i].has_value()) {
+      if(is_gather) {
+        iter_types[i] = IterType::TorchGatherIter;
+      }
+      else if (iter_types[i].has_value()) {
         iter_types[i] =
             promoteIterType(iter_types[i].value(), dom[i]->getIterType());
       } else {
@@ -276,14 +279,14 @@ std::vector<Val*> maybeBroadcast(const std::vector<Val*>& vals) {
   return out_vals;
 }
 
-Val* newValLike(Val* val, DataType dtype) {
+Val* newValLike(Val* val, DataType dtype, bool is_gather = false) {
   TORCH_CHECK(
       dtype != DataType::Null, "Invalid datatype provided for new value.");
 
   const ValType vtype = val->getValType().value();
 
   if (vtype == ValType::TensorView) {
-    return newOutputTV({val}, dtype);
+    return newOutputTV({val}, dtype, is_gather);
   }
 
   return newScalar(vtype, dtype);
@@ -470,6 +473,9 @@ TensorView* select(TensorView* tv, int dim, Int* index) {
   auto td = IrBuilder::create<TensorDomain>(
       new_root, TensorDomain::getContiguousContiguity(new_root));
   auto out = IrBuilder::create<TensorView>(td, *tv->getDataType());
+
+
+
   IrBuilder::create<SelectOp>(out, tv, dom[dim], index);
   return out;
 }
@@ -1963,6 +1969,40 @@ TensorView* addcmul(Val* v1, TensorView* v2, TensorView* v3, Val* v4) {
 TensorView* addcmul(TensorView* v1, TensorView* v2, TensorView* v3, Val* v4) {
   return arithOpOverloads(addcmul, v1, v2, v3, v4);
 }
+
+template <typename T1, typename T3>
+TensorView* arithOpOverloadsForTorchGather(
+    Val* (*func)(Val*, int, Val*),
+    T1* v1,
+    int dim,
+    T3* v3) {
+  Val* out =
+      func(v1->template as<Val>(), dim, v3->template as<Val>());
+  TORCH_INTERNAL_ASSERT(out->isA<TensorView>());
+  return out->as<TensorView>();
+}
+
+TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
+  auto dom = TensorDomain::noReductions(tv->getMaybeRFactorDomain());
+  TORCH_CHECK(dom.size() > 0, "gather can not be applied to 0d tensor.");
+  tv->setAsLookupTV(dim);
+  if (dim < 0) {
+    dim += dom.size();
+  }
+  TORCH_CHECK(
+      dim >= 0 && dim < dom.size(),
+      "Gather on invalid axis, received: ",
+      dim,
+      " however tensor view only has ",
+      dom.size(),
+      " non-reduction dims.");
+  std::cout << "input dim = " << dim << std::endl;
+  Val* out = newValLike(index, tv->getDataType().value(), true); // shape = index, type = input
+  IrBuilder::create<TorchGatherOp>(
+      SelectOpType::TorchGather, out, tv, dom[dim], dim, index);
+  return out->as<TensorView>();
+}
+
 
 // TERNARY OPERATIONS
 // where (c ? v1 : v2)

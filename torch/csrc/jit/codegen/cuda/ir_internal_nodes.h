@@ -217,7 +217,8 @@ class TORCH_CUDA_CU_API UnaryOp : public Expr {
       UnaryOpType type,
       Val* out,
       Val* in,
-      int rng_offset = -1);
+      int rng_offset = -1,
+      bool is_gather = false);
 
   UnaryOp(const UnaryOp* src, IrCloner* ir_cloner);
 
@@ -240,10 +241,13 @@ class TORCH_CUDA_CU_API UnaryOp : public Expr {
 
   bool sameAs(const Statement* other) const override;
 
+  bool is_gather() const {return debug_is_gather;}
+
  private:
   const UnaryOpType unary_op_type_;
   Val* const out_ = nullptr;
   Val* const in_ = nullptr;
+  bool debug_is_gather = false;
 };
 
 //! A specialization for Binary operations. Binary operations take in two inputs
@@ -913,6 +917,63 @@ class TORCH_CUDA_CU_API GroupedWelfordOp : public Expr {
   bool is_allreduce_ = false;
 };
 
+class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
+public:
+  TorchGatherOp(
+    IrBuilderPasskey, 
+    SelectOpType,
+    Val* out, 
+    Val* in,
+    IterDomain* select_id,
+    int dim,
+    Val* index
+  );
+
+  TorchGatherOp(const TorchGatherOp* src, IrCloner* ir_cloner);
+  
+  virtual const char* getOpString() const override {
+    return "TorchGatherOp";
+  }
+
+  Expr* shallowCopy() const override;
+
+  Val* out() const {
+    return out_;
+  }
+
+  Val* in1() const {
+    return in1_;
+  }
+  
+  IterDomain* getSelectAxis() const {
+    return select_id_;
+  }
+
+  Val* in3() const {
+    return in3_;
+  }
+
+  int dim() const {
+    return dim_;
+  }
+  std::unordered_map<IterDomain*, Val*> getIndexOverridingMap() const;
+
+  SelectOpType getTorchGatherOpType() const {
+    return torch_gather_op_type_;
+  }
+
+  bool sameAs(const Statement* other) const override;
+
+private:
+  const SelectOpType torch_gather_op_type_;
+  Val* const out_ = nullptr;
+  Val* const in1_ = nullptr;
+  Val* const in3_ = nullptr;
+  IterDomain* select_id_;
+  const int dim_ = 0;
+};
+
+
 //! Fused Matmul operation
 class TORCH_CUDA_CU_API MmaOp : public Expr {
  public:
@@ -1465,6 +1526,10 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
     return getIterType() == IterType::VectorComponent;
   }
 
+  bool isTorchGatherIter() const {
+    return getIterType() == IterType::TorchGatherIter;
+  }
+
   bool isParallelized() const {
     return getParallelType() != ParallelType::Serial;
   }
@@ -1484,6 +1549,14 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
     return (isBlockDim() || isThreadDim());
   }
 
+  void setIterTypeAsLookup() {
+    isLookup_ = true;
+  }
+
+  bool isLookupIterType() {
+    return isLookup_;
+  }
+
   void parallelize(ParallelType t);
 
   ParallelType getParallelType() const {
@@ -1494,6 +1567,10 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
     return iter_type_;
   }
 
+  // void setIterType(IterType itt) const {
+  //   iter_type_ = itt;
+  // }
+  
   Val* start() const {
     return start_;
   }
@@ -1664,6 +1741,7 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
   Val* const stop_offset_ = nullptr;
   ParallelType parallel_type_ = ParallelType::Serial;
   IterType iter_type_ = IterType::Iteration;
+  bool isLookup_ = false;
   bool is_rfactor_domain_ = false;
   bool is_padded_dimension_ = false;
   c10::optional<int64_t> padded_to_size_ = c10::nullopt;
@@ -1754,7 +1832,11 @@ class TORCH_CUDA_CU_API TensorDomain : public Val {
   bool hasGridBroadcast() const;
   bool hasBroadcast() const;
   bool hasRFactor() const;
-
+  bool hasLookup() const;
+  bool hasLookupInDomain() const;
+  bool hasLookupInRootDomain() const;
+  bool hasLookupInRfactorDomain() const;
+  
   // Returns if rfactor domain only consists of id's of iter type.
   bool hasViewLikeRFactor() const;
 

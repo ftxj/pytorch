@@ -458,7 +458,7 @@ TensorView* TensorView::split(
       axis(axis_)->getParallelType() == ParallelType::Serial,
       "Splitting an axis of non-Serial parallel type is not supported at this time."
       " Parallelization strategy must be set after calling split.");
-
+  
   domain()->split(axis_, factor, inner_split, trim_out_of_bounds);
   return this;
 }
@@ -508,7 +508,7 @@ TensorView* TensorView::merge(int axis_o, int axis_i) {
           axis(axis_i)->getParallelType() == ParallelType::Serial,
       "Merging axes of non-Serial parallel type is not supported at this time."
       " Parallelization strategy must be set after calling split.");
-
+  
   domain()->merge(axis_o, axis_i);
   return this;
 }
@@ -558,6 +558,7 @@ TensorView* TensorView::reorder(const std::unordered_map<int, int>& old2new_) {
   }
 
   domain()->reorder(old2new_);
+
   return this;
 }
 

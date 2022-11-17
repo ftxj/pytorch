@@ -439,7 +439,6 @@ class AllocationInserter : public kir::ExprMutator {
     }
 
     // // Found where the allocation needs to be inserted
-
     for (const auto i : c10::irange(expr->outputs().size())) {
       auto out = expr->output(i);
       if (!out->isA<TensorView>()) {
@@ -501,7 +500,6 @@ class AllocationInserter : public kir::ExprMutator {
 
       auto alloc_expr = createAllocExpr(allocation, is_output);
       auto init_expr = createInitExpr(allocation, init);
-
       // Write information to GPULower
       writeInfoToGPULower(allocation, alloc_expr);
 

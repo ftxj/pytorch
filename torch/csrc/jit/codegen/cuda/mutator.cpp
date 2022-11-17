@@ -3,6 +3,8 @@
 #include <torch/csrc/jit/codegen/cuda/ir_all_nodes.h>
 #include <torch/csrc/jit/codegen/cuda/ir_builder.h>
 #include <torch/csrc/jit/codegen/cuda/mutator.h>
+#include <torch/csrc/jit/codegen/cuda/ir_iostream.h>
+#include <torch/csrc/jit/codegen/cuda/ir_printer.h>
 
 #include <vector>
 
@@ -69,14 +71,16 @@ void OptOutMutator::mutate(IterDomain* id) {
       stop_offset->sameAs(id->stopOffset())) {
     return;
   }
-  registerMutation(
-      id,
-      IterDomainBuilder(id)
+
+  auto x = IterDomainBuilder(id)
           .start(start)
           .extent(extent)
           .stop_offset(stop_offset)
           .expanded_extent(expanded_extent)
-          .build());
+          .build();
+  registerMutation(
+      id,
+      x);
 }
 
 void OptOutMutator::mutate(TensorDomain* td) {
@@ -138,6 +142,10 @@ void OptOutMutator::mutate(FullOp* fop) {
 }
 
 void OptOutMutator::mutate(SelectOp* sop) {
+  IrPrinter(std::cout).handle(sop);
+  TORCH_CHECK(
+      0,
+      "need stack.");
   Val* out = maybeMutated(sop->output(0));
   Val* in = maybeMutated(sop->input(0));
   Val* index = maybeMutated(sop->input(1));
@@ -398,6 +406,25 @@ void OptOutMutator::mutate(GroupedWelfordOp* wop) {
   container->removeExpr(wop);
   IrBuilder::create<GroupedWelfordOp>(
       container, output_vals, input_vals, init_vals, wop->isAllreduce());
+}
+
+void OptOutMutator::mutate(TorchGatherOp* sop) {
+  IrPrinter(std::cout).handle(sop);
+  Val* out = maybeMutated(sop->output(0));
+  Val* in = maybeMutated(sop->input(0));
+  Val* index = maybeMutated(sop->input(1));
+  IterDomain* select_axis =
+      maybeMutated(sop->getSelectAxis())->as<IterDomain>();
+  if (out->sameAs(sop->output(0)) && in->sameAs(sop->output(0)) &&
+      index->sameAs(sop->output(1)) &&
+      select_axis->sameAs(sop->getSelectAxis())) {
+    return;
+  }
+  const int dim = sop->dim();
+  auto container = sop->container();
+  container->removeExpr(sop);
+  IrBuilder::create<TorchGatherOp>(container, SelectOpType::TorchGather, 
+    out, in, select_axis, dim, index);
 }
 
 void OptOutMutator::mutate(MmaOp* mma) {

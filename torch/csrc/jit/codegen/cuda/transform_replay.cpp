@@ -286,6 +286,7 @@ std::pair<TensorDomain*, unsigned int> TransformReplay::replayPasC(
     auto it = replay_PasC.getReplay().find(c_id);
     if (it == replay_PasC.getReplay().end()) {
       TORCH_INTERNAL_ASSERT(
+          c_id->isTorchGatherIter() || 
           c_id->isBroadcast() || c_id->isGather() || c_id->isVectorComponent(),
           "Could not find axis, ",
           c_id,
@@ -385,6 +386,7 @@ std::pair<TensorDomain*, unsigned int> TransformReplay::replayPasC(
     auto it = replay_PasC.getReplay().find(c_id);
     if (it == replay_PasC.getReplay().end()) {
       TORCH_INTERNAL_ASSERT(
+          c_id->isTorchGatherIter() ||
           c_id->isBroadcast() || c_id->isGather() || c_id->isVectorComponent(),
           "Could not find axis, ",
           c_id,

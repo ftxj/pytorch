@@ -1459,23 +1459,22 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::getGlobalProducerIndex");
-
   // Replay producer to look like consumer so we can index on producer since
   // our loop nests look like consumer
+
   auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
+
   auto producerAsC =
       TransformReplay::replayPasC(producer_tv, consumer_tv, -1, pairwise_map)
           .first;
-
   // Make the producer_tv look like consumer while performing indexing math
   ir_utils::TVDomainGuard domain_guard(producer_tv, producerAsC);
-
   // Map sent to best effort replay needs to match the exact incantation for
   // compute_at_mode.cpp with MappingMode::Index
+
   auto c2p_root_map =
       PairwiseRootDomainMap(producer_tv, consumer_tv, true)
           .mapConsumerToProducer(consumer_tv->domain(), producer_tv->domain());
-
   // This replay has to be consistent with compute at index map.
   BestEffortReplay replay_producer_as_consumer(
       producer_tv->domain()->domain(),
@@ -1502,6 +1501,7 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
       p_id->parallelize(ParallelType::MisalignedVectorize);
     }
   }
+
 
   auto producer_indexing_from_idgraph =
       getTensorIndexFromIdGraph(loops, consumer_tv, producer_tv, true, c2p_map);
@@ -1560,12 +1560,14 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
     }
   }
 
+
   auto vectorize_shift =
       loops.empty() ? nullptr : loops.back()->vectorize_shift();
 
   // Global striding
   std::vector<Val*> strided_inds(
       root_dom.size(), GpuLower::current()->kernel()->zeroVal());
+
   for (const auto i : c10::irange(root_dom.size())) {
     if (root_dom[i]->isReduction() || root_dom[i]->isBroadcast()) {
       continue;
@@ -1573,6 +1575,7 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
 
     Val* root_ind = nullptr;
     auto override_it = override_index.find(root_dom[i]);
+
     if (override_it != override_index.end()) {
       root_ind = override_it->second;
     } else if (
@@ -1620,7 +1623,7 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
 
     root_ind = getProducerIndexWithPartialSplit(
         root_ind, root_dom[i], producer_tv, consumer_tv);
-
+    
     if (root_ind->isZeroInt()) {
       continue;
     } else {
@@ -1682,7 +1685,6 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   const auto gpu_lower = GpuLower::current();
-
   // Replay producer to look like consumer so we can index on producer since our
   // loop nests look like consumer
   auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
@@ -1854,7 +1856,8 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
 
     root_ind_i = getProducerIndexWithPartialSplit(
         root_ind_i, root_dom[i], producer_tv, consumer_tv);
-
+    
+    
     if (root_ind_i->isZeroInt()) {
       continue;
     }
@@ -2230,6 +2233,7 @@ std::vector<Val*> Index::getProducerStridedIndices(
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getProducerStridedIndices");
+  
   if (producer->domain()->noReductions().size() == 0) {
     return std::vector<Val*>(
         producer->getMaybeRFactorDomain().size(),

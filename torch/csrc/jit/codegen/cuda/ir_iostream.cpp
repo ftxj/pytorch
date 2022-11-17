@@ -653,6 +653,20 @@ void IrPrinter::handle(const ShiftOp* sop) {
            << "}, {" << sop->padWidth() << "} )\n";
 }
 
+void IrPrinter::handle(const TorchGatherOp* top) {
+  indent() << top->output(0) << "\n";
+  indent() << "   = gather( \n" 
+          << "data = " << top->input(0) << ",\n"
+          << "axis = " << top->getSelectAxis() << "\n"
+          << "index = " << top->input(1) << " )\n";
+  auto mapping = top->getIndexOverridingMap();
+  for(auto domain_val : mapping) {
+    indent() << "domain = " << domain_val.first << "\n"
+            << "value = " << domain_val.second << "\n";
+  }
+  indent() << ")\n";  
+}
+
 void IrPrinter::handle(const MmaOp* mma) {
   indent() << mma->out() << " = mma(" << mma->inA() << "," << mma->inB();
   os_ << ")\n";
@@ -718,6 +732,10 @@ void IrPrinter::handle(const kir::TensorIndex* ti) {
   }
   os_ << "[";
   for (auto index : ti->indices()) {
+    if(auto x = dynamic_cast<kir::TensorIndex*>(index)) {
+      handle(x);
+      continue;
+    }
     print_inline(index);
     if (index != ti->indices().back()) {
       os_ << ", ";

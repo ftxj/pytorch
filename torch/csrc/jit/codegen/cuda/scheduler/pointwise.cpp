@@ -744,6 +744,7 @@ void schedulePointwise(Fusion* fusion, const PointwiseParams& params) {
     unswitch_pos = 2;
   }
 
+
   TransformPropagator propagator(reference_tv);
   MaxRootDomainInfoSpanningTree spanning_tree(reference_tv);
   spanning_tree.traverse(&propagator);
@@ -801,6 +802,7 @@ void schedulePointwise(Fusion* fusion, const PointwiseParams& params) {
     inner_most_tensors.erase(output);
   }
   inlineMost(inner_most_tensors);
+
 }
 
 } // namespace cuda

@@ -212,6 +212,12 @@ enum class RNGOpType {
   UniformRange, // Uniform in [low, high]
 };
 
+enum class SelectOpType {
+  Select,
+  IndexSelect,
+  TorchGather
+};
+
 // Return if output of operator should be a boolean
 bool isIntegerOp(const BinaryOpType bopt);
 
@@ -277,6 +283,7 @@ enum class IterType {
   Broadcast,
   Gather,
   Stride,
+  TorchGatherIter,
   VectorComponent
 };
 

@@ -522,6 +522,37 @@ struct SubstituteInExpr : public OptInDispatch {
         ldst_expr->container(), ldst_expr->opType(), out, in);
   }
 
+  void handle(TorchGatherOp* top) final {
+    auto in1 = reference_->sameAs(top->in1()) ? substitute_
+                                                      : top->in1();
+    auto in3 = reference_->sameAs(top->in3()) ? substitute_
+                                                      : top->in3();
+    auto out = reference_->sameAs(top->out()) ? substitute_
+                                                      : top->out();
+    if(auto inv = dynamic_cast<TensorView*>(in1)) {
+      auto dom = TensorDomain::noReductions(inv->getMaybeRFactorDomain());
+      expr_ = IrBuilder::create<TorchGatherOp>(
+        top->container(),
+        top->getTorchGatherOpType(),
+        out,
+        in1,
+        dom[top->dim()],
+        top->dim(),
+        in3);
+    }
+    else {
+      expr_ = IrBuilder::create<TorchGatherOp>(
+        top->container(),
+        top->getTorchGatherOpType(),
+        out,
+        in1,
+        top->getSelectAxis(),
+        top->dim(),
+        in3);
+    }
+
+  }
+
   void handle(MmaOp* mma_expr) final {
     TORCH_INTERNAL_ASSERT(
         substitute_->isA<TensorView>(),
@@ -776,6 +807,13 @@ std::vector<SelectOp*> getSelectOps(Fusion* fusion) {
   return select_ops;
 }
 
+std::vector<Expr*> getTorchGatherOp(Fusion* fusion) {
+  // pass 
+  std::vector<Expr*> x;
+  return x;
+}
+
+
 namespace {
 
 class ValReplacementMutator : private OptOutMutator {
@@ -805,7 +843,6 @@ class ValReplacementMutator : private OptOutMutator {
     }
     auto more_stmts = StmtSort::getStmts(fusion, more, true);
     more_stmts.insert(more_stmts.end(), stmts.begin(), stmts.end());
-
     for (auto stmt : more_stmts) {
       mutate(stmt);
     }
@@ -991,6 +1028,23 @@ struct ReplaceValInIndexVal : public OptInDispatch {
     last_visited_val_ = out;
   }
 
+  void handle(TorchGatherOp* top) final {
+    handle(top->in1());
+    auto in1 = last_visited_val_;
+    handle(top->in3());
+    auto in3 = last_visited_val_;
+    TORCH_INTERNAL_ASSERT(top->out()->isA<Int>());
+    auto out = IrBuilder::create<Int>(c10::nullopt);
+    IrBuilder::create<TorchGatherOp>(
+        top->getTorchGatherOpType(),
+        out,
+        in1,
+        top->getSelectAxis(),
+        top->dim(),
+        in3);
+    last_visited_val_ = out;
+  }
+
   // Clone expression after recurisvely replacing inputs
   void handle(BinaryOp* bop) override {
     handle(bop->lhs());
@@ -1077,6 +1131,9 @@ std::vector<IterDomain*> allIDsOf(const TensorView* tv) {
 bool isSelectInput(TensorView* tv) {
   for (auto expr : tv->uses()) {
     if (expr->isA<SelectOp>()) {
+      return true;
+    }
+    if (expr->isA<TorchGatherOp>()) {
       return true;
     }
   }

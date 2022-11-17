@@ -143,6 +143,10 @@ void Expr::dispatch(T handler, Expr* expr) {
     ptr(handler)->handle(expr->as<LoadStoreOp>());
     return;
   }
+  if (expr->isStrictlyA<TorchGatherOp>()) {
+    ptr(handler)->handle(expr->as<TorchGatherOp>());
+    return;
+  }
   if (expr->isStrictlyA<MmaOp>()) {
     ptr(handler)->handle(expr->as<MmaOp>());
     return;
@@ -365,6 +369,10 @@ void Expr::constDispatch(T handler, const Expr* expr) {
   }
   if (expr->isStrictlyA<LoadStoreOp>()) {
     ptr(handler)->handle(expr->as<LoadStoreOp>());
+    return;
+  }
+  if (expr->isStrictlyA<TorchGatherOp>()) {
+    ptr(handler)->handle(expr->as<TorchGatherOp>());
     return;
   }
   if (expr->isStrictlyA<MmaOp>()) {
@@ -597,6 +605,10 @@ void Expr::mutatorDispatch(T mutator, Expr* expr) {
   }
   if (expr->isStrictlyA<LoadStoreOp>()) {
     ptr(mutator)->mutate(expr->as<LoadStoreOp>());
+    return;
+  }
+  if (expr->isStrictlyA<TorchGatherOp>()) {
+    ptr(mutator)->mutate(expr->as<TorchGatherOp>());
     return;
   }
   if (expr->isStrictlyA<MmaOp>()) {
@@ -890,6 +902,9 @@ void OptOutConstDispatch::handle(const GroupedWelfordOp* stmt) {
 void OptOutConstDispatch::handle(const LoadStoreOp* stmt) {
   unhandled(stmt);
 }
+void OptOutConstDispatch::handle(const TorchGatherOp* stmt) {
+  unhandled(stmt);
+}
 void OptOutConstDispatch::handle(const MmaOp* stmt) {
   unhandled(stmt);
 }
@@ -1047,6 +1062,9 @@ void OptOutDispatch::handle(GroupedWelfordOp* stmt) {
   unhandled(stmt);
 }
 void OptOutDispatch::handle(LoadStoreOp* stmt) {
+  unhandled(stmt);
+}
+void OptOutDispatch::handle(TorchGatherOp* stmt) {
   unhandled(stmt);
 }
 void OptOutDispatch::handle(MmaOp* stmt) {

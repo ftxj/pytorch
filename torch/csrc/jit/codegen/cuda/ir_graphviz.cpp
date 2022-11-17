@@ -83,7 +83,7 @@ class IrNodeLabel : private OptInConstDispatch {
   }
 
   void handle(const Split* split) override {
-    label_ << "Split(inner=" << (split->innerSplit() ? "true" : "false")
+    label_ << " Split(inner=" << (split->innerSplit() ? "true" : "false")
            << ", factor=" << IrNodeLabel::gen(split->factor()) << ")";
   }
 
@@ -470,6 +470,20 @@ void IrGraphGenerator::handle(const TernaryOp* op) {
   addArc(op->in3(), op, "[color=brown]");
   addArc(op, op->out());
 }
+
+void IrGraphGenerator::handle(const TorchGatherOp* op) {
+  // node
+  std::stringstream label;
+
+  label << "torch.gather";
+  printExpr(op, label.str());
+
+  // inputs & outputs
+  addArc(op->in1(), op);
+  addArc(IrBuilder::create<Int>(0), op, "[color=blue]");
+  addArc(op->in3(), op, "[color=brown]");
+  addArc(op, op->out());
+} 
 
 void IrGraphGenerator::handle(const SelectOp* op) {
   // node

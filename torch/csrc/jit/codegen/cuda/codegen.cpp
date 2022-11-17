@@ -13,7 +13,7 @@
 #include <typeindex>
 #include <typeinfo>
 #include <vector>
-
+#include <iostream>
 namespace torch {
 namespace jit {
 namespace fuser {
@@ -21,6 +21,11 @@ namespace cuda {
 namespace codegen {
 
 namespace {
+
+void dumpCodegenTypeEnabled(const Expr* expr, std::string msg_pre) {
+  // if (isDebugDumpEnabled(DebugDumpOption::LowerVerbose)) {
+  // }
+}
 
 std::string ptrType(DataType dt) {
   std::stringstream ss;
@@ -154,6 +159,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   static std::string generateKernelDefinition(
       const kir::Kernel* kernel,
       const std::string& kernel_name) {
+    kernel->print();
     CudaKernelGenerator codegen(kernel);
     codegen.genDeclaration(kernel_name);
     codegen.startBlock();
@@ -389,11 +395,13 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const kir::Predicate* pred) final {
+    // dumpCodegenTypeEnabled(pred, "Predicate");
     TORCH_INTERNAL_ASSERT(pred->hasValue());
     code_ << gen(pred->value());
   }
 
   void handle(const Bool* pred) final {
+    // dumpCodegenTypeEnabled(pred, "Bool");
     const auto def = pred->definition();
     const bool has_alloc = alloc_map_.find(pred) != alloc_map_.end();
     if (def != nullptr && !has_alloc) {
@@ -406,6 +414,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const Double* d) final {
+    // dumpCodegenTypeEnabled(d, "Double");
     const auto def = d->definition();
     const bool has_alloc = alloc_map_.find(d) != alloc_map_.end();
     if (def != nullptr && !has_alloc) {
@@ -431,6 +440,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const Int* i) final {
+    // dumpCodegenTypeEnabled(i, "Int");
     // Check the replacement map first. If there's an entry for i, use
     // the corresponding replacement.
     auto replace_it = index_replacement_map_.find(i);
@@ -451,6 +461,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const ComplexDouble* c) final {
+    // dumpCodegenTypeEnabled(c, "ComplexDouble");
     const auto def = c->definition();
     const bool has_alloc = alloc_map_.find(c) != alloc_map_.end();
     if (def != nullptr && !has_alloc) {
@@ -496,8 +507,39 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
     return index.str();
   }
+  
+  std::string genTensorIndexWithIndex(const kir::TensorIndex* ti, int dim, const std::string& idx) {
+    bool first = true;
+    std::stringstream index;
+    int d = 0;
+    for (auto* ind : ti->indices()) {
+      if(d == dim) {
+        if (!first) {
+          index << " + ";
+        }
+        index << idx;
+        first = false;
+      }
+      else if (!ind->isZeroInt()) {
+        if (!first) {
+          index << " + ";
+        }
+        index << genInline(ind);
+        first = false;
+      }
+      d++;
+    }
+
+    if (first) {
+      index << "0";
+    }
+
+    return index.str();
+  }
+
 
   void handle(const kir::TensorIndex* ti) final {
+    // dumpCodegenTypeEnabled(ti, "TensorIndex");
     bool is_volatile = ti->view()->getMemoryType() == MemoryType::Global &&
         kernel_->summary().sync_map->needsRawSync(ti->view()).hasBID();
     if (is_volatile) {
@@ -507,11 +549,12 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const ViewAsScalar* sv) final {
+    // dumpCodegenTypeEnabled(sv, "ViewAsScalar");
     indent() << gen(sv->output(0)) << " = " << gen(sv->input(0)) << "["
              << gen(sv->index()) << "];\n";
   }
 
-  void handle(const IterDomain*) final {
+  void handle(const IterDomain* i) final {
     TORCH_INTERNAL_ASSERT(false, "Unreachable");
   }
 
@@ -519,7 +562,8 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     TORCH_INTERNAL_ASSERT(false, "Unreachable");
   }
 
-  void handle(const TensorView*) final {
+  
+  void handle(const TensorView* tv) final {
     TORCH_INTERNAL_ASSERT(false, "Unreachable");
   }
 
@@ -569,11 +613,13 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const FullOp* fop) final {
+    // dumpCodegenTypeEnabled(fop, "FullOp");
     indent() << gen(fop->output(0)) << " = (" << fop->dtype() << ")"
              << gen(fop->getFillValue()) << ";\n";
   }
 
   void handle(const ARangeOp* aop) final {
+    // dumpCodegenTypeEnabled(aop, "ARangeOp");
     auto index =
         genTensorIndex(aop->getLinearLogicalIndex()->as<kir::TensorIndex>());
     indent() << gen(aop->output(0)) << " = arange<" << aop->dtype() << ">";
@@ -582,6 +628,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const EyeOp* aop) final {
+    // dumpCodegenTypeEnabled(aop, "EyeOp");
     auto index1 = gen(aop->getIndex1());
     auto index2 = gen(aop->getIndex2());
     indent() << gen(aop->output(0)) << " = (" << aop->dtype() << ")";
@@ -589,6 +636,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const UnaryOp* uop) final {
+
     bool is_vector_op = false;
     size_t vector_word_size = 1;
 
@@ -742,9 +790,11 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     if (auto op = inline_op_str(op_type)) {
       if (alsoBooleanOperator(op_type) &&
           uop->out()->dtype() == DataType::Bool) {
-        code_ << stringifyBooleanOp(op_type) << gen(uop->in());
+        auto b = gen(uop->in());
+        code_ << stringifyBooleanOp(op_type) << b;
       } else {
-        code_ << *op << gen(uop->in());
+        auto b = gen(uop->in());
+        code_ << *op << b;
       }
     } else {
       if (op_type == UnaryOpType::Cast) {
@@ -764,8 +814,8 @@ class CudaKernelGenerator : private OptOutConstDispatch {
           code_ << "f";
         }
       }
-
-      code_ << "(" << gen(uop->in()) << ")";
+      auto b = gen(uop->in());
+      code_ << "(" << b << ")";
     }
 
     if (!print_inline_) {
@@ -1013,6 +1063,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const TernaryOp* top) final {
+    // dumpCodegenTypeEnabled(top, "TernaryOp");
     if (!print_inline_) {
       indent() << gen(top->out());
       if (!top->out()->isScalar()) {
@@ -1104,6 +1155,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
              << getOutputRegisterSize(options.macro) << ">*>"
              << "(&" << gen(uop->out()) << "));\n";
   }
+
 
   void handle(const MmaOp* mma) final {
     auto options = mma->options();
@@ -1246,6 +1298,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const ReductionOp* rop) final {
+    // dumpCodegenTypeEnabled(rop, "ReductionOp");
     TORCH_INTERNAL_ASSERT(rop->out()->isA<kir::TensorIndex>());
 
     const auto output = rop->out()->as<kir::TensorIndex>();
@@ -1278,6 +1331,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const LoadStoreOp* ldst) {
+    // dumpCodegenTypeEnabled(ldst, "LoadStoreOp");
     // TODO:
     //  Need to gradually merge the code path of this
     //   with UnaryOp::Set for vectorization.
@@ -1321,6 +1375,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const WelfordOp* wop) final {
+    // dumpCodegenTypeEnabled(wop, "WelfordOp");
     TORCH_INTERNAL_ASSERT(wop->out()->isA<kir::TensorIndex>());
 
     const auto out = wop->out()->as<kir::TensorIndex>();

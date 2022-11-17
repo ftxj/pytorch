@@ -636,6 +636,19 @@ static const char* ternary_op_type2string(TernaryOpType t) {
   }
 }
 
+static const char* select_op_type2string(SelectOpType t) {
+  switch (t) {
+    case SelectOpType::TorchGather:
+      return "torch.gather";
+    case SelectOpType::Select:
+      return "select";
+    case SelectOpType::IndexSelect:
+      return "index_select";
+    default:
+      TORCH_INTERNAL_ASSERT(false, "Unexpected TorchGather");
+  }
+}
+
 static const char* rng_op_type2string(RNGOpType t) {
   switch (t) {
     case RNGOpType::Uniform:
@@ -745,6 +758,8 @@ static const char* iter_type2string(IterType t) {
       return "s";
     case IterType::VectorComponent:
       return "v";
+    case IterType::TorchGatherIter:
+      return "t";
     default:
       // Don't try to print t as it would recursively call this function
       TORCH_INTERNAL_ASSERT(false, "Unexpected IterType");
@@ -1007,6 +1022,11 @@ std::ostream& operator<<(std::ostream& out, const BinaryOpType botype) {
 std::ostream& operator<<(std::ostream& out, const TernaryOpType totype) {
   return out << ternary_op_type2string(totype);
 }
+
+std::ostream& operator<<(std::ostream& out, const SelectOpType sltype) {
+  return out << select_op_type2string(sltype);
+}
+
 
 std::ostream& operator<<(std::ostream& out, const RNGOpType rngtype) {
   return out << rng_op_type2string(rngtype);

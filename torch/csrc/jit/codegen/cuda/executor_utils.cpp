@@ -836,7 +836,7 @@ void bindInputForExprEvaluation(
           }
         }
 
-        const auto value =
+        auto value =
             root_domain[dim]->hasExpandedExtent() ? 1 : tensor_arg_size;
         bool should_bind = true;
         if (check_consistency) {

@@ -384,8 +384,10 @@ UnaryOp::UnaryOp(
     UnaryOpType type,
     Val* out,
     Val* in,
-    int rng_offset)
-    : Expr(passkey), unary_op_type_{type}, out_{out}, in_{in} {
+    int rng_offset,
+    bool is_gather)
+    : Expr(passkey), unary_op_type_{type}, out_{out}, in_{in}, 
+    debug_is_gather(is_gather) {
   addOutput(out);
   addInput(in);
 }
@@ -1231,6 +1233,62 @@ Val* GroupedWelfordOp::getInitValOfOutput(Val* output_val) const {
   auto val_name = outputVals().at(expr_index).getNameOf(output_val).value();
 
   return initVals().at(expr_index).get(val_name);
+}
+
+//
+TorchGatherOp::TorchGatherOp(
+  IrBuilderPasskey passkey,
+  SelectOpType type,
+  Val* out,
+  Val* in1,
+  IterDomain* select_id,
+  int dim,
+  Val* in3)
+  : Expr(passkey),
+    torch_gather_op_type_{type},
+    out_{out},
+    in1_{in1},
+    select_id_{select_id},
+    dim_{dim},
+    in3_{in3} {
+  addInput(in1);
+  addInput(in3);
+  addOutput(out);
+}
+
+TorchGatherOp::TorchGatherOp(const TorchGatherOp* src, IrCloner* ir_cloner)
+    : Expr(src, ir_cloner),
+      torch_gather_op_type_(src->torch_gather_op_type_),
+      select_id_(ir_cloner->clone(src->select_id_)),
+      out_(ir_cloner->clone(src->out_)),
+      in1_(ir_cloner->clone(src->in1_)),
+      dim_(src->dim_),
+      in3_(ir_cloner->clone(src->in3_)) {}
+
+
+std::unordered_map<IterDomain*, Val*> TorchGatherOp::getIndexOverridingMap() const {
+  return {{select_id_, in3()}};
+}
+
+bool TorchGatherOp::sameAs(const Statement* other) const {
+  if (this == other) {
+    return true;
+  }
+  if (!other->isA<TorchGatherOp>()) {
+    return false;
+  }
+  const auto other_op = other->as<TorchGatherOp>();
+  if (!select_id_->sameAs(other_op->select_id_))
+    return false;
+  return Expr::sameAs(other);
+}
+
+Expr* TorchGatherOp::shallowCopy() const {
+  std::cout << "shallowCopy dim = " << dim_ << std::endl;
+  auto result = IrBuilder::create<TorchGatherOp>(torch_gather_op_type_, 
+    out(), in1(), select_id_, dim_, in3());
+  result->copyPredicatesFrom(this);
+  return result;
 }
 
 MmaOp::MmaOp(
@@ -2307,6 +2365,31 @@ bool TensorDomain::hasBroadcast() const {
 
 bool TensorDomain::hasRFactor() const {
   return !rfactor_domain_.empty();
+}
+
+bool TensorDomain::hasLookup() const {
+  return hasLookupInDomain() || hasLookupInRootDomain() ||
+      hasLookupInRfactorDomain();
+}
+
+bool TensorDomain::hasLookupInDomain() const {
+  return std::any_of(domain_.begin(), domain_.end(), [](IterDomain* id) {
+    return id->isLookupIterType();
+  });
+}
+
+bool TensorDomain::hasLookupInRootDomain() const {
+  return std::any_of(
+      root_domain_.begin(), root_domain_.end(), [](IterDomain* id) {
+        return id->isLookupIterType();
+      });
+}
+
+bool TensorDomain::hasLookupInRfactorDomain() const {
+  return std::any_of(
+      rfactor_domain_.begin(), rfactor_domain_.end(), [](IterDomain* id) {
+        return id->isLookupIterType();
+      });
 }
 
 bool TensorDomain::hasViewLikeRFactor() const {
