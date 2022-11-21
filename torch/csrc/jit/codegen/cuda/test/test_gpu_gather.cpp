@@ -146,6 +146,112 @@ TEST_F(NVFuserTest, GatherCodeCheck_CUDA) {
   TORCH_CHECK(tv0_ref.allclose(output));
 }
 
+// pass
+TEST_F(NVFuserTest, GatherFusionCheckCode_CUDA) {
+  Fusion fusion;
+  FusionGuard fg(&fusion);
+
+  int nDims = 2;
+  int nElem = 4;
+
+  TensorView* tv0 = makeContigTensor(nDims);
+  TensorView* tv1 = makeContigTensor(nDims);
+  TensorView* tv2 = makeContigTensor(nDims, DataType::Int);
+  // TensorView* tv2 = makeContigTensor(nDims);
+  fusion.addInput(tv0);
+  fusion.addInput(tv1);
+  fusion.addInput(tv2);
+  
+  TensorView* tv3 = add(tv0, tv1);
+  TensorView* tv4 = torch_gather(tv3, 0, tv2);
+  TensorView* tv5 = add(tv3, tv4);
+  TensorView* tv6 = mul(tv4, tv5);
+
+  fusion.addOutput(tv6);
+
+  tv6->split(-1, 8);
+  tv4->computeAt(tv6, -1);
+  // can not parallelize on Index axis ?
+  // tv6->axis(0)->parallelize(ParallelType::BIDx); 
+  // tv6->axis(-1)->parallelize(ParallelType::TIDx);
+
+
+  std::cout << fusion << std::endl;
+  FusionExecutor fe;
+  fe.compileFusion(&fusion);
+  std::cout << fe.kernelString() << std::endl;
+}
+
+
+TEST_F(NVFuserTest, FusionGatherOpPointwise_CUDA) {
+  auto fusion_ptr = std::make_unique<Fusion>();
+  Fusion& fusion = *fusion_ptr.get();
+  FusionGuard fg(&fusion);
+
+  int nDims = 3;
+  int x = 31, y = 65, z = 103;
+  int ix = 20, iy = 32, iz = 50;
+  int min_elm = 31;
+
+  TensorView* tv0 = makeContigTensor(nDims);
+  TensorView* index = makeContigTensor(nDims, DataType::Int);
+  
+
+  fusion.addInput(tv0);
+  fusion.addInput(index);
+
+  auto tv1 = torch_gather(tv0, 0, index);
+  auto tv2 = torch_gather(tv0, 1, index);
+  auto tv3 = torch_gather(tv0, 2, index);
+  fusion.addOutput(tv1);
+  fusion.addOutput(tv2);
+  fusion.addOutput(tv3);
+
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+
+
+  at::Tensor t0 = at::randn({x, y, z}, options);
+  
+  auto output1 = at::randn({ix, iy, iz}, options);
+  auto output2 = at::randn({ix, iy, iz}, options);
+  auto output3 = at::randn({ix, iy, iz}, options);
+  
+  std::vector<int64_t> storage_x(ix * iy * iz, 0);
+  // std::vector<int64_t> storage_y(ix * iy * iz, 0);
+  // std::vector<int64_t> storage_z(ix * iy * iz, 0);
+  for (int i = 0; i < ix; ++i) {
+    for (int j = 0; j < iy; ++j) {
+      for (int k = 0; k < iz; ++k) {
+        storage_x[i * (iy * iz) + j * iz + k] = std::abs(std::rand()) % min_elm;
+        // storage_y[i * (iy * iz) + j * iz + k] = std::abs(std::rand()) % y;
+        // storage_z[i * (iy * iz) + j * iz + k] = std::abs(std::rand()) % z;
+      }
+    }
+  }
+  auto opts = torch::TensorOptions().dtype(torch::kLong);
+  auto input1 = torch::from_blob(storage_x.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
+  // auto input2 = torch::from_blob(storage_y.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
+  // auto input3 = torch::from_blob(storage_z.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
+  
+  auto t1 = at::gather(t0, 0, input1);
+  auto t2 = at::gather(t0, 1, input1);
+  auto t3 = at::gather(t0, 2, input1);
+
+  std::vector<IValue> aten_inputs = {t0, input1};
+  FusionExecutor fe;
+  fe.compileFusion(&fusion, aten_inputs);
+  std::cout << fe.kernelString() << std::endl;
+
+  fe.runFusion(aten_inputs, {output1, output2, output3});
+
+  TORCH_CHECK(t1.allclose(output1));
+  TORCH_CHECK(t2.allclose(output2));
+  TORCH_CHECK(t3.allclose(output3));
+  
+  // testValidate(
+  //     &fusion, cg_outputs, {t0, index}, {t1, t2, t3}, __LINE__, __FILE__);
+}
+
 // error
 TEST_F(NVFuserTest, TorchGatherHandsOnFusion_CUDA) {
   Fusion fusion;

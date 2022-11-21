@@ -1986,7 +1986,7 @@ TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
   // std::vector<IterDomain*> new_root;
   // new_root.reserve(dom.size() - 1);
 
-
+  tv->setAsLookupTV(dim);
   if (dim < 0) {
     dim += dom.size();
   }
@@ -1997,24 +1997,14 @@ TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
       " however tensor view only has ",
       dom.size(),
       " non-reduction dims.");
-  
-  // for (auto i : c10::irange(dom.size())) {
-  //   if (i != dim) {
-  //     new_root.emplace_back(dom[i]->cloneWithoutRFactor());
-  //   }
-  // }
-
-  // auto td = IrBuilder::create<TensorDomain>(
-  //     new_root, TensorDomain::getContiguousContiguity(new_root));
-  // auto out = IrBuilder::create<TensorView>(td, *tv->getDataType());
-  
-  // IrBuilder::create<TorchGatherOp>(SelectOpType::TorchGather, 
-  //   out, tv, dom[dim], index);
-  // return out;
 
   Val* out = newValLike(index, tv->getDataType().value()); // shape = index, type = input
 
   std::cout << "init replace: " << dom[dim] << std::endl;
+  
+  std::cout << "init tv = " << tv << std::endl;
+  std::cout << "init index = " << index << std::endl;
+  std::cout << "init out = " << out << std::endl;
 
   IrBuilder::create<TorchGatherOp>(
       SelectOpType::TorchGather, out, tv, dom[dim], index);

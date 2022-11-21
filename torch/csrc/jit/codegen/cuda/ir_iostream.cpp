@@ -655,9 +655,16 @@ void IrPrinter::handle(const ShiftOp* sop) {
 
 void IrPrinter::handle(const TorchGatherOp* top) {
   indent() << top->output(0) << "\n";
-  indent() << "   = gather( " << top->input(0)
-           << ", axis = " << top->getSelectAxis()
-           << ", index = " << top->input(1) << " )\n";
+  indent() << "   = gather( \n" 
+          << "data = " << top->input(0) << ",\n"
+          << "axis = " << top->getSelectAxis() << "\n"
+          << "index = " << top->input(1) << " )\n";
+  auto mapping = top->getIndexOverridingMap();
+  for(auto domain_val : mapping) {
+    indent() << "domain = " << domain_val.first << "\n"
+            << "value = " << domain_val.second << "\n";
+  }
+  indent() << ")\n";
 }
 
 void IrPrinter::handle(const MmaOp* mma) {

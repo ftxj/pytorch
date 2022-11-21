@@ -1538,6 +1538,14 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
     return (isBlockDim() || isThreadDim());
   }
 
+  void setIterTypeAsLookup() {
+    isLookup_ = true;
+  }
+
+  bool isLookupIterType() {
+    return isLookup_;
+  }
+
   void parallelize(ParallelType t);
 
   ParallelType getParallelType() const {
@@ -1718,6 +1726,7 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
   Val* const stop_offset_ = nullptr;
   ParallelType parallel_type_ = ParallelType::Serial;
   IterType iter_type_ = IterType::Iteration;
+  bool isLookup_ = false;
   bool is_rfactor_domain_ = false;
   bool is_padded_dimension_ = false;
   c10::optional<int64_t> padded_to_size_ = c10::nullopt;
@@ -1808,7 +1817,11 @@ class TORCH_CUDA_CU_API TensorDomain : public Val {
   bool hasGridBroadcast() const;
   bool hasBroadcast() const;
   bool hasRFactor() const;
-
+  bool hasLookup() const;
+  bool hasLookupInDomain() const;
+  bool hasLookupInRootDomain() const;
+  bool hasLookupInRfactorDomain() const;
+  
   // Returns if rfactor domain only consists of id's of iter type.
   bool hasViewLikeRFactor() const;
 

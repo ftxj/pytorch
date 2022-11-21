@@ -552,6 +552,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   
   void handle(const TensorView* tv) final {
     // indent() << gen(tv);
+    std::cout << "Error on " << tv->toString() << std::endl;
     TORCH_INTERNAL_ASSERT(false, "Unreachable");
   }
 

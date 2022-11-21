@@ -1459,7 +1459,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::getGlobalProducerIndex");
-
   // Replay producer to look like consumer so we can index on producer since
   // our loop nests look like consumer
   auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
@@ -1566,6 +1565,7 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
   // Global striding
   std::vector<Val*> strided_inds(
       root_dom.size(), GpuLower::current()->kernel()->zeroVal());
+
   for (const auto i : c10::irange(root_dom.size())) {
     if (root_dom[i]->isReduction() || root_dom[i]->isBroadcast()) {
       continue;
@@ -1625,7 +1625,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
     if(auto x= dynamic_cast<TensorView*>(root_ind)) {
       // make tensorview into tensor index << std::endl;
       root_ind = getProducerIndex(x, consumer_tv, loops);
-      // std::cout << root_ind << std::endl;
     }
 
     if (root_ind->isZeroInt()) {
@@ -1862,6 +1861,11 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
     root_ind_i = getProducerIndexWithPartialSplit(
         root_ind_i, root_dom[i], producer_tv, consumer_tv);
 
+    if(auto x= dynamic_cast<TensorView*>(root_ind_i)) {
+      // make tensorview into tensor index << std::endl;
+      root_ind_i = getProducerIndex(x, consumer_tv, loops);
+    }
+    
     if (root_ind_i->isZeroInt()) {
       continue;
     }
@@ -2237,6 +2241,7 @@ std::vector<Val*> Index::getProducerStridedIndices(
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getProducerStridedIndices");
+  
   if (producer->domain()->noReductions().size() == 0) {
     return std::vector<Val*>(
         producer->getMaybeRFactorDomain().size(),

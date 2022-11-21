@@ -2362,6 +2362,31 @@ bool TensorDomain::hasRFactor() const {
   return !rfactor_domain_.empty();
 }
 
+bool TensorDomain::hasLookup() const {
+  return hasLookupInDomain() || hasLookupInRootDomain() ||
+      hasLookupInRfactorDomain();
+}
+
+bool TensorDomain::hasLookupInDomain() const {
+  return std::any_of(domain_.begin(), domain_.end(), [](IterDomain* id) {
+    return id->isLookupIterType();
+  });
+}
+
+bool TensorDomain::hasLookupInRootDomain() const {
+  return std::any_of(
+      root_domain_.begin(), root_domain_.end(), [](IterDomain* id) {
+        return id->isLookupIterType();
+      });
+}
+
+bool TensorDomain::hasLookupInRfactorDomain() const {
+  return std::any_of(
+      rfactor_domain_.begin(), rfactor_domain_.end(), [](IterDomain* id) {
+        return id->isLookupIterType();
+      });
+}
+
 bool TensorDomain::hasViewLikeRFactor() const {
   if (!hasRFactor()) {
     // Can't have view like rfactor if there is no rfactor domain
