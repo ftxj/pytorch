@@ -88,7 +88,22 @@ std::unordered_map<Val*, Val*> getSimplificationMap(Fusion* fusion) {
       for (auto entry : c2p_root_map) {
         auto c_id = entry.first;
         auto p_id = entry.second;
+        if(c_id->isTorchGatherIter()) {
+          continue;
+        }
         map_root_ids(p_id, c_id);
+        std::cout << "map root ids from " << std::endl;
+        std::cout << "c_id = " << c_id->toString() << std::endl;
+        std::cout << "p_id = " << p_id->toString() << std::endl;
+        
+        for(auto sss : id_to_disjoint_root_set) {
+          std::cout << "  key = " << sss.first->toString() << std::endl;
+          std::cout << "  val = \n";
+          for(auto kkk : *sss.second) {
+            std::cout << "    v = " << kkk->toString() << std::endl;
+          }
+        }
+        std::cout << "map root ids end " << std::endl;
       }
     }
   }
@@ -113,6 +128,10 @@ std::unordered_map<Val*, Val*> getSimplificationMap(Fusion* fusion) {
         continue;
       }
       auto* id_set = id_set_it->second;
+      std::cout << "get id = " << id->toString() << std::endl;
+      for(auto id : *id_set) {
+        std::cout << "sda : " << id->toString() << std::endl;
+      }
       if (set_to_input_id.find(id_set) == set_to_input_id.end()) {
         set_to_input_id[id_set] = id;
       } else {
@@ -142,6 +161,8 @@ std::unordered_map<Val*, Val*> getSimplificationMap(Fusion* fusion) {
     auto* set = entry.first;
     auto input_id = entry.second;
     for (auto id : *set) {
+      std::cout << "set map key : " << id->toString() << std::endl;
+      std::cout << "set map value : " << input_id->toString() << std::endl;
       extent_to_min_input_id_extent[id->extent()] = input_id->extent();
     }
   }
@@ -175,6 +196,7 @@ void replaceSymbolicSizes(Fusion* fusion) {
   // values. i.e. T0->getRootDomain()[0] would map to a named scalar
   // "T0.size[0]". This map will be used when lowering fusion ir to kernel ir.
   for (TensorView* tv : inputs_and_outputs) {
+    std::cout << "lower replace = " << tv->toString() << std::endl;
     // Replace the domain with one based on Ti.size[j]
     const std::vector<IterDomain*>& root_td = tv->getRootDomain();
 
@@ -202,10 +224,20 @@ void replaceSymbolicSizes(Fusion* fusion) {
         dim++;
       }
     }
+
+    for(auto m : tensor_dim_map) {
+      std::cout << "after key = " << m.first->toString() << std::endl;
+      std::cout << "after val = " << m.second->toString() << std::endl;
+    }
   }
 
   // Use a minimal number of sizes from provided tensors.
   auto extent_simplification_map = getSimplificationMap(fusion);
+  std::cout << "getSimplificationMap " << std::endl;
+  for(auto m : extent_simplification_map) {
+    std::cout << "after key = " << m.first->toString() << std::endl;
+    std::cout << "after val = " << m.second->toString() << std::endl;
+  }
   for (auto extent_entry : extent_simplification_map) {
     auto orig_extent = extent_entry.first;
     auto simplified_extent = extent_entry.second;
@@ -217,7 +249,11 @@ void replaceSymbolicSizes(Fusion* fusion) {
       }
     }
   }
-
+  std::cout << "after all replace " << std::endl;
+  for(auto m : tensor_dim_map) {
+    std::cout << "after key = " << m.first->toString() << std::endl;
+    std::cout << "after val = " << m.second->toString() << std::endl;
+  }
   // Run mutation on the fusion with the tensor_dim_map
   ir_utils::replaceValue(fusion, tensor_dim_map);
 }

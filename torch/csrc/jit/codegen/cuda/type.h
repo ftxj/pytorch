@@ -283,6 +283,7 @@ enum class IterType {
   Broadcast,
   Gather,
   Stride,
+  TorchGatherIter,
   VectorComponent
 };
 

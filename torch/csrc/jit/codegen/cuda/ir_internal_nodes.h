@@ -1519,6 +1519,10 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
     return getIterType() == IterType::VectorComponent;
   }
 
+  bool isTorchGatherIter() const {
+    return getIterType() == IterType::TorchGatherIter;
+  }
+
   bool isParallelized() const {
     return getParallelType() != ParallelType::Serial;
   }
@@ -1556,6 +1560,10 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
     return iter_type_;
   }
 
+  // void setIterType(IterType itt) const {
+  //   iter_type_ = itt;
+  // }
+  
   Val* start() const {
     return start_;
   }

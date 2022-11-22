@@ -17,6 +17,10 @@ Val* IndexLowering::lowerSrcIndex(
     Val* src,
     Val* dst,
     const std::unordered_map<IterDomain*, Val*>& override_index) const {
+  std::cout << "lower src Index :" << std::endl;
+  std::cout << "  src = " << src->toString() << std::endl;
+  std::cout << "  dst = " << dst->toString() << std::endl;
+  
   if (auto tv = dynamic_cast<TensorView*>(src)) {
     TORCH_INTERNAL_ASSERT(dst->isA<TensorView>());
     return Index::getProducerIndex(
@@ -199,9 +203,12 @@ void IndexLowering::handle(const TernaryOp* top) {
 void IndexLowering::handle(const TorchGatherOp* top) {
   // const auto lowering = lowerSrcIndex(
   //   top->in3(), top->out());
+  std::cout << "lower Src Index :" << std::endl;
   const auto input = lowerSrcIndex(
     top->input(0), top->output(0), top->getIndexOverridingMap());
+  std::cout << "lower Dst Index :" << std::endl;
   const auto out = lowerDstIndex(top->output(0));
+  std::cout << "Build Set Operator " << std::endl;
   pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));
   GpuLower::current()->propagateExprInfo(top, back());
 }

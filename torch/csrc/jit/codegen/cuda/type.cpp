@@ -758,6 +758,8 @@ static const char* iter_type2string(IterType t) {
       return "s";
     case IterType::VectorComponent:
       return "v";
+    case IterType::TorchGatherIter:
+      return "t";
     default:
       // Don't try to print t as it would recursively call this function
       TORCH_INTERNAL_ASSERT(false, "Unexpected IterType");

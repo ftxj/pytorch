@@ -93,12 +93,15 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
   if (SelectOp* sop = dynamic_cast<SelectOp*>(consumer_tv_->definition())) {
     selected_id = sop->getSelectAxis();
   }
-  // torch.gather does not need recompute produce-consumer relationship
-  // else if (TorchGatherOp* sop = dynamic_cast<TorchGatherOp*>(consumer_tv_->definition())) {
-  //   selected_id = sop->getSelectAxis();
-  // } 
+  bool is_gather_op = false;
+  if (TorchGatherOp* sop = dynamic_cast<TorchGatherOp*>(consumer_tv_->definition())) {
+   // torch.gather does not need recompute produce-consumer relationship
+    if(producer == sop->in1())
+      is_gather_op = true;
+  } 
 
   std::unordered_map<IterDomain*, IterDomain*> dom_map;
+  if(is_gather_op) return dom_map;
   const auto producer_root =
       TensorDomain::noReductions(producer->getMaybeRFactorDomain());
   const auto& consumer_root = consumer->getRootDomain();
@@ -106,7 +109,6 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
   while (itc < consumer_root.size() && itp < producer_root.size()) {
     IterDomain* producer_id = producer_root[itp];
     IterDomain* consumer_id = consumer_root[itc];
-
     // When the producer ID is the dim of a SelectOp, there is no
     // mapping for it.
     if (producer_id == selected_id) {
@@ -675,6 +677,10 @@ std::unordered_map<IterDomain*, IterDomain*> ComputeAtRootDomainMap::map(
     bool producer_to_consumer) const {
   const auto& producer_root =
       TensorDomain::noReductions(producer->getMaybeRFactorDomain());
+  std::cout << "begin ComputeAt Map" << std::endl;
+  for(auto dom : producer_root) {
+    std::cout << "map dom = " << dom->toString() << std::endl;
+  }
   const auto& consumer_root = consumer->getRootDomain();
   const TensorDomain* from_td = producer_to_consumer ? producer : consumer;
   const TensorDomain* to_td = producer_to_consumer ? consumer : producer;
@@ -682,6 +688,11 @@ std::unordered_map<IterDomain*, IterDomain*> ComputeAtRootDomainMap::map(
   const auto& to_ids = producer_to_consumer ? consumer_root : producer_root;
   std::unordered_map<IterDomain*, IterDomain*> id_map =
       mapBestEffort(from_td, from_ids, to_td, to_ids);
+  std::cout << "begin ComputeAt Map id_map" << std::endl;
+  for(auto dom : id_map) {
+    std::cout << "map id = " << dom.first->toString() << std::endl;
+    std::cout << "map id = " << dom.second->toString() << std::endl;
+  }
   for (auto& from_id : from_ids) {
     if (root_dims_to_map.find(from_id) == root_dims_to_map.end()) {
       // Remove mapping if exists

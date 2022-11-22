@@ -219,7 +219,7 @@ void FusionExecutor::compileFusion(
       break;
     }
   }
-
+  fusion->print();
   if (isDebugDumpEnabled(DebugDumpOption::FusionIr)) {
     fusion->print();
   } else if (isDebugDumpEnabled(DebugDumpOption::FusionIrMath)) {
@@ -249,7 +249,8 @@ void FusionExecutor::compileFusion(
                                                     : DataType::Int32);
   const auto kernel = lowered_->kernel();
   fusion_ = lowered_->kernel()->as<Fusion>();
-
+  std::cout << "after lower" << std::endl;
+  std::cout << kernel << std::endl;
   fusion_id_ = ++fusion_id_counter_;
   setUsedTVs();
 
@@ -310,6 +311,7 @@ void FusionExecutor::compileFusion(
   }
 
   // TODO: pass block_size here;
+  std::cout << kernel << std::endl;
   c10::optional<int> block_size = c10::nullopt;
   if (!args.empty()) {
     auto expr_eval = executor_utils::bindKernelInputs(args, kernel);

@@ -1461,20 +1461,23 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
   FUSER_PERF_SCOPE("GpuLower::Lower::getGlobalProducerIndex");
   // Replay producer to look like consumer so we can index on producer since
   // our loop nests look like consumer
+  std::cout << "debug 1" << std::endl;
   auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
+  std::cout << "debug 2" << std::endl;
+  std::cout << pairwise_map.toString() << std::endl;
   auto producerAsC =
       TransformReplay::replayPasC(producer_tv, consumer_tv, -1, pairwise_map)
           .first;
-
+  std::cout << "debug 3" << std::endl;
   // Make the producer_tv look like consumer while performing indexing math
   ir_utils::TVDomainGuard domain_guard(producer_tv, producerAsC);
-
+  std::cout << "debug 4" << std::endl;
   // Map sent to best effort replay needs to match the exact incantation for
   // compute_at_mode.cpp with MappingMode::Index
   auto c2p_root_map =
       PairwiseRootDomainMap(producer_tv, consumer_tv, true)
           .mapConsumerToProducer(consumer_tv->domain(), producer_tv->domain());
-
+  std::cout << "debug 5" << std::endl;
   // This replay has to be consistent with compute at index map.
   BestEffortReplay replay_producer_as_consumer(
       producer_tv->domain()->domain(),
@@ -1572,6 +1575,11 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
     }
 
     Val* root_ind = nullptr;
+    std::cout << "print override " << std::endl;
+    for(auto i : override_index) {
+      std::cout << "key = " << i.first->toString() << std::endl;
+      std::cout << "val = " << i.second->toString() << std::endl;
+    }
     auto override_it = override_index.find(root_dom[i]);
     if (override_it != override_index.end()) {
       root_ind = override_it->second;
@@ -1624,6 +1632,7 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
     
     if(auto x= dynamic_cast<TensorView*>(root_ind)) {
       // make tensorview into tensor index << std::endl;
+      std::cout << "begin gen index index" << std::endl;
       root_ind = getProducerIndex(x, consumer_tv, loops);
     }
 

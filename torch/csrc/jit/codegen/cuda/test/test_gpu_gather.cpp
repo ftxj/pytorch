@@ -189,12 +189,13 @@ TEST_F(NVFuserTest, FusionGatherOpPointwise_CUDA) {
   FusionGuard fg(&fusion);
 
   int nDims = 3;
-  int x = 31, y = 65, z = 103;
-  int ix = 20, iy = 32, iz = 50;
-  int min_elm = 31;
+  int x = 4, y = 4, z = 2;
+  int ix = 2, iy = 2, iz = 2;
+  int min_elm = 4;
 
   TensorView* tv0 = makeContigTensor(nDims);
   TensorView* index = makeContigTensor(nDims, DataType::Int);
+  // TensorView* index = makeContigTensor(nDims);
   
 
   fusion.addInput(tv0);
@@ -202,10 +203,11 @@ TEST_F(NVFuserTest, FusionGatherOpPointwise_CUDA) {
 
   auto tv1 = torch_gather(tv0, 0, index);
   auto tv2 = torch_gather(tv0, 1, index);
-  auto tv3 = torch_gather(tv0, 2, index);
+  // auto tv3 = torch_gather(tv0, 2, index);
   fusion.addOutput(tv1);
   fusion.addOutput(tv2);
-  fusion.addOutput(tv3);
+  // fusion.addOutput(tv3);
+  std::cout << fusion << std::endl;
 
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
 
@@ -214,7 +216,7 @@ TEST_F(NVFuserTest, FusionGatherOpPointwise_CUDA) {
   
   auto output1 = at::randn({ix, iy, iz}, options);
   auto output2 = at::randn({ix, iy, iz}, options);
-  auto output3 = at::randn({ix, iy, iz}, options);
+  // auto output3 = at::randn({ix, iy, iz}, options);
   
   std::vector<int64_t> storage_x(ix * iy * iz, 0);
   // std::vector<int64_t> storage_y(ix * iy * iz, 0);
@@ -231,22 +233,42 @@ TEST_F(NVFuserTest, FusionGatherOpPointwise_CUDA) {
   auto opts = torch::TensorOptions().dtype(torch::kLong);
   auto input1 = torch::from_blob(storage_x.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
   // auto input2 = torch::from_blob(storage_y.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
-  // auto input3 = torch::from_blob(storage_z.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
+  // // auto input3 = torch::from_blob(storage_z.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
+  std::cout << "lookup = " << std::endl;
+  std::cout << t0 << std::endl;
   
+  std::cout << "index = " << std::endl;
+  std::cout << input1 << std::endl;
+  
+
   auto t1 = at::gather(t0, 0, input1);
   auto t2 = at::gather(t0, 1, input1);
-  auto t3 = at::gather(t0, 2, input1);
+  // auto t3 = at::gather(t0, 2, input1);
+
+  std::cout << "ref output dim 0 = " << std::endl;
+  std::cout << t1 << std::endl;
+
+  std::cout << "ref output dim 1 = " << std::endl;
+  std::cout << t2 << std::endl;
 
   std::vector<IValue> aten_inputs = {t0, input1};
   FusionExecutor fe;
   fe.compileFusion(&fusion, aten_inputs);
   std::cout << fe.kernelString() << std::endl;
 
-  fe.runFusion(aten_inputs, {output1, output2, output3});
+  fe.runFusion(aten_inputs, {output1, output2});
+
+
+  std::cout << "output dim 0 = " << std::endl;
+  std::cout << output1 << std::endl;
+
+  std::cout << "output dim 1 = " << std::endl;
+  std::cout << output2 << std::endl;
+
 
   TORCH_CHECK(t1.allclose(output1));
   TORCH_CHECK(t2.allclose(output2));
-  TORCH_CHECK(t3.allclose(output3));
+  // TORCH_CHECK(t3.allclose(output3));
   
   // testValidate(
   //     &fusion, cg_outputs, {t0, index}, {t1, t2, t3}, __LINE__, __FILE__);
