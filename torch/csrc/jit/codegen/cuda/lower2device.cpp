@@ -199,12 +199,12 @@ void assignRNGOffset(Fusion* fusion) {
 
 // Dump expr string if enable lower_verbose
 void dumpExprsIfEnabled(const std::vector<Expr*>& exprs, std::string msg_pre) {
-  if (isDebugDumpEnabled(DebugDumpOption::LowerVerbose)) {
+  // if (isDebugDumpEnabled(DebugDumpOption::LowerVerbose)) {
     std::cout << msg_pre << ":" << std::endl;
     for (auto exp : exprs) {
       std::cout << exp->toString() << std::endl;
     }
-  }
+  // }
 }
 
 void GpuLower::lower(Fusion* fusion, DataType index_type) {

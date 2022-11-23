@@ -58,6 +58,7 @@ class AllocationInserter : public kir::ExprMutator {
   // Fills info.buffer, info.alloc_pos, info.init_for_loop,
   // info.init_place_before, info.alloc_for_loop, info.alloc_place_before
   void fillAllocationInformation(AllocationInformation& info, Expr* expr) {
+    std::cout << "fill ALlocation Info for expr = " << expr->toString() << std::endl;
     auto loop_alloc_info =
         lower_utils::getAllocInformation(info.buffer, for_loops_);
 
@@ -439,7 +440,7 @@ class AllocationInserter : public kir::ExprMutator {
     }
 
     // // Found where the allocation needs to be inserted
-
+    std::cout << "find allocate insert pos : " << expr->toString() << std::endl;
     for (const auto i : c10::irange(expr->outputs().size())) {
       auto out = expr->output(i);
       if (!out->isA<TensorView>()) {
@@ -501,7 +502,21 @@ class AllocationInserter : public kir::ExprMutator {
 
       auto alloc_expr = createAllocExpr(allocation, is_output);
       auto init_expr = createInitExpr(allocation, init);
+      std::cout << "allocate expr = ";
+      if(alloc_expr != nullptr) {
+        std::cout << alloc_expr->toString() << std::endl;
+      }
+      else {
+        std::cout << "nullptr " << std::endl;
+      }
 
+      std::cout << "init_expr expr = ";
+      if(init_expr != nullptr) {
+        std::cout << init_expr->toString() << std::endl;
+      }
+      else {
+        std::cout << "nullptr "<< std::endl;
+      }
       // Write information to GPULower
       writeInfoToGPULower(allocation, alloc_expr);
 

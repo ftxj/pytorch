@@ -278,9 +278,6 @@ void FusionExecutor::compileFusion(
       std::cout << "================================" << std::endl;
     }
   }
-  // std::cout << "Kernel IR = " << std::endl;
-  // some bug happen
-  // kernel->print();
 
   kernel_code_ = codegen::generateCudaKernel(kernel, kernelName());
   const auto structured_code = getStructuredCode(kernel_code_);

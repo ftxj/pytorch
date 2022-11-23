@@ -61,6 +61,47 @@ using namespace at::indexing;
 // --gtest_filter='NVFuserTest*FusionIndexSelectExplicitBroadcast_CUDA*'
 // build/bin/test_jit --gtest_filter='NVFuserTest*FusionIndexSelect_CUDA*'
 
+// ??????????????????????????????
+TEST_F(NVFuserTest, DebugAllocate_CUDA) {
+  Fusion fusion;
+  FusionGuard fg(&fusion);
+
+  int nDims = 3;
+  int x = 4, y = 4, z = 2;
+
+  TensorView* tv0 = makeContigTensor(nDims);
+  TensorView* tv1 = makeContigTensor(nDims);
+  TensorView* tv2 = makeContigTensor(nDims);
+
+  fusion.addInput(tv0);
+  fusion.addInput(tv1);
+  fusion.addInput(tv2);
+  
+  TensorView* tv4 = add(tv0, tv2);
+  TensorView* tv5 = add(tv1, tv4);
+  TensorView* tv6 = mul(tv4, tv5);
+
+
+  fusion.addOutput(tv6);
+
+  std::cout << fusion << std::endl;
+
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+
+  at::Tensor input_index = at::randn({x, y, z}, options);
+  at::Tensor input_lookup = at::randn({x, y, z}, options);
+  at::Tensor input_tensor = at::randn({x, y, z}, options);
+  auto output1 = at::randn({x, y, z}, options);
+
+  std::vector<IValue> aten_inputs = {input_lookup, input_tensor, input_index};
+  FusionExecutor fe;
+  fe.compileFusion(&fusion, aten_inputs);
+  std::cout << fe.kernelString() << std::endl;
+
+  fe.runFusion(aten_inputs, {output1});
+}
+
+// pass
 TEST_F(NVFuserTest, GatherNodeOutDim_CUDA) {
   Fusion fusion;
   FusionGuard fg(&fusion);
@@ -147,47 +188,14 @@ TEST_F(NVFuserTest, GatherCodeCheck_CUDA) {
 }
 
 // pass
-TEST_F(NVFuserTest, GatherFusionCheckCode_CUDA) {
-  Fusion fusion;
-  FusionGuard fg(&fusion);
-
-  int nDims = 2;
-  int nElem = 4;
-
-  TensorView* tv0 = makeContigTensor(nDims);
-  TensorView* tv1 = makeContigTensor(nDims);
-  TensorView* tv2 = makeContigTensor(nDims, DataType::Int);
-  // TensorView* tv2 = makeContigTensor(nDims);
-  fusion.addInput(tv0);
-  fusion.addInput(tv1);
-  fusion.addInput(tv2);
-  
-  TensorView* tv3 = add(tv0, tv1);
-  TensorView* tv4 = torch_gather(tv3, 0, tv2);
-  TensorView* tv5 = add(tv3, tv4);
-  TensorView* tv6 = mul(tv4, tv5);
-
-  fusion.addOutput(tv6);
-
-  tv6->split(-1, 8);
-  tv4->computeAt(tv6, -1);
-  // can not parallelize on Index axis ?
-  // tv6->axis(0)->parallelize(ParallelType::BIDx); 
-  // tv6->axis(-1)->parallelize(ParallelType::TIDx);
-
-
-  std::cout << fusion << std::endl;
-  FusionExecutor fe;
-  fe.compileFusion(&fusion);
-  std::cout << fe.kernelString() << std::endl;
-}
-
-
-TEST_F(NVFuserTest, FusionGatherOpPointwise_CUDA) {
+TEST_F(NVFuserTest, GatherArbitrarilyShape_CUDA) {
   auto fusion_ptr = std::make_unique<Fusion>();
   Fusion& fusion = *fusion_ptr.get();
   FusionGuard fg(&fusion);
 
+  // keep ix <= x; iy <= y; iz <= z;
+  // [x, y, z] == nDims
+  // min_elm = min(x, y, z)
   int nDims = 3;
   int x = 4, y = 4, z = 2;
   int ix = 2, iy = 2, iz = 2;
@@ -274,8 +282,125 @@ TEST_F(NVFuserTest, FusionGatherOpPointwise_CUDA) {
   //     &fusion, cg_outputs, {t0, index}, {t1, t2, t3}, __LINE__, __FILE__);
 }
 
+// pass
+TEST_F(NVFuserTest, GatherFusionCheckCode_CUDA) {
+  Fusion fusion;
+  FusionGuard fg(&fusion);
+
+  int nDims = 3;
+  int x = 4, y = 4, z = 2;
+  int ix = 2, iy = 2, iz = 2;
+  int min_elm = 2;
+
+  TensorView* tv0 = makeContigTensor(nDims);
+  TensorView* tv1 = makeContigTensor(nDims);
+  // TensorView* tv2 = makeContigTensor(nDims, DataType::Int);
+  TensorView* tv2 = makeContigTensor(nDims);
+  fusion.addInput(tv0);
+  fusion.addInput(tv1);
+  fusion.addInput(tv2);
+  
+  TensorView* tv4 = add(tv0, tv2);
+  TensorView* tv5 = add(tv1, tv4);
+  TensorView* tv6 = mul(tv4, tv5);
+
+
+  // TensorView* tv_dim_1_4 = torch_gather(tv0, 1, tv2);
+  // TensorView* tv_dim_1_5 = add(tv1, tv_dim_1_4);
+  // TensorView* tv_dim_1_6 = mul(tv_dim_1_4, tv_dim_1_5);
+
+  // TensorView* tv_dim_2_4 = torch_gather(tv0, 2, tv2);
+  // TensorView* tv_dim_2_5 = add(tv1, tv_dim_2_4);
+  // TensorView* tv_dim_2_6 = mul(tv_dim_2_4, tv_dim_2_5);
+
+  fusion.addOutput(tv6);
+  // fusion.addOutput(tv_dim_1_6);
+  // fusion.addOutput(tv_dim_2_6);
+
+  // tv6->split(-1, 8);
+  // tv4->computeAt(tv6, -1);
+  
+  // can not parallelize on Index axis ?
+  // tv6->axis(0)->parallelize(ParallelType::BIDx); 
+  // tv6->axis(-1)->parallelize(ParallelType::TIDx);
+
+  std::cout << fusion << std::endl;
+
+
+  std::vector<int64_t> storage_x(ix * iy * iz, 0);
+  for (int i = 0; i < ix; ++i) {
+    for (int j = 0; j < iy; ++j) {
+      for (int k = 0; k < iz; ++k) {
+        storage_x[i * (iy * iz) + j * iz + k] = std::abs(std::rand()) % min_elm;
+      }
+    }
+  }
+  auto opts = torch::TensorOptions().dtype(torch::kLong);
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+
+  // auto input_index = torch::from_blob(storage_x.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
+  auto input_index = torch::from_blob(storage_x.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
+  at::Tensor input_lookup = at::randn({x, y, z}, options);
+  at::Tensor input_tensor = at::randn({ix, iy, iz}, options);
+  auto output1 = at::randn({ix, iy, iz}, options);
+  auto output2 = at::randn({ix, iy, iz}, options);
+  auto output3 = at::randn({ix, iy, iz}, options);
+
+  std::cout << "lookup = " << std::endl;
+  std::cout << input_lookup << std::endl;
+  
+  std::cout << "tensor = " << std::endl;
+  std::cout << input_tensor << std::endl;
+
+  std::cout << "index = " << std::endl;
+  std::cout << input_index << std::endl;
+
+  auto torch_gather_res = at::gather(input_lookup, 0, input_index);
+  auto torch_add_res = at::add(torch_gather_res, input_tensor);
+  auto torch_mul_res = at::mul(torch_gather_res, torch_add_res);
+
+  auto torch_gather_res_1 = at::gather(input_lookup, 1, input_index);
+  auto torch_add_res_1 = at::add(torch_gather_res_1, input_tensor);
+  auto torch_mul_res_1 = at::mul(torch_gather_res_1, torch_add_res_1);
+
+  auto torch_gather_res_2 = at::gather(input_lookup, 2, input_index);
+  auto torch_add_res_2 = at::add(torch_gather_res_2, input_tensor);
+  auto torch_mul_res_2 = at::mul(torch_gather_res_2, torch_add_res_2);
+
+  std::cout << "ref output = " << std::endl;
+  std::cout << torch_mul_res << std::endl;
+
+  std::cout << "ref output dim 1 = " << std::endl;
+  std::cout << torch_mul_res_1 << std::endl;
+
+  std::cout << "ref output dim 2 = " << std::endl;
+  std::cout << torch_mul_res_2 << std::endl;
+
+  std::vector<IValue> aten_inputs = {input_lookup, input_tensor, input_index};
+  FusionExecutor fe;
+  fe.compileFusion(&fusion, aten_inputs);
+  std::cout << fe.kernelString() << std::endl;
+
+  fe.runFusion(aten_inputs, {output1});
+
+  std::cout << "output dim 0 = " << std::endl;
+  std::cout << output1 << std::endl;
+
+  
+  std::cout << "output dim 0 = " << std::endl;
+  std::cout << output2 << std::endl;
+
+  
+  std::cout << "output dim 0 = " << std::endl;
+  std::cout << output3 << std::endl;
+
+  TORCH_CHECK(torch_mul_res.allclose(output1));
+  // TORCH_CHECK(torch_mul_res_1.allclose(output2));
+  // TORCH_CHECK(torch_mul_res_2.allclose(output3));
+}
+
 // error
-TEST_F(NVFuserTest, TorchGatherHandsOnFusion_CUDA) {
+TEST_F(NVFuserTest, TorchGatherAutoFusionCode_CUDA) {
   Fusion fusion;
   FusionGuard fg(&fusion);
   // dimensionality of the problem
@@ -344,7 +469,6 @@ TEST_F(NVFuserTest, TorchGatherHandsOnFusion_CUDA) {
 
   TORCH_CHECK(tv0_ref.allclose(output));
 }
-
 
 
 } // namespace jit
