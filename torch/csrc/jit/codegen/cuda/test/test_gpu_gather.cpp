@@ -67,7 +67,6 @@ TEST_F(NVFuserTest, DebugAllocate_CUDA) {
   FusionGuard fg(&fusion);
 
   int nDims = 3;
-  int x = 4, y = 4, z = 2;
 
   TensorView* tv0 = makeContigTensor(nDims);
   TensorView* tv1 = makeContigTensor(nDims);
@@ -77,28 +76,16 @@ TEST_F(NVFuserTest, DebugAllocate_CUDA) {
   fusion.addInput(tv1);
   fusion.addInput(tv2);
   
-  TensorView* tv4 = add(tv0, tv2);
-  TensorView* tv5 = add(tv1, tv4);
-  TensorView* tv6 = mul(tv4, tv5);
+  TensorView* tv4 = add(tv0, tv1);
+  TensorView* tv5 = add(tv2, tv4);
+
+  fusion.addOutput(tv5);
 
 
-  fusion.addOutput(tv6);
-
-  std::cout << fusion << std::endl;
-
-  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
-
-  at::Tensor input_index = at::randn({x, y, z}, options);
-  at::Tensor input_lookup = at::randn({x, y, z}, options);
-  at::Tensor input_tensor = at::randn({x, y, z}, options);
-  auto output1 = at::randn({x, y, z}, options);
-
-  std::vector<IValue> aten_inputs = {input_lookup, input_tensor, input_index};
   FusionExecutor fe;
-  fe.compileFusion(&fusion, aten_inputs);
+  fe.compileFusion(&fusion);
   std::cout << fe.kernelString() << std::endl;
 
-  fe.runFusion(aten_inputs, {output1});
 }
 
 // pass
