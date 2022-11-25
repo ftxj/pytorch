@@ -83,7 +83,7 @@ class IrNodeLabel : private OptInConstDispatch {
   }
 
   void handle(const Split* split) override {
-    label_ << "Split(inner=" << (split->innerSplit() ? "true" : "false")
+    label_ << " Split(inner=" << (split->innerSplit() ? "true" : "false")
            << ", factor=" << IrNodeLabel::gen(split->factor()) << ")";
   }
 
@@ -194,7 +194,7 @@ void IrGraphGenerator::addArc(
 }
 
 void IrGraphGenerator::printExpr(const Expr* expr, const std::string& label) {
-  graph_def_ << "    " << getid(expr) << " "
+  graph_def_ << expr->toString() << "    " << getid(expr) << " "
              << "[label=\"" << label << "\", shape=oval, color=blue, "
              << "style=filled, fillcolor=";
   if (expr_color_map_ != nullptr && expr_color_map_->count(expr)) {
@@ -206,7 +206,7 @@ void IrGraphGenerator::printExpr(const Expr* expr, const std::string& label) {
 }
 
 void IrGraphGenerator::printValue(const Val* val, const std::string& label) {
-  graph_def_ << "    " << getid(val) << " [label=\"" << label
+  graph_def_ << val->toString() << "    " << getid(val) << " [label=\"" << label
              << "\", shape=rect, color=green, fontsize=10];\n";
 }
 
@@ -340,7 +340,7 @@ void IrGraphGenerator::handle(const Expr* e) {
 }
 
 void IrGraphGenerator::handle(const TensorDomain* td) {
-  graph_def_ << "    " << getid(td) << " [label=\"TensorDomain\", "
+  graph_def_ << td->toString() << "    " << getid(td) << " [label=\"TensorDomain\", "
              << "shape=note, color=gray, "
              << "style=filled, fillcolor=gray90, fontsize=10];\n";
   for (auto iter_domain : td->domain()) {
@@ -349,7 +349,7 @@ void IrGraphGenerator::handle(const TensorDomain* td) {
 }
 
 void IrGraphGenerator::handle(const IterDomain* id) {
-  graph_def_ << "    " << getid(id) << " [label=\"" << IrNodeLabel::gen(id)
+  graph_def_ << id->toString() << "    " << getid(id) << " [label=\"" << IrNodeLabel::gen(id)
              << "\", shape=cds, color=gray, fontsize=10];\n";
 
   if (!id->start()->isZeroInt()) {

@@ -36,6 +36,9 @@ Statement::Statement(const Statement* src, IrCloner* ir_cloner) {
 
 void Statement::setName(IrContainerPasskey, StmtNameType name) {
   name_ = name;
+  if(name_ == 116) {
+    std::cout << "set 116 name = " << toString() << std::endl;
+  }
 }
 
 void Statement::setName(IrBuilderPasskey, StmtNameType name) {

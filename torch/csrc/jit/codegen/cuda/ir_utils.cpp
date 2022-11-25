@@ -829,7 +829,7 @@ class ValReplacementMutator : private OptOutMutator {
     }
     auto more_stmts = StmtSort::getStmts(fusion, more, true);
     more_stmts.insert(more_stmts.end(), stmts.begin(), stmts.end());
-
+    std::cout << "begin mutate" << std::endl;
     for (auto stmt : more_stmts) {
       mutate(stmt);
     }

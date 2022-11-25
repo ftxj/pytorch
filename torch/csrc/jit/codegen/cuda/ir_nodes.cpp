@@ -384,10 +384,13 @@ UnaryOp::UnaryOp(
     UnaryOpType type,
     Val* out,
     Val* in,
-    int rng_offset)
-    : Expr(passkey), unary_op_type_{type}, out_{out}, in_{in} {
+    int rng_offset,
+    bool is_gather)
+    : Expr(passkey), unary_op_type_{type}, out_{out}, in_{in}, 
+    debug_is_gather(is_gather) {
   addOutput(out);
   addInput(in);
+  std::cout << "new a unaryop = " << toString() << std::endl;
 }
 
 UnaryOp::UnaryOp(const UnaryOp* src, IrCloner* ir_cloner)
@@ -426,6 +429,7 @@ BinaryOp::BinaryOp(
   addOutput(out);
   addInput(lhs);
   addInput(rhs);
+  std::cout << "new a BinaryOp node = " << toString() << std::endl;
 }
 
 BinaryOp::BinaryOp(const BinaryOp* src, IrCloner* ir_cloner)
@@ -1250,6 +1254,9 @@ TorchGatherOp::TorchGatherOp(
   addInput(in1);
   addInput(in3);
   addOutput(out);
+  std::cout << "new a TorchGatherOp = " << toString() << std::endl;
+  std::cout << "using in1 = " << in1_->toString() << std::endl;
+  std::cout << "using select_id = " << select_id_->toString() << std::endl;
 }
 
 TorchGatherOp::TorchGatherOp(const TorchGatherOp* src, IrCloner* ir_cloner)
@@ -2768,6 +2775,7 @@ Split::Split(
   addOutput(outer);
   addOutput(inner);
   addInput(in);
+  std::cout << "new a A Split node = " << toString() << std::endl;
   // TODO add factor as an input, need to check Split::Split during validation
   // and need to check BestEffortReplay::findFirstMismatchedID addInput(factor);
 }
@@ -2826,6 +2834,7 @@ Merge::Merge(
   addOutput(out);
   addInput(outer);
   addInput(inner);
+  std::cout << "new a merge node = " << toString() << std::endl;
 }
 
 Merge::Merge(const Merge* src, IrCloner* ir_cloner)

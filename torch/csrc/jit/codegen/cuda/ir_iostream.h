@@ -133,7 +133,7 @@ class TORCH_CUDA_CU_API IrPrinter : public OptInConstDispatch {
 
   void print_inline(const Statement* stmt) {
     bool prev = print_inline_;
-    print_inline_ = true;
+    print_inline_ = false;
     handle(stmt);
     print_inline_ = prev;
   }

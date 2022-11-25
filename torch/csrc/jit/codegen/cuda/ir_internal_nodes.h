@@ -217,7 +217,8 @@ class TORCH_CUDA_CU_API UnaryOp : public Expr {
       UnaryOpType type,
       Val* out,
       Val* in,
-      int rng_offset = -1);
+      int rng_offset = -1,
+      bool is_gather = false);
 
   UnaryOp(const UnaryOp* src, IrCloner* ir_cloner);
 
@@ -240,10 +241,13 @@ class TORCH_CUDA_CU_API UnaryOp : public Expr {
 
   bool sameAs(const Statement* other) const override;
 
+  bool is_gather() const {return debug_is_gather;}
+
  private:
   const UnaryOpType unary_op_type_;
   Val* const out_ = nullptr;
   Val* const in_ = nullptr;
+  bool debug_is_gather = false;
 };
 
 //! A specialization for Binary operations. Binary operations take in two inputs

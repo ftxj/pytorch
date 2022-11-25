@@ -164,6 +164,16 @@ class TORCH_CUDA_CU_API TensorIndex final : public Val {
     return indices_;
   }
 
+  std::string toString() const {
+    std::string res;
+    res = "TensorIndex = [";
+    for(size_t i = 0; i < indices_.size(); ++i) {
+      res +=  std::to_string(i) + " = " + indices_[i]->toString();
+      res += "\n";
+    }
+    res += "]";
+    return res;
+  }
   TensorView* view() const {
     TORCH_INTERNAL_ASSERT(view_ != nullptr);
     return const_cast<TensorView*>(view_); // NOLINT

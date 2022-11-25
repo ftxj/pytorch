@@ -58,6 +58,7 @@ void OptOutMutator::mutate(ComplexDouble* c) {}
 void OptOutMutator::mutate(NamedScalar* ns) {}
 
 void OptOutMutator::mutate(IterDomain* id) {
+  std::cout << "mutate IterDomain original = " << id->toString() << std::endl;
   Val* start = maybeMutated(id->start());
   Val* extent = maybeMutated(id->extent());
   Val* expanded_extent = nullptr;
@@ -71,18 +72,22 @@ void OptOutMutator::mutate(IterDomain* id) {
       stop_offset->sameAs(id->stopOffset())) {
     return;
   }
-  registerMutation(
-      id,
-      IterDomainBuilder(id)
+
+  auto x = IterDomainBuilder(id)
           .start(start)
           .extent(extent)
           .stop_offset(stop_offset)
           .expanded_extent(expanded_extent)
-          .build());
+          .build();
+  registerMutation(
+      id,
+      x);
+  std::cout << "mutate IterDomain End new = " << x->toString()  << std::endl;
 }
 
 void OptOutMutator::mutate(TensorDomain* td) {
   bool mutated = false;
+  std::cout << "mutate TensorDomain original = " << td->toString() << std::endl;
 
   auto updateIdVec = [&](const std::vector<IterDomain*>& ids) {
     std::vector<IterDomain*> updated_ids;
@@ -109,13 +114,16 @@ void OptOutMutator::mutate(TensorDomain* td) {
   Val* mutated_val = IrBuilder::create<TensorDomain>(
       td->container(), root_dom, rfactor_dom, domain, td->contiguity());
   registerMutation(td, mutated_val);
+  std::cout << "mutate TensorDomain End" << std::endl;
 }
 
 void OptOutMutator::mutate(TensorView* tv) {
+  std::cout << "mutate TensorView" << std::endl;
   TensorDomain* td = maybeMutated(tv->domain())->as<TensorDomain>();
   if (!tv->domain()->sameAs(td)) {
     tv->setDomain(td);
   }
+  std::cout << "mutate TensorView End" << std::endl;
   // Don't register tv mutations as we just want to update the TD
 }
 
@@ -191,6 +199,7 @@ void OptOutMutator::mutate(EyeOp* eop) {
 }
 
 void OptOutMutator::mutate(UnaryOp* uop) {
+  std::cout << "mutate UnaryOp = " << uop->toString() << std::endl;
   Val* out = maybeMutated(uop->out());
   Val* in = maybeMutated(uop->in());
 
@@ -201,6 +210,7 @@ void OptOutMutator::mutate(UnaryOp* uop) {
   auto uop_type = uop->getUnaryOpType();
   container->removeExpr(uop);
   IrBuilder::create<UnaryOp>(container, uop_type, out, in);
+  std::cout << "mutate unaryop end" << std::endl;
 }
 
 void OptOutMutator::mutate(BinaryOp* bop) {
@@ -330,6 +340,7 @@ inline bool compareOptional(Val* a, Val* b) {
 } // namespace
 
 void OptOutMutator::mutate(WelfordOp* wop) {
+  std::cout << "mutate welfordop" << std::endl;
   Val* out_avg = maybeMutated(wop->outAvg());
   Val* out_var = maybeMutated(wop->outVar());
   Val* out_N = maybeMutated(wop->outN());
@@ -407,6 +418,7 @@ void OptOutMutator::mutate(GroupedWelfordOp* wop) {
 }
 
 void OptOutMutator::mutate(TorchGatherOp* sop) {
+  std::cout << "mutate TorchGatherOp = " << sop->toString() << std::endl;
   IrPrinter(std::cout).handle(sop);
   Val* out = maybeMutated(sop->output(0));
   Val* in = maybeMutated(sop->input(0));
@@ -422,6 +434,7 @@ void OptOutMutator::mutate(TorchGatherOp* sop) {
   container->removeExpr(sop);
   IrBuilder::create<TorchGatherOp>(container, SelectOpType::TorchGather, 
     out, in, select_axis, index);
+  std::cout << "mutate torchgatherOp end" << std::endl;
 }
 
 void OptOutMutator::mutate(MmaOp* mma) {
@@ -586,6 +599,7 @@ void OptOutMutator::mutate(ViewOp* vop) {
 }
 
 void OptOutMutator::mutate(Split* s) {
+  std::cout << "mutate split" << std::endl;
   IterDomain* ot = maybeMutated(s->outer())->as<IterDomain>();
   IterDomain* inr = maybeMutated(s->inner())->as<IterDomain>();
   IterDomain* in = maybeMutated(s->in())->as<IterDomain>();
@@ -597,6 +611,7 @@ void OptOutMutator::mutate(Split* s) {
       in->sameAs(s->in()) && areEqualScalars(fact, s->factor()) &&
       start_offset->sameAs(s->startOffset()) &&
       stop_offset->sameAs(s->stopOffset())) {
+    std::cout << "mutate split end " << std::endl;
     return;
   }
 
@@ -605,9 +620,11 @@ void OptOutMutator::mutate(Split* s) {
   container->removeExpr(s);
   C10_UNUSED auto new_node = IrBuilder::create<Split>(
       container, ot, inr, in, fact, inner_split, start_offset, stop_offset);
+  std::cout << "mutate split end " << std::endl;
 }
 
 void OptOutMutator::mutate(Merge* m) {
+  std::cout << "mutate merge" << std::endl;
   IterDomain* ot = maybeMutated(m->out())->as<IterDomain>();
   IterDomain* otr = maybeMutated(m->outer())->as<IterDomain>();
   IterDomain* in = maybeMutated(m->inner())->as<IterDomain>();

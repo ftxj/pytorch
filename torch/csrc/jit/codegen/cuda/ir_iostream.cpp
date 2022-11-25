@@ -664,7 +664,7 @@ void IrPrinter::handle(const TorchGatherOp* top) {
     indent() << "domain = " << domain_val.first << "\n"
             << "value = " << domain_val.second << "\n";
   }
-  indent() << ")\n";
+  indent() << ")\n";  
 }
 
 void IrPrinter::handle(const MmaOp* mma) {
@@ -732,6 +732,12 @@ void IrPrinter::handle(const kir::TensorIndex* ti) {
   }
   os_ << "[";
   for (auto index : ti->indices()) {
+    std::cout << "idx name = " << index->toString() << std::endl;
+    if(auto x = dynamic_cast<kir::TensorIndex*>(index)) {
+      std::cout << "something in my mind..." << std::endl;
+      handle(x);
+      continue;
+    }
     print_inline(index);
     if (index != ti->indices().back()) {
       os_ << ", ";

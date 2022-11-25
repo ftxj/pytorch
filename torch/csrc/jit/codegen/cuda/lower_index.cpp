@@ -203,13 +203,20 @@ void IndexLowering::handle(const TernaryOp* top) {
 void IndexLowering::handle(const TorchGatherOp* top) {
   // const auto lowering = lowerSrcIndex(
   //   top->in3(), top->out());
+  std::cout << "handle TorchGatherOp LowerIndex logic" << std::endl;
+  std::cout << "handle " << top->toString() << std::endl;
+  
+  const auto indices = lowerSrcIndex(top->input(1), top->output(0));
+  const std::unordered_map<IterDomain*, Val*> override_index = {
+      {top->getSelectAxis(), indices}};
+  
   std::cout << "lower Src Index :" << std::endl;
   const auto input = lowerSrcIndex(
-    top->input(0), top->output(0), top->getIndexOverridingMap());
+    top->input(0), top->output(0), override_index);
   std::cout << "lower Dst Index :" << std::endl;
   const auto out = lowerDstIndex(top->output(0));
   std::cout << "Build Set Operator " << std::endl;
-  pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));
+  pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input, -1, true));
   GpuLower::current()->propagateExprInfo(top, back());
 }
 
