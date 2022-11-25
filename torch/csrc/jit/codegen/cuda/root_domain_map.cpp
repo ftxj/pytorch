@@ -102,6 +102,7 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
 
   std::unordered_map<IterDomain*, IterDomain*> dom_map;
   if(is_gather_op) return dom_map;
+  
   const auto producer_root =
       TensorDomain::noReductions(producer->getMaybeRFactorDomain());
   const auto& consumer_root = consumer->getRootDomain();

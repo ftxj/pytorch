@@ -1287,6 +1287,7 @@ bool TorchGatherOp::sameAs(const Statement* other) const {
 }
 
 Expr* TorchGatherOp::shallowCopy() const {
+  std::cout << "shallowCopy TorchGatherOp " << std::endl;
   auto result = IrBuilder::create<TorchGatherOp>(torch_gather_op_type_, 
     out(), in1(), select_id_, in3());
   result->copyPredicatesFrom(this);

@@ -376,8 +376,8 @@ TEST_F(NVFuserTest, TorchGatherAutoFusionCode_CUDA) {
   fusion.addInput(tv0);
   fusion.addInput(tv1);
   fusion.addInput(tv2);
-  TensorView* tv_tmp = castOp(DataType::Float, tv0);
-  TensorView* tv3 = torch_gather(tv_tmp, 0, tv1);
+
+  TensorView* tv3 = torch_gather(tv0, 0, tv1);
   TensorView* tv4 = mul(tv2, tv3);
   // TensorView* tv3 = add(IrBuilder::create<Double>(17.0), tv2);
   // Register your outputs

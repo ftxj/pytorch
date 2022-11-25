@@ -1984,6 +1984,7 @@ TensorView* arithOpOverloadsForTorchGather(
 
 TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
   auto dom = TensorDomain::noReductions(tv->getMaybeRFactorDomain());
+  std::cout << "new torch gather by " << tv->toString() << std::endl;
   TORCH_CHECK(dom.size() > 0, "gather can not be applied to 0d tensor.");
 
   // std::vector<IterDomain*> new_root;
