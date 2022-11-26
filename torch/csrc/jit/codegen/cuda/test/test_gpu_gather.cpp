@@ -287,8 +287,7 @@ TEST_F(NVFuserTest, GatherFusionCheckCode_CUDA) {
   fusion.addInput(tv1);
   fusion.addInput(tv2);
 
-  TensorView* tv_tmp = castOp(DataType::Float, tv0);
-  TensorView* tv4 = torch_gather(tv_tmp, 0, tv2);
+  TensorView* tv4 = torch_gather(tv0, 0, tv2);
   TensorView* tv5 = add(tv1, tv4);
   TensorView* tv6 = mul(tv4, tv5);
 
@@ -304,8 +303,8 @@ TEST_F(NVFuserTest, GatherFusionCheckCode_CUDA) {
   fusion.addOutput(tv6);
   // fusion.addOutput(tv_dim_1_6);
   // fusion.addOutput(tv_dim_2_6);
-
-  tv_tmp->computeAt(tv6, -1);
+  tv0->cacheAfter();
+  tv0->computeAt(tv6, -1);
   // can not parallelize on Index axis ?
   // tv4->axis(0)->parallelize(ParallelType::BIDx); 
   tv4->axis(-1)->parallelize(ParallelType::TIDx);
@@ -363,9 +362,9 @@ TEST_F(NVFuserTest, TorchGatherAutoFusionCode_CUDA) {
   FusionGuard fg(&fusion);
   // dimensionality of the problem
   int nDims = 3;
-  int x = 4, y = 4, z = 2;
-  int ix = 2, iy = 2, iz = 2;
-  int min_elm = 2;
+  int x = 14, y = 51, z = 15;
+  int ix = 10, iy = 23, iz = 10;
+  int min_elm = 5;
   // Set up your input tensor views
   TensorView* tv0 = makeContigTensor(nDims);
   TensorView* tv1 = makeContigTensor(nDims, DataType::Int);
@@ -377,11 +376,12 @@ TEST_F(NVFuserTest, TorchGatherAutoFusionCode_CUDA) {
   fusion.addInput(tv1);
   fusion.addInput(tv2);
 
-  TensorView* tv3 = torch_gather(tv0, 0, tv1);
+  TensorView* tvk = add(tv1, tv1);
+  TensorView* tv3 = torch_gather(tv0, 0, tvk);
   TensorView* tv4 = mul(tv2, tv3);
-  // TensorView* tv3 = add(IrBuilder::create<Double>(17.0), tv2);
+  TensorView* tv5 = add(tv3, tv4);
   // Register your outputs
-  fusion.addOutput(tv4);
+  fusion.addOutput(tv5);
 
   std::cout << fusion << std::endl;
 
@@ -397,26 +397,22 @@ TEST_F(NVFuserTest, TorchGatherAutoFusionCode_CUDA) {
   auto opts = torch::TensorOptions().dtype(torch::kLong);
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
 
-  at::Tensor input_index = at::randn({ix, iy, iz}, options);
-  // auto input_index = torch::from_blob(storage_x.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
-  at::Tensor input_lookup = at::randn({ix, iy, iz}, options);
+  // at::Tensor input_index = at::randn({ix, iy, iz}, options);
+  auto input_index = torch::from_blob(storage_x.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
+  at::Tensor input_lookup = at::randn({x, y, z}, options);
   at::Tensor input_tensor = at::randn({ix, iy, iz}, options);
   auto output1 = at::randn({ix, iy, iz}, options);
-  auto output2 = at::randn({ix, iy, iz}, options);
-  auto output3 = at::randn({ix, iy, iz}, options);
 
-  std::cout << "lookup = " << std::endl;
-  std::cout << input_lookup << std::endl;
-  
-  std::cout << "tensor = " << std::endl;
-  std::cout << input_tensor << std::endl;
 
-  std::cout << "index = " << std::endl;
-  std::cout << input_index << std::endl;
+  // TensorView* tvk = add(tv0, tv0);
+  // TensorView* tv3 = torch_gather(tvk, 0, tv1);
+  // TensorView* tv4 = mul(tv2, tv3);
+  // TensorView* tv5 = add(tv3, tv4);
 
-  auto torch_gather_res = at::add(input_lookup, input_index);
-  auto torch_add_res = at::mul(torch_gather_res, input_tensor);
-  // auto torch_mul_res = at::mul(torch_gather_res, torch_add_res);
+  auto t1 = at::add(input_index, input_index);
+  auto torch_gather_res = at::gather(t1, 0, input_index);
+  auto torch_mul_res = at::mul(torch_gather_res, input_tensor);
+  auto torch_add_res = at::add(torch_gather_res, torch_mul_res);
 
   // auto torch_gather_res_1 = at::gather(input_lookup, 1, input_index);
   // auto torch_add_res_1 = at::add(torch_gather_res_1, input_tensor);
@@ -426,8 +422,6 @@ TEST_F(NVFuserTest, TorchGatherAutoFusionCode_CUDA) {
   // auto torch_add_res_2 = at::add(torch_gather_res_2, input_tensor);
   // auto torch_mul_res_2 = at::mul(torch_gather_res_2, torch_add_res_2);
 
-  std::cout << "ref output = " << std::endl;
-  std::cout << torch_add_res << std::endl;
 
   // std::cout << "ref output dim 1 = " << std::endl;
   // std::cout << torch_mul_res_1 << std::endl;
@@ -443,19 +437,15 @@ TEST_F(NVFuserTest, TorchGatherAutoFusionCode_CUDA) {
   auto graphviz_str = IrGraphGenerator::toGraphviz(
                    &fusion, IrGraphGenerator::DetailLevel::Verbose);
   
-  std::cout << "graphviz begin" << std::endl;
-  std::cout << graphviz_str << std::endl;
-  std::cout << "graphviz end" << std::endl;
-
+  std::cout << "after schedule:" << std::endl;
   std::cout << fusion << std::endl;
+
   FusionExecutor fe;
   fe.compileFusion(&fusion, aten_inputs, lparams);
   std::cout << fe.kernelString() << std::endl;
 
   fe.runFusion(aten_inputs, {output1}, lparams);
 
-  std::cout << "output dim 0 = " << std::endl;
-  std::cout << output1 << std::endl;
 
   
   // std::cout << "output dim 0 = " << std::endl;
@@ -466,6 +456,80 @@ TEST_F(NVFuserTest, TorchGatherAutoFusionCode_CUDA) {
   // std::cout << output3 << std::endl;
 
   TORCH_CHECK(torch_add_res.allclose(output1));
+}
+
+
+
+TEST_F(NVFuserTest, TorchGatherKernel_CUDA) {
+  FusionExecutor fe;
+  std::string kernel = R"(
+__global__ void kernel1(Tensor<float, 3> T0, Tensor<int64_t, 3> T1, Tensor<float, 3> T2) {
+  int i64;
+  i64 = (((nvfuser_index_t)blockIdx.x) * 128) + ((nvfuser_index_t)threadIdx.x);
+  if ((i64 < (T1.size[0] * (T1.size[1] * T1.size[2])))) {
+    if(i64 == 0) {
+      printf("index dim 0 = %d, 1 = %d, 2= %d\n", (int)T1.size[0], (int)T1.size[1], (int)T1.size[2]);
+      printf("input dim 0 = %d, 1 = %d, 2= %d\n", (int)T0.size[0], (int)T0.size[1], (int)T0.size[2]);
+    }
+
+    float T3[1];
+    T3[0]
+       = T0[(T1[i64] * (T0.size[2] * T0.size[1])) + (((i64 / T1.size[0]) % T1.size[1]) * T0.size[2]) + (((i64 / 1) % T1.size[2]) * 1)];
+    T2[i64]
+       = T3[0];
+
+    printf("%d = [%ld][%ld][%ld] = %f\n", i64, T1[i64], (i64 / T1.size[0]) % T1.size[1], ((i64 / 1) % T1.size[2]), T3[0]);
+
+  }
+}
+    )";
+  fe.compileRtc(kernel, "CudaCodeGen::kernel1");
+  LaunchParams lp(
+      16, // gdimx
+      1, // gdimy
+      1, // gdimz
+      16, // bdimx
+      1, // bdimy
+      1 // bdimz
+  );
+  lp.setSmem(0);
+
+  int nDims = 3;
+  int x = 14, y = 51, z = 15;
+  int ix = 10, iy = 23, iz = 10;
+  int min_elm = 10;
+
+  std::vector<int64_t> storage_x(ix * iy * iz, 0);
+  for (int i = 0; i < ix; ++i) {
+    for (int j = 0; j < iy; ++j) {
+      for (int k = 0; k < iz; ++k) {
+        storage_x[i * (iy * iz) + j * iz + k] = std::abs(std::rand()) % min_elm;
+      }
+    }
+  }
+  auto opts = torch::TensorOptions().dtype(torch::kLong);
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+
+  auto input_index = torch::from_blob(storage_x.data(), {ix, iy, iz}, opts).clone().to(torch::kCUDA);
+  at::Tensor input_lookup = at::randn({ix, iy, iz}, options);
+  auto output1 = at::randn({ix, iy, iz}, options);
+
+  fe.runRtc(lp, {input_lookup, input_index, output1});
+  auto out_ref = at::gather(input_lookup, 0, input_index);
+  
+  std::cout << "input = " << std::endl;
+  std::cout << input_lookup << std::endl;
+
+  std::cout << "index = " << std::endl;
+  std::cout << input_index << std::endl;
+
+  std::cout << "ref out = " << std::endl;
+  std::cout << out_ref << std::endl;
+
+  std::cout << "out = " << std::endl;
+  std::cout << output1 << std::endl;
+
+  TORCH_CHECK(out_ref.allclose(output1));
 }
 
 

@@ -499,6 +499,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     bool first = true;
     std::stringstream index;
     for (auto* ind : ti->indices()) {
+      std::cout << " gen index = " << ind->toString() << std::endl;
       if (!ind->isZeroInt()) {
         if (!first) {
           index << " + ";
@@ -646,6 +647,10 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     auto index2 = gen(aop->getIndex2());
     indent() << gen(aop->output(0)) << " = (" << aop->dtype() << ")";
     code_ << "(" << index1 << " == " << index2 << ");\n";
+  }
+
+  void handle(const TorchGatherOp* gop) final {
+
   }
 
   void handle(const UnaryOp* uop) final {
@@ -919,6 +924,9 @@ class CudaKernelGenerator : private OptOutConstDispatch {
       const std::string& lhs,
       const std::string& rhs) {
     std::stringstream expr;
+    if(op_type == BinaryOpType::Mod) {
+      std::cout << "gen mod" << std::endl;
+    }
     if (auto op = inline_op_str(op_type)) {
       expr << lhs << " ";
       if (alsoBooleanOperator(op_type) && data_type == DataType::Bool) {

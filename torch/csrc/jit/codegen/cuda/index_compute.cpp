@@ -1461,6 +1461,7 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
   FUSER_PERF_SCOPE("GpuLower::Lower::getGlobalProducerIndex");
   // Replay producer to look like consumer so we can index on producer since
   // our loop nests look like consumer
+
   if(override_index.size() > 0) {
     std::cout << "getGlobalProducerStridedIndices TorchGatherOp" << std::endl;
     for(auto item : override_index) {
@@ -1469,12 +1470,14 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
       std::cout << " producer = " << producer_tv->toString() << std::endl;
     }
   }
-  std::cout << "before root domain map = " << override_index.size() << std::endl;
-  auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
+
   std::cout << "after root domain map = " << override_index.size() << std::endl;
   if(override_index.size() > 0) {
     std::cout << "getGlobalProducerStridedIndices TorchGatherOp 2" << std::endl;
   }
+
+
+  auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
 
   auto producerAsC =
       TransformReplay::replayPasC(producer_tv, consumer_tv, -1, pairwise_map)
@@ -1483,9 +1486,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
   ir_utils::TVDomainGuard domain_guard(producer_tv, producerAsC);
   // Map sent to best effort replay needs to match the exact incantation for
   // compute_at_mode.cpp with MappingMode::Index
-
-  if(override_index.size() > 0)
-      std::cout << "generate gatehr op debug 0 " << std::endl;
 
   auto c2p_root_map =
       PairwiseRootDomainMap(producer_tv, consumer_tv, true)
@@ -1517,8 +1517,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
     }
   }
 
-  if(override_index.size() > 0)
-      std::cout << "generate gatehr op debug 1 " << std::endl;
 
   auto producer_indexing_from_idgraph =
       getTensorIndexFromIdGraph(loops, consumer_tv, producer_tv, true, c2p_map);
@@ -1532,7 +1530,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
 
   // Indices should now be mapped onto IterDomains in producer, so just grab
   // and use them.
-  std::cout << "getNonGlobalConsumerStridedIndices getMaybeRFactorDomain " << std::endl;
   auto root_dom = producer_tv->getMaybeRFactorDomain();
 
   // TODO: Abstract stride logic to reuse with consumer indexing
@@ -1577,9 +1574,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
           SimplifyingIrBuilder::mulExpr(strides[dim], root_dim_extent);
     }
   }
-
-  if(override_index.size() != 0)
-    std::cout << "generate gatehr op debug 2 " << std::endl;
 
 
   auto vectorize_shift =
@@ -1651,6 +1645,8 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
 
     root_ind = getProducerIndexWithPartialSplit(
         root_ind, root_dom[i], producer_tv, consumer_tv);
+    if(override_index.size() > 0) 
+      std::cout << "after some pass, root_ind = " << root_ind->toString() << std::endl;
     
     if (root_ind->isZeroInt()) {
       continue;
@@ -1663,9 +1659,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
         strided_inds[i] = strided_ind;
       }
     }
-    if(override_index.size() != 0)
-      std::cout << "generate gatehr op index, " << i << \
-        " = " <<  strided_inds[i]->toString() << std::endl;
   }
 
   return strided_inds;
@@ -2293,12 +2286,8 @@ std::vector<Val*> Index::getProducerStridedIndices(
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getProducerStridedIndices");
-  std::cout << " getProducerStridedIndices " << std::endl;
-  if(override_index.size() > 0) {
-    std::cout << "only for torch gather " << std::endl;
-  }
+  
   if (producer->domain()->noReductions().size() == 0) {
-    std::cout << " in this fact " << std::endl;
     return std::vector<Val*>(
         producer->getMaybeRFactorDomain().size(),
         GpuLower::current()->kernel()->zeroVal());

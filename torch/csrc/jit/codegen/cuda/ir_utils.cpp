@@ -1133,6 +1133,9 @@ bool isSelectInput(TensorView* tv) {
     if (expr->isA<SelectOp>()) {
       return true;
     }
+    if (expr->isA<TorchGatherOp>()) {
+      return true;
+    }
   }
   return false;
 }

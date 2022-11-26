@@ -199,7 +199,6 @@ void replaceSymbolicSizes(Fusion* fusion) {
           !orig_size->isFusionInput() && !orig_size->isConstScalar()) {
         std::stringstream ss;
         ss << "T" << tv->name() << ".size[" << dim++ << "]";
-        std::cout << "new node " << std::endl;
         tensor_dim_map[orig_size] = IrBuilder::create<NamedScalar>(
             ss.str(), orig_size->getDataType().value());
       } else {
@@ -222,11 +221,6 @@ void replaceSymbolicSizes(Fusion* fusion) {
     }
   }
   // Run mutation on the fusion with the tensor_dim_map
-  std::cout << "replace " << std::endl;
-  for(auto item : tensor_dim_map) {
-    std::cout << " key = " << item.first->toString() << std::endl;
-    std::cout << " value = " << item.second->toString() << std::endl;
-  }
   ir_utils::replaceValue(fusion, tensor_dim_map);
 }
 

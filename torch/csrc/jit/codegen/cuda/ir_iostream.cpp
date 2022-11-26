@@ -732,9 +732,7 @@ void IrPrinter::handle(const kir::TensorIndex* ti) {
   }
   os_ << "[";
   for (auto index : ti->indices()) {
-    std::cout << "idx name = " << index->toString() << std::endl;
     if(auto x = dynamic_cast<kir::TensorIndex*>(index)) {
-      std::cout << "something in my mind..." << std::endl;
       handle(x);
       continue;
     }
