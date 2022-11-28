@@ -1242,12 +1242,14 @@ TorchGatherOp::TorchGatherOp(
   Val* out,
   Val* in1,
   IterDomain* select_id,
+  int dim,
   Val* in3)
   : Expr(passkey),
     torch_gather_op_type_{type},
     out_{out},
     in1_{in1},
     select_id_{select_id},
+    dim_{dim},
     in3_{in3} {
   addInput(in1);
   addInput(in3);
@@ -1260,7 +1262,7 @@ TorchGatherOp::TorchGatherOp(const TorchGatherOp* src, IrCloner* ir_cloner)
       select_id_(ir_cloner->clone(src->select_id_)),
       out_(ir_cloner->clone(src->out_)),
       in1_(ir_cloner->clone(src->in1_)),
-      in2_(src->in2_),
+      dim_(src->dim_),
       in3_(ir_cloner->clone(src->in3_)) {}
 
 
@@ -1282,9 +1284,9 @@ bool TorchGatherOp::sameAs(const Statement* other) const {
 }
 
 Expr* TorchGatherOp::shallowCopy() const {
-  std::cout << "shallowCopy TorchGatherOp " << std::endl;
+  std::cout << "shallowCopy dim = " << dim_ << std::endl;
   auto result = IrBuilder::create<TorchGatherOp>(torch_gather_op_type_, 
-    out(), in1(), select_id_, in3());
+    out(), in1(), select_id_, dim_, in3());
   result->copyPredicatesFrom(this);
   return result;
 }

@@ -925,6 +925,7 @@ public:
     Val* out, 
     Val* in,
     IterDomain* select_id,
+    int dim,
     Val* index
   );
 
@@ -952,6 +953,9 @@ public:
     return in3_;
   }
 
+  int dim() const {
+    return dim_;
+  }
   std::unordered_map<IterDomain*, Val*> getIndexOverridingMap() const;
 
   SelectOpType getTorchGatherOpType() const {
@@ -964,10 +968,9 @@ private:
   const SelectOpType torch_gather_op_type_;
   Val* const out_ = nullptr;
   Val* const in1_ = nullptr;
-  const int in2_ = 0;
   Val* const in3_ = nullptr;
   IterDomain* select_id_;
-
+  const int dim_ = 0;
 };
 
 

@@ -64,18 +64,14 @@ class KernelIrScanner : private IrVisitor {
   }
 
   void handle(Allocate* allocate) final {
-    std::cout << "handle allocate = " << allocate->toString() << std::endl;
     switch (allocate->memoryType()) {
       case MemoryType::Global:
-        std::cout << "type = Global " << std::endl;
         summary_.global_allocations.push_back(allocate);
         break;
       case MemoryType::Shared:
-        std::cout << "type = Shared " << std::endl;
         summary_.dynamic_smem_allocations.push_back(allocate);
         break;
       case MemoryType::Local:
-        std::cout << "type = Local " << std::endl;
         if (!allocate->size()->isConstInt()) {
           summary_.has_dynamic_local_memory_allocations = true;
           summary_.dynamic_lmem_allocations.emplace_back(allocate);

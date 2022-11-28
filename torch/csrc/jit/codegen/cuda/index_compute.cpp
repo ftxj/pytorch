@@ -1462,21 +1462,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
   // Replay producer to look like consumer so we can index on producer since
   // our loop nests look like consumer
 
-  if(override_index.size() > 0) {
-    std::cout << "getGlobalProducerStridedIndices TorchGatherOp" << std::endl;
-    for(auto item : override_index) {
-      std::cout << " key = " << item.first->toString() << std::endl;
-      std::cout << " value = " << item.second->toString() << std::endl;
-      std::cout << " producer = " << producer_tv->toString() << std::endl;
-    }
-  }
-
-  std::cout << "after root domain map = " << override_index.size() << std::endl;
-  if(override_index.size() > 0) {
-    std::cout << "getGlobalProducerStridedIndices TorchGatherOp 2" << std::endl;
-  }
-
-
   auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
 
   auto producerAsC =
@@ -1591,13 +1576,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
     Val* root_ind = nullptr;
     auto override_it = override_index.find(root_dom[i]);
 
-    if(override_index.size() > 0) {
-      if(override_it == override_index.end())
-        std::cout << " find " << root_dom[i]->toString() << " , result = nullptr" << std::endl;
-      else
-        std::cout << " find " << root_dom[i]->toString() << " , result = " << override_it->second->toString() << std::endl;
-    }
-
     if (override_it != override_index.end()) {
       root_ind = override_it->second;
     } else if (
@@ -1645,8 +1623,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
 
     root_ind = getProducerIndexWithPartialSplit(
         root_ind, root_dom[i], producer_tv, consumer_tv);
-    if(override_index.size() > 0) 
-      std::cout << "after some pass, root_ind = " << root_ind->toString() << std::endl;
     
     if (root_ind->isZeroInt()) {
       continue;
@@ -1709,14 +1685,6 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   const auto gpu_lower = GpuLower::current();
-  if(override_index.size() > 0) {
-    std::cout << "getNonGlobalConsumerStridedIndices TorchGatherOp what" << std::endl;
-    for(auto item : override_index) {
-      std::cout << " key = " << item.first->toString() << std::endl;
-      std::cout << " value = " << item.second->toString() << std::endl;
-      std::cout << " producer = " << producer_tv->toString() << std::endl;
-    }
-  }
   // Replay producer to look like consumer so we can index on producer since our
   // loop nests look like consumer
   auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
@@ -1820,7 +1788,6 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
   const auto& zero_domain_map = producer_indexing.zeroDomains();
   // Indices should now be mapped onto IterDomains in producer, so just grab
   // and use them.
-  std::cout << "getNonGlobalConsumerStridedIndices getMaybeRFactorDomain " << std::endl;
   auto root_dom = producer_tv->getMaybeRFactorDomain();
 
   // Figure out which root axes we don't need to index
@@ -1840,17 +1807,10 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
     }
   }
 
-  if(override_index.size() > 0) {
-    std::cout << "getNonGlobalConsumerStridedIndices TorchGatherOp debug 1" << std::endl;
-  }
-
   std::vector<Val*> strided_inds(
       root_dom.size(), GpuLower::current()->kernel()->zeroVal());
   for (const auto i : c10::irange(root_dom.size())) {
     if (skip_indexing.count(root_dom[i])) {
-        if(override_index.size() > 0) {
-          std::cout << "getNonGlobalConsumerStridedIndices TorchGatherOp debug 2" << std::endl;
-        }
       continue;
     }
 
@@ -1864,13 +1824,6 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
         root_dom[i]->toString());
 
     auto override_it = override_index.find(root_dom[i]);
-    if(override_index.size() > 0) {
-      if(override_it == override_index.end())
-        std::cout << " find " << root_dom[i]->toString() << " , result = nullptr" << std::endl;
-      else
-        std::cout << " find " << root_dom[i]->toString() << " , result = " << override_it->second->toString() << std::endl;
-    }
-
     auto root_ind_i =
         (override_it != override_index.end() ? override_it->second
                                              : index_map.at(root_dom[i]));
@@ -1906,9 +1859,6 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
     
     
     if (root_ind_i->isZeroInt()) {
-      if(override_index.size() > 0) {
-        std::cout << "getNonGlobalConsumerStridedIndices TorchGatherOp debug 3" << std::endl;
-      }
       continue;
     }
 
@@ -1948,9 +1898,6 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
     } else {
       strided_inds[i] = root_ind_i;
     }
-    if(override_index.size() != 0)
-      std::cout << "generate gatehr op index, " << i << \
-        " = " <<  strided_inds[i]->toString() << std::endl;
   }
 
   if (producer_tv->isDoubleBuffered() || producer_tv->isCircularBuffered()) {

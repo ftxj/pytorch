@@ -224,7 +224,6 @@ c10::optional<EvaluatorValue> PrecomputedValues::getMaybeValueFor(
 }
 
 void PrecomputedValues::print() const {
-  std::cout << "Precomputed Values:\n";
   for (auto i : c10::irange(symbols_.size())) {
     if (defined_[i]) {
       std::cout << symbols_[i]->toInlineString() << " = " << values_[i]

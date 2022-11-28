@@ -1984,12 +1984,7 @@ TensorView* arithOpOverloadsForTorchGather(
 
 TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
   auto dom = TensorDomain::noReductions(tv->getMaybeRFactorDomain());
-  std::cout << "new torch gather by " << tv->toString() << std::endl;
   TORCH_CHECK(dom.size() > 0, "gather can not be applied to 0d tensor.");
-
-  // std::vector<IterDomain*> new_root;
-  // new_root.reserve(dom.size() - 1);
-
   tv->setAsLookupTV(dim);
   if (dim < 0) {
     dim += dom.size();
@@ -2001,16 +1996,10 @@ TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
       " however tensor view only has ",
       dom.size(),
       " non-reduction dims.");
-
+  std::cout << "input dim = " << dim << std::endl;
   Val* out = newValLike(index, tv->getDataType().value(), true); // shape = index, type = input
-  std::cout << "init replace: " << dom[dim] << std::endl;
-  
-  std::cout << "init tv = " << tv << std::endl;
-  std::cout << "init index = " << index << std::endl;
-  std::cout << "init out = " << out << std::endl;
-
   IrBuilder::create<TorchGatherOp>(
-      SelectOpType::TorchGather, out, tv, dom[dim], index);
+      SelectOpType::TorchGather, out, tv, dom[dim], dim, index);
   return out->as<TensorView>();
 }
 

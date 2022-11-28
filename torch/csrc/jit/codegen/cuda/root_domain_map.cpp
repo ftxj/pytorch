@@ -678,10 +678,6 @@ std::unordered_map<IterDomain*, IterDomain*> ComputeAtRootDomainMap::map(
     bool producer_to_consumer) const {
   const auto& producer_root =
       TensorDomain::noReductions(producer->getMaybeRFactorDomain());
-  std::cout << "begin ComputeAt Map" << std::endl;
-  for(auto dom : producer_root) {
-    std::cout << "map dom = " << dom->toString() << std::endl;
-  }
   const auto& consumer_root = consumer->getRootDomain();
   const TensorDomain* from_td = producer_to_consumer ? producer : consumer;
   const TensorDomain* to_td = producer_to_consumer ? consumer : producer;
@@ -689,11 +685,6 @@ std::unordered_map<IterDomain*, IterDomain*> ComputeAtRootDomainMap::map(
   const auto& to_ids = producer_to_consumer ? consumer_root : producer_root;
   std::unordered_map<IterDomain*, IterDomain*> id_map =
       mapBestEffort(from_td, from_ids, to_td, to_ids);
-  std::cout << "begin ComputeAt Map id_map" << std::endl;
-  for(auto dom : id_map) {
-    std::cout << "map id = " << dom.first->toString() << std::endl;
-    std::cout << "map id = " << dom.second->toString() << std::endl;
-  }
   for (auto& from_id : from_ids) {
     if (root_dims_to_map.find(from_id) == root_dims_to_map.end()) {
       // Remove mapping if exists

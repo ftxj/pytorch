@@ -414,7 +414,6 @@ LaunchParams schedulePointwise(
     const at::ArrayRef<c10::IValue>& runtime_inputs) {
   FUSER_PERF_SCOPE("scheduleFusion");
   auto params = getPointwiseHeuristics(fusion, runtime_inputs);
-  std::cout << params->toString() << std::endl;
   TORCH_INTERNAL_ASSERT(
       params != nullptr, "Could not schedule pointwise operation.");
   schedulePointwise(fusion, *params);
@@ -481,10 +480,6 @@ void schedulePointwise(Fusion* fusion, const PointwiseParams& params) {
   }
 
   TensorView* reference_tv = getReferenceTensorView(fusion);
-  std::cout << "debug schedule 1" << std::endl;
-  std::cout << fusion << std::endl;
-
-  std::cout << "ref tv = " << reference_tv << std::endl;
 
   TORCH_INTERNAL_ASSERT(
       reference_tv != nullptr,
@@ -596,8 +591,6 @@ void schedulePointwise(Fusion* fusion, const PointwiseParams& params) {
       }
     }
   }
-  std::cout << "debug schedule 2" << std::endl;
-  std::cout << fusion << std::endl;
 
   int64_t unswitch_pos;
   IterDomain* vectorize_id = nullptr;
@@ -750,8 +743,6 @@ void schedulePointwise(Fusion* fusion, const PointwiseParams& params) {
     }
     unswitch_pos = 2;
   }
-  std::cout << "debug schedule 3" << std::endl;
-  std::cout << fusion << std::endl;
 
 
   TransformPropagator propagator(reference_tv);
@@ -798,8 +789,6 @@ void schedulePointwise(Fusion* fusion, const PointwiseParams& params) {
   inlineAllAt(reference_tv, unswitch_pos, true);
 
   auto all_tvs = ir_utils::allTvs(fusion);
-  std::cout << "debug schedule 4" << std::endl;
-  std::cout << fusion << std::endl;
 
   // Inline at the inner most position. The CA position of all tensors except
   // inputs, cached inputs and outputs will be updated.
@@ -813,8 +802,6 @@ void schedulePointwise(Fusion* fusion, const PointwiseParams& params) {
     inner_most_tensors.erase(output);
   }
   inlineMost(inner_most_tensors);
-  std::cout << "debug schedule 5" << std::endl;
-  std::cout << fusion << std::endl;
 
 }
 

@@ -546,6 +546,7 @@ class ReplaceExprInput : private kir::ExprMutator {
           node->out(),
           node->in1(),
           node->getSelectAxis(),
+          node->dim(),
           node->in3());
       registerReplaceWithPredicate(node, replacement);
     }
@@ -655,7 +656,6 @@ BasicAllocInfo getAllocInformation(
     const std::unordered_map<IterDomain*, IterDomain*>& id_map,
     bool use_id_map) {
   BasicAllocInfo info;
-  std::cout << "get Alloc Information for tv = " << tv->toString() << std::endl;
   auto gpu_lower = GpuLower::current();
 
   bool outer_alloc_found = false;

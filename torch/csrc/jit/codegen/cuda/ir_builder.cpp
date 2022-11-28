@@ -101,7 +101,6 @@ Val* IrBuilder::newArithmeticExpr(BinaryOpType op_type, Val* lhs, Val* rhs) {
       " and ",
       rhs->dtype());
   auto result = newResult(lhs->dtype());
-  std::cout << "create binary op" << std::endl;
   IrBuilder::create<BinaryOp>(op_type, result, lhs, rhs);
   // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
   return result;

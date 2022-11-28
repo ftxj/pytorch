@@ -204,11 +204,9 @@ void IndexLowering::handle(const TernaryOp* top) {
 
 
 void IndexLowering::handle(const TorchGatherOp* top) {
+  
   const auto indices = lowerSrcIndex(top->input(1), top->output(0));
-
   // const std::unordered_map<IterDomain*, Val*> override_index;
-  std::cout << "lower TorchGatherOp Index, indices = " << indices->toString() << std::endl;
-
   auto index_domains = dynamic_cast<TensorView*>(top->input(1))->getRootDomain();  
   auto input_domains = dynamic_cast<TensorView*>(top->input(0))->getRootDomain();  
   // bug here. (when index tensor is produced by some other op).
@@ -259,34 +257,25 @@ void IndexLowering::handle(const TorchGatherOp* top) {
 
   std::vector<Val*> index_tv_index_for_dims;
   for(size_t dim = 0; dim < index_domains.size(); ++dim) {
-    std::cout << dim << std::endl;
     Val* index_tv_index_for_dim = nullptr;
-    if(dim == 0) {
-      index_tv_index_for_dim = IrBuilder::modExpr(index_tv_all_index, index_tv_strides[dim]);
-    }
-    else {
-      index_tv_index_for_dim = IrBuilder::mulExpr(
-        IrBuilder::modExpr(
-          IrBuilder::divExpr(
-            index_tv_all_index, 
-            index_tv_reverse_strides[dim + 1]),  // 0 -> T2 * T1, 1 -> T2, 2 -> 1
-          index_domains[dim]->extent() // 0 -> T0, 1 -> T1, 2 -> T2 
-        ), 
-        input_tv_strides[dim + 1]
-        );
-    }
+    index_tv_index_for_dim = IrBuilder::mulExpr(
+      IrBuilder::modExpr(
+        IrBuilder::divExpr(
+          index_tv_all_index, 
+          index_tv_reverse_strides[dim + 1]),  // 0 -> T2 * T1, 1 -> T2, 2 -> 1
+        index_domains[dim]->extent() // 0 -> T0, 1 -> T1, 2 -> T2 
+      ), 
+      input_tv_strides[dim + 1] // 0 -> T2 * T1, 1 -> T2, 2 -> 1
+    );
     index_tv_index_for_dims.push_back(index_tv_index_for_dim);
-    std::cout << " gen use = " << index_tv_index_for_dim << std::endl;
   }
-  std::cout << "somthing bug " << std::endl;
-  index_tv_index_for_dims[0] = IrBuilder::mulExpr(indices, input_tv_strides[1]);
+  std::cout << "replace top->dim() = " << top->dim() << std::endl;
+  std::cout << "replace to = " << indices->toString() << std::endl;
+  
+  index_tv_index_for_dims[top->dim()] = IrBuilder::mulExpr(indices, input_tv_strides[top->dim() + 1]);
 
   auto input = SimplifyingIrBuilder::create<kir::TensorIndex>(
       dynamic_cast<TensorView*>(top->input(0)), index_tv_index_for_dims);
-
-
-  // const auto input = lowerSrcIndex(top->input(0), top->output(0));
-  std::cout << "after lower input = " << input->toString() << std::endl;
 
   const auto out = lowerDstIndex(top->output(0));
   pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));

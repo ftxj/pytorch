@@ -24,7 +24,6 @@ namespace {
 
 void dumpCodegenTypeEnabled(const Expr* expr, std::string msg_pre) {
   // if (isDebugDumpEnabled(DebugDumpOption::LowerVerbose)) {
-    std::cout << "codegen::" <<  msg_pre << "->" << expr->toString() << std::endl;
   // }
 }
 
@@ -160,7 +159,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   static std::string generateKernelDefinition(
       const kir::Kernel* kernel,
       const std::string& kernel_name) {
-    std::cout << "before kernel gen" << std::endl;
     kernel->print();
     CudaKernelGenerator codegen(kernel);
     codegen.genDeclaration(kernel_name);
@@ -397,7 +395,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const kir::Predicate* pred) final {
-    std::cout << "codegen::Predicate" << std::endl;
     // dumpCodegenTypeEnabled(pred, "Predicate");
     TORCH_INTERNAL_ASSERT(pred->hasValue());
     code_ << gen(pred->value());
@@ -418,7 +415,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
   void handle(const Double* d) final {
     // dumpCodegenTypeEnabled(d, "Double");
-    std::cout << "codegen::Double" << std::endl;
     const auto def = d->definition();
     const bool has_alloc = alloc_map_.find(d) != alloc_map_.end();
     if (def != nullptr && !has_alloc) {
@@ -445,7 +441,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
   void handle(const Int* i) final {
     // dumpCodegenTypeEnabled(i, "Int");
-    std::cout << "codegen::Int" << std::endl;
     // Check the replacement map first. If there's an entry for i, use
     // the corresponding replacement.
     auto replace_it = index_replacement_map_.find(i);
@@ -479,8 +474,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const NamedScalar* ns) final {
-    std::cout << "codegen::NamedScalar->" << ns->toString() << std::endl;
-    // dumpCodegenTypeEnabled(ns, "NamedScalar");
     // dim3 components are unsigned int. Cast to signed integer to
     // support negative indexing
     if (ns->getParallelIndex().has_value() ||
@@ -499,7 +492,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     bool first = true;
     std::stringstream index;
     for (auto* ind : ti->indices()) {
-      std::cout << " gen index = " << ind->toString() << std::endl;
       if (!ind->isZeroInt()) {
         if (!first) {
           index << " + ";
@@ -548,8 +540,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
   void handle(const kir::TensorIndex* ti) final {
     // dumpCodegenTypeEnabled(ti, "TensorIndex");
-    std::cout << "codegen::TensorIndex" << std::endl;
-    std::cout << ti->toString() << std::endl;
     bool is_volatile = ti->view()->getMemoryType() == MemoryType::Global &&
         kernel_->summary().sync_map->needsRawSync(ti->view()).hasBID();
     if (is_volatile) {
@@ -565,8 +555,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const IterDomain* i) final {
-    // dumpCodegenTypeEnabled(i, "IterDomain");
-    std::cout << "codegen::IterDomain->" << i->toString() << std::endl; 
     TORCH_INTERNAL_ASSERT(false, "Unreachable");
   }
 
@@ -576,8 +564,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
   
   void handle(const TensorView* tv) final {
-    // indent() << gen(tv);
-    std::cout << "Error on " << tv->toString() << std::endl;
     TORCH_INTERNAL_ASSERT(false, "Unreachable");
   }
 
@@ -649,26 +635,12 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     code_ << "(" << index1 << " == " << index2 << ");\n";
   }
 
-  void handle(const TorchGatherOp* gop) final {
-
-  }
-
   void handle(const UnaryOp* uop) final {
-    bool if_print = false;
-    if(uop->is_gather()) {
-      if_print = true;
-      std::cout << "codegen::UnaryOp::gather -> " << uop->toString() << std::endl;
-    }
-    else {
-      std::cout << "codegen::UnaryOp -> " << uop->toString() << std::endl;
-    }
-    // dumpCodegenTypeEnabled(uop, "UnaryOp");
 
     bool is_vector_op = false;
     size_t vector_word_size = 1;
 
     if (uop->out()->isA<kir::TensorIndex>()) {
-      std::cout << "gen unary branch 1 this ? " << uop->toString() << std::endl;
       auto out_tv = uop->out()->as<kir::TensorIndex>()->view();
       if (std::any_of(
               out_tv->domain()->domain().begin(),
@@ -684,7 +656,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     }
 
     if (vectorize_scope_ && uop->out()->isA<kir::TensorIndex>()) {
-      std::cout << "gen unary branch 2 this ? " << uop->toString() << std::endl;
       auto ti = uop->out()->as<kir::TensorIndex>();
 
       bool vectorize_op = false;
@@ -800,7 +771,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     const auto op_type = uop->getUnaryOpType();
 
     if (uop->out()->isA<NamedScalar>()) {
-      std::cout << "gen unary branch 3 this ? " << uop->toString() << std::endl;
       if (auto op = inline_op_str(op_type)) {
         indent() << gen(uop->out()) << " = " << *op << genInline(uop->in())
                  << ";\n";
@@ -809,42 +779,24 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     }
 
     if (!print_inline_) {
-      if(if_print)
-      std::cout << "gen unary branch 4 this ? " << uop->toString() << std::endl;
-      auto x = gen(uop->out());
-      if(if_print)
-      std::cout << "gen = " << x << std::endl;
-      indent() << x;
+      indent() << gen(uop->out());
       if (!uop->out()->isScalar() && !uop->in()->isScalar()) {
         code_ << "\n";
         indent() << kTab;
       }
-      if(if_print)
-      std::cout << " = "  << std::endl;
       code_ << " = ";
     }
 
     if (auto op = inline_op_str(op_type)) {
-      if(if_print)
-      std::cout << "gen unary branch 5 this ? " << uop->toString() << std::endl;
-
       if (alsoBooleanOperator(op_type) &&
           uop->out()->dtype() == DataType::Bool) {
         auto b = gen(uop->in());
-        if(if_print)
-        std::cout << "gen b 1 = (" << b << ")" << std::endl;
         code_ << stringifyBooleanOp(op_type) << b;
       } else {
-        if(if_print)
-        std::cout << "unary in = " << uop->in()->toString() << std::endl;
         auto b = gen(uop->in());
-        if(if_print)
-        std::cout << "gen b 2 = (" << b << ")" << std::endl;
         code_ << *op << b;
       }
     } else {
-      if(if_print)
-      std::cout << "gen unary branch 6 this ?" << std::endl;
       if (op_type == UnaryOpType::Cast) {
         const auto cast_str =
             cast_func_str({uop->in()->dtype(), uop->out()->dtype()});
@@ -856,8 +808,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
             uop->out()->dtype());
         code_ << cast_str.value();
       } else {
-        if(if_print)
-        std::cout << "optype = " << op_type << std::endl;
         code_ << op_type;
         if (needFloatSuffix(op_type) &&
             uop->out()->dtype() == DataType::Float) {
@@ -865,14 +815,10 @@ class CudaKernelGenerator : private OptOutConstDispatch {
         }
       }
       auto b = gen(uop->in());
-      if(if_print)
-      std::cout << "gen b 3 = (" << b << ")" << std::endl;
       code_ << "(" << b << ")";
     }
 
     if (!print_inline_) {
-      if(if_print)
-      std::cout << "gen unary branch 7 this ? " << uop->toString() << std::endl;
       code_ << ";\n";
     }
   }
@@ -924,9 +870,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
       const std::string& lhs,
       const std::string& rhs) {
     std::stringstream expr;
-    if(op_type == BinaryOpType::Mod) {
-      std::cout << "gen mod" << std::endl;
-    }
     if (auto op = inline_op_str(op_type)) {
       expr << lhs << " ";
       if (alsoBooleanOperator(op_type) && data_type == DataType::Bool) {
@@ -1050,8 +993,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const BinaryOp* bop) final {
-    std::cout << "codegen::BinaryOp ->" << bop->toString() << std::endl;
-    // dumpCodegenTypeEnabled(bop, "BinaryOp");
     // Try replacing pow with mul
     if (genPowerWithMul(bop)) {
       return;
@@ -1237,8 +1178,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const BroadcastOp* stmt) final {
-    // dumpCodegenTypeEnabled(stmt, "BroadcastOp");
-    std::cout << "codegen::BroadcastOp" << std::endl;
     TORCH_INTERNAL_ASSERT(stmt->out()->isA<kir::TensorIndex>());
 
     const ParallelTypeBitmap parallel_types =
@@ -2538,8 +2477,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const kir::ForLoop* loop) final {
-    // dumpCodegenTypeEnabled(loop, "ForLoop");
-    std::cout << "codegen::ForLoop" << std::endl;
     if (loop->isTrivial()) {
       handleTrivialLoop(loop);
       return;
@@ -2591,8 +2528,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const kir::IfThenElse* ite) final {
-    // dumpCodegenTypeEnabled(ite, "IfThenElse");
-    std::cout << "codegen::IfThenElse" << std::endl;
     auto conditional = ite->predicate()->value();
     if (conditional->isConst()) {
       // If the conditional is a constant, then the IfThenElse is not required
@@ -2621,8 +2556,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const kir::Allocate* alloc) final {
-    // dumpCodegenTypeEnabled(alloc, "Allocate");
-    std::cout << "codegen::alloc" << std::endl;
     const auto buffer_dtype = alloc->buffer()->dtype();
 
     TORCH_INTERNAL_ASSERT(alloc->buffer() != nullptr);

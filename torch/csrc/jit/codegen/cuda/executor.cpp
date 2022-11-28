@@ -249,8 +249,6 @@ void FusionExecutor::compileFusion(
                                                     : DataType::Int32);
   const auto kernel = lowered_->kernel();
   fusion_ = lowered_->kernel()->as<Fusion>();
-  std::cout << "after lower" << std::endl;
-  std::cout << kernel << std::endl;
   fusion_id_ = ++fusion_id_counter_;
   setUsedTVs();
 
@@ -677,7 +675,6 @@ LaunchParams FusionExecutor::computeLaunchParams(
 
   const auto kernel = lowered_->kernel();
   const auto& kernel_summary = kernel->summary();
-
   // Calculate Dynamic Shared Memory Size
   // Add workspace for reduction and broadcast
   uint64_t reduction_broadcast_workspace = 0;

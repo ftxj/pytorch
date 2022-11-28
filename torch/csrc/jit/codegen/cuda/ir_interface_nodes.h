@@ -458,7 +458,6 @@ class TORCH_CUDA_CU_API TensorView : public Val {
   void setAsLookupTV(int dim) {
     if (domain_ != nullptr) {
       if (dim < domain_->domain().size()) {
-        std::cout << "set lookup" << std::endl;
         domain_->domain()[dim]->setIterTypeAsLookup();
       }
       if (dim < domain_->getRootDomain().size()) {

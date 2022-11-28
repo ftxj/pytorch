@@ -529,7 +529,6 @@ struct SubstituteInExpr : public OptInDispatch {
                                                       : top->in3();
     auto out = reference_->sameAs(top->out()) ? substitute_
                                                       : top->out();
-    std::cout << "handle TorchGatherOp" << std::endl;
     if(auto inv = dynamic_cast<TensorView*>(in1)) {
       auto dom = TensorDomain::noReductions(inv->getMaybeRFactorDomain());
       expr_ = IrBuilder::create<TorchGatherOp>(
@@ -537,7 +536,8 @@ struct SubstituteInExpr : public OptInDispatch {
         top->getTorchGatherOpType(),
         out,
         in1,
-        dom[0],
+        dom[top->dim()],
+        top->dim(),
         in3);
     }
     else {
@@ -547,6 +547,7 @@ struct SubstituteInExpr : public OptInDispatch {
         out,
         in1,
         top->getSelectAxis(),
+        top->dim(),
         in3);
     }
 
@@ -842,7 +843,6 @@ class ValReplacementMutator : private OptOutMutator {
     }
     auto more_stmts = StmtSort::getStmts(fusion, more, true);
     more_stmts.insert(more_stmts.end(), stmts.begin(), stmts.end());
-    std::cout << "begin mutate" << std::endl;
     for (auto stmt : more_stmts) {
       mutate(stmt);
     }
@@ -1029,7 +1029,6 @@ struct ReplaceValInIndexVal : public OptInDispatch {
   }
 
   void handle(TorchGatherOp* top) final {
-    std::cout << " ReplaceValInIndexVal TorchGather" << std::endl;
     handle(top->in1());
     auto in1 = last_visited_val_;
     handle(top->in3());
@@ -1041,6 +1040,7 @@ struct ReplaceValInIndexVal : public OptInDispatch {
         out,
         in1,
         top->getSelectAxis(),
+        top->dim(),
         in3);
     last_visited_val_ = out;
   }
