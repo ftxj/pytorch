@@ -48,6 +48,7 @@ void Val::dispatch(T handler, Val* val) {
         case DataType::Bool:
           ptr(handler)->handle(val->as<Bool>());
           return;
+        case DataType::Float:
         case DataType::Double:
           ptr(handler)->handle(val->as<Double>());
           return;
@@ -119,6 +120,10 @@ void Expr::dispatch(T handler, Expr* expr) {
     ptr(handler)->handle(expr->as<SelectOp>());
     return;
   }
+  if (expr->isStrictlyA<IndexSelectOp>()) {
+    ptr(handler)->handle(expr->as<IndexSelectOp>());
+    return;
+  }
   if (expr->isStrictlyA<RNGOp>()) {
     ptr(handler)->handle(expr->as<RNGOp>());
     return;
@@ -251,6 +256,10 @@ void Expr::dispatch(T handler, Expr* expr) {
     ptr(handler)->handle(expr->as<kir::GroupedGridWelford>());
     return;
   }
+  if (expr->isStrictlyA<kir::VectorizedWelfordOp>()) {
+    ptr(handler)->handle(expr->as<kir::VectorizedWelfordOp>());
+    return;
+  }
   if (expr->isStrictlyA<kir::AllocateFusedReduction>()) {
     ptr(handler)->handle(expr->as<kir::AllocateFusedReduction>());
     return;
@@ -276,6 +285,7 @@ void Val::constDispatch(T handler, const Val* val) {
         case DataType::Bool:
           ptr(handler)->handle(val->as<Bool>());
           return;
+        case DataType::Float:
         case DataType::Double:
           ptr(handler)->handle(val->as<Double>());
           return;
@@ -310,6 +320,10 @@ void Val::constDispatch(T handler, const Val* val) {
       return;
     case ValType::TensorIndex:
       ptr(handler)->handle(val->as<kir::TensorIndex>());
+      return;
+    case ValType::Attribute:
+      // Attribute Val is just a wrapper for non-IR data, so there is nothing to
+      // handle
       return;
     default:
       break;
@@ -347,6 +361,10 @@ void Expr::constDispatch(T handler, const Expr* expr) {
     ptr(handler)->handle(expr->as<SelectOp>());
     return;
   }
+  if (expr->isStrictlyA<IndexSelectOp>()) {
+    ptr(handler)->handle(expr->as<IndexSelectOp>());
+    return;
+  }
   if (expr->isStrictlyA<RNGOp>()) {
     ptr(handler)->handle(expr->as<RNGOp>());
     return;
@@ -477,6 +495,10 @@ void Expr::constDispatch(T handler, const Expr* expr) {
   }
   if (expr->isStrictlyA<kir::GroupedGridWelford>()) {
     ptr(handler)->handle(expr->as<kir::GroupedGridWelford>());
+    return;
+  }
+  if (expr->isStrictlyA<kir::VectorizedWelfordOp>()) {
+    ptr(handler)->handle(expr->as<kir::VectorizedWelfordOp>());
     return;
   }
   if (expr->isStrictlyA<kir::AllocateFusedReduction>()) {
@@ -515,10 +537,12 @@ void Val::mutatorDispatch(T mutator, Val* val) {
         case DataType::Bool:
           ptr(mutator)->mutate(val->as<Bool>());
           return;
+        case DataType::Float:
         case DataType::Double:
           ptr(mutator)->mutate(val->as<Double>());
           return;
         case DataType::Int:
+        case DataType::Int32:
           ptr(mutator)->mutate(val->as<Int>());
           return;
         case DataType::ComplexDouble:
@@ -551,175 +575,6 @@ void Val::mutatorDispatch(T mutator, Val* val) {
       break;
   }
   TORCH_INTERNAL_ASSERT(false, "Unknown valtype in dispatch!");
-}
-
-template <typename T>
-void Expr::mutatorDispatch(T mutator, Expr* expr) {
-  if (expr->isStrictlyA<FullOp>()) {
-    ptr(mutator)->mutate(expr->as<FullOp>());
-    return;
-  }
-  if (expr->isStrictlyA<ARangeOp>()) {
-    ptr(mutator)->mutate(expr->as<ARangeOp>());
-    return;
-  }
-  if (expr->isStrictlyA<EyeOp>()) {
-    ptr(mutator)->mutate(expr->as<EyeOp>());
-    return;
-  }
-  if (expr->isStrictlyA<UnaryOp>()) {
-    ptr(mutator)->mutate(expr->as<UnaryOp>());
-    return;
-  }
-  if (expr->isStrictlyA<BinaryOp>()) {
-    ptr(mutator)->mutate(expr->as<BinaryOp>());
-    return;
-  }
-  if (expr->isStrictlyA<TernaryOp>()) {
-    ptr(mutator)->mutate(expr->as<TernaryOp>());
-    return;
-  }
-  if (expr->isStrictlyA<SelectOp>()) {
-    ptr(mutator)->mutate(expr->as<SelectOp>());
-    return;
-  }
-  if (expr->isStrictlyA<RNGOp>()) {
-    ptr(mutator)->mutate(expr->as<RNGOp>());
-    return;
-  }
-  if (expr->isStrictlyA<ReductionOp>()) {
-    ptr(mutator)->mutate(expr->as<ReductionOp>());
-    return;
-  }
-  if (expr->isStrictlyA<GroupedReductionOp>()) {
-    ptr(mutator)->mutate(expr->as<GroupedReductionOp>());
-    return;
-  }
-  if (expr->isStrictlyA<WelfordOp>()) {
-    ptr(mutator)->mutate(expr->as<WelfordOp>());
-    return;
-  }
-  if (expr->isStrictlyA<GroupedWelfordOp>()) {
-    ptr(mutator)->mutate(expr->as<GroupedWelfordOp>());
-    return;
-  }
-  if (expr->isStrictlyA<LoadStoreOp>()) {
-    ptr(mutator)->mutate(expr->as<LoadStoreOp>());
-    return;
-  }
-  if (expr->isStrictlyA<TorchGatherOp>()) {
-    ptr(mutator)->mutate(expr->as<TorchGatherOp>());
-    return;
-  }
-  if (expr->isStrictlyA<MmaOp>()) {
-    ptr(mutator)->mutate(expr->as<MmaOp>());
-    return;
-  }
-  if (expr->isStrictlyA<BroadcastOp>()) {
-    ptr(mutator)->mutate(expr->as<BroadcastOp>());
-    return;
-  }
-  if (expr->isStrictlyA<SqueezeOp>()) {
-    ptr(mutator)->mutate(expr->as<SqueezeOp>());
-    return;
-  }
-  if (expr->isStrictlyA<Split>()) {
-    ptr(mutator)->mutate(expr->as<Split>());
-    return;
-  }
-  if (expr->isStrictlyA<Merge>()) {
-    ptr(mutator)->mutate(expr->as<Merge>());
-    return;
-  }
-  if (expr->isStrictlyA<Swizzle2D>()) {
-    ptr(mutator)->mutate(expr->as<Swizzle2D>());
-    return;
-  }
-  if (expr->isStrictlyA<TransposeOp>()) {
-    ptr(mutator)->mutate(expr->as<TransposeOp>());
-    return;
-  }
-  if (expr->isStrictlyA<ExpandOp>()) {
-    ptr(mutator)->mutate(expr->as<ExpandOp>());
-    return;
-  }
-  if (expr->isStrictlyA<ShiftOp>()) {
-    ptr(mutator)->mutate(expr->as<ShiftOp>());
-    return;
-  }
-  if (expr->isStrictlyA<GatherOp>()) {
-    ptr(mutator)->mutate(expr->as<GatherOp>());
-    return;
-  }
-  if (expr->isStrictlyA<ViewAsScalar>()) {
-    ptr(mutator)->mutate(expr->as<ViewAsScalar>());
-    return;
-  }
-  if (expr->isStrictlyA<ViewOp>()) {
-    ptr(mutator)->mutate(expr->as<ViewOp>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::Allocate>()) {
-    ptr(mutator)->mutate(expr->as<kir::Allocate>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::BlockSync>()) {
-    ptr(mutator)->mutate(expr->as<kir::BlockSync>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::GridSync>()) {
-    ptr(mutator)->mutate(expr->as<kir::GridSync>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::CpAsyncWait>()) {
-    ptr(mutator)->mutate(expr->as<kir::CpAsyncWait>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::CpAsyncCommit>()) {
-    ptr(mutator)->mutate(expr->as<kir::CpAsyncCommit>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::InitMagicZero>()) {
-    ptr(mutator)->mutate(expr->as<kir::InitMagicZero>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::UpdateMagicZero>()) {
-    ptr(mutator)->mutate(expr->as<kir::UpdateMagicZero>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::ForLoop>()) {
-    ptr(mutator)->mutate(expr->as<kir::ForLoop>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::IfThenElse>()) {
-    ptr(mutator)->mutate(expr->as<kir::IfThenElse>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::GridReduction>()) {
-    ptr(mutator)->mutate(expr->as<kir::GridReduction>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::GroupedGridReduction>()) {
-    ptr(mutator)->mutate(expr->as<kir::GroupedGridReduction>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::GridBroadcast>()) {
-    ptr(mutator)->mutate(expr->as<kir::GridBroadcast>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::GridWelford>()) {
-    ptr(mutator)->mutate(expr->as<kir::GridWelford>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::GroupedGridWelford>()) {
-    ptr(mutator)->mutate(expr->as<kir::GroupedGridWelford>());
-    return;
-  }
-  if (expr->isStrictlyA<kir::AllocateFusedReduction>()) {
-    ptr(mutator)->mutate(expr->as<kir::AllocateFusedReduction>());
-    return;
-  }
-  TORCH_INTERNAL_ASSERT(false, "Unknown exprtype in dispatch!");
 }
 
 template <typename T>
@@ -772,8 +627,6 @@ template void Statement::mutatorDispatch(OptOutMutator&, Statement*);
 template void Statement::mutatorDispatch(OptOutMutator*, Statement*);
 template void Val::mutatorDispatch(OptOutMutator&, Val*);
 template void Val::mutatorDispatch(OptOutMutator*, Val*);
-template void Expr::mutatorDispatch(OptOutMutator&, Expr*);
-template void Expr::mutatorDispatch(OptOutMutator*, Expr*);
 
 void OptOutDispatch::handle(Statement* s) {
   Statement::dispatch(this, s);
@@ -884,6 +737,9 @@ void OptOutConstDispatch::handle(const TernaryOp* stmt) {
 void OptOutConstDispatch::handle(const SelectOp* stmt) {
   unhandled(stmt);
 }
+void OptOutConstDispatch::handle(const IndexSelectOp* stmt) {
+  unhandled(stmt);
+}
 void OptOutConstDispatch::handle(const RNGOp* stmt) {
   unhandled(stmt);
 }
@@ -985,6 +841,9 @@ void OptOutConstDispatch::handle(const kir::GridWelford* stmt) {
 void OptOutConstDispatch::handle(const kir::GroupedGridWelford* stmt) {
   unhandled(stmt);
 }
+void OptOutConstDispatch::handle(const kir::VectorizedWelfordOp* stmt) {
+  unhandled(stmt);
+}
 void OptOutConstDispatch::handle(const kir::AllocateFusedReduction* stmt) {
   unhandled(stmt);
 }
@@ -1044,6 +903,9 @@ void OptOutDispatch::handle(TernaryOp* stmt) {
   unhandled(stmt);
 }
 void OptOutDispatch::handle(SelectOp* stmt) {
+  unhandled(stmt);
+}
+void OptOutDispatch::handle(IndexSelectOp* stmt) {
   unhandled(stmt);
 }
 void OptOutDispatch::handle(RNGOp* stmt) {
@@ -1145,6 +1007,9 @@ void OptOutDispatch::handle(kir::GridWelford* stmt) {
   unhandled(stmt);
 }
 void OptOutDispatch::handle(kir::GroupedGridWelford* stmt) {
+  unhandled(stmt);
+}
+void OptOutDispatch::handle(kir::VectorizedWelfordOp* stmt) {
   unhandled(stmt);
 }
 void OptOutDispatch::handle(kir::AllocateFusedReduction* stmt) {

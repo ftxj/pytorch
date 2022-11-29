@@ -280,6 +280,17 @@ void IndexLowering::handle(const TorchGatherOp* top) {
   const auto out = lowerDstIndex(top->output(0));
   pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));
   GpuLower::current()->propagateExprInfo(top, back());
+void IndexLowering::handle(const IndexSelectOp* sop) {
+  const auto indices = lowerSrcIndex(sop->input(1), sop->output(0));
+  const std::unordered_map<IterDomain*, Val*> override_index = {
+      {sop->getSelectAxis(), indices}};
+  const auto lookup =
+      lowerSrcIndex(sop->input(0), sop->output(0), override_index);
+
+  const auto out = lowerDstIndex(sop->output(0));
+  pushBack(IrBuilder::create<IndexSelectOp>(
+      out, lookup, sop->dim(), sop->getSelectAxis(), indices));
+  GpuLower::current()->propagateExprInfo(sop, back());
 }
 
 void IndexLowering::handle(const SelectOp* sop) {
@@ -942,9 +953,12 @@ void IndexLowering::handle(const GroupedWelfordOp* grouped_wop) {
   std::vector<WelfordTriplet> indexed_outputs(grouped_wop->numExprs());
   std::vector<WelfordTriplet> indexed_inputs(grouped_wop->numExprs());
 
+  auto output_vals = grouped_wop->outputVals();
+  auto input_vals = grouped_wop->inputVals();
+
   for (const auto i : c10::irange(grouped_wop->numExprs())) {
-    const auto& output = grouped_wop->outputVals().at(i);
-    const auto& input = grouped_wop->inputVals().at(i);
+    const auto& output = output_vals.at(i);
+    const auto& input = input_vals.at(i);
     WelfordTriplet indexed_output;
     WelfordTriplet indexed_input;
     for (const auto j : c10::irange(3)) {

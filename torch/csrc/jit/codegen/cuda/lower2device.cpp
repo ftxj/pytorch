@@ -23,6 +23,7 @@
 #include <torch/csrc/jit/codegen/cuda/lower_unroll.h>
 #include <torch/csrc/jit/codegen/cuda/lower_utils.h>
 #include <torch/csrc/jit/codegen/cuda/lower_validation.h>
+#include <torch/csrc/jit/codegen/cuda/lower_vectorize_welford.h>
 #include <torch/csrc/jit/codegen/cuda/lower_warp_reduce.h>
 
 #include <list>
@@ -254,6 +255,8 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
   // information.
   compute_at_map_ = std::make_shared<ComputeAtMap>(fusion_);
 
+  resolveComputeWith(fusion_);
+
   if (isDebugDumpEnabled(DebugDumpOption::ComputeAtMap)) {
     std::cout << compute_at_map_->toString() << std::endl;
   }
@@ -314,6 +317,10 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
   // validateAndConvertIterDomainGrouping
   dumpExprsIfEnabled(fusion_->exprs(), "Before validateGroupedReductions");
   validateGroupedReductions(fusion_);
+
+  // all of the lookup TVs are fusion inputs
+  dumpExprsIfEnabled(fusion_->exprs(), "Before validateLookupTV");
+  validateLookupTV(fusion_);
 
   // Depends on thread_pred_map_, validates parallelization collects which
   // tensor views need WAR or RAW syncs
@@ -410,11 +417,19 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
   const auto exprs_common_index_allocated =
       allocateCommonIndices(exprs_conditional_loops);
 
+  std::vector<Expr*> exprs_welford_vectorized;
+  if (!isOptionDisabled(DisableOption::WelfordVectorization)) {
+    dumpExprsIfEnabled(exprs_common_index_allocated, "Before vectorizeWelford");
+    exprs_welford_vectorized = vectorizeWelford(exprs_common_index_allocated);
+  } else {
+    exprs_welford_vectorized = exprs_common_index_allocated;
+  }
+
   // Insert fake zero updates to make sure nvrtc doesn't blow out register use
   // on index and predicate reuse
   dumpExprsIfEnabled(exprs_common_index_allocated, "Before insertMagicZero");
   const auto exprs_register_adjusted =
-      insertMagicZero(exprs_common_index_allocated);
+      insertMagicZero(exprs_welford_vectorized);
 
   dumpExprsIfEnabled(exprs_register_adjusted, "Before KIRCleaner");
   const auto exprs_cleaned_up_loops =
@@ -456,6 +471,29 @@ void GpuLower::propagateExprInfo(const Expr* old_expr, const Expr* new_expr) {
           new_expr->as<kir::Allocate>(), std::move(alloc_info));
     }
   }
+}
+
+bool GpuLower::resolveComputeWith(Fusion* fusion) {
+  std::vector<Expr*> exprs_sorted;
+
+  bool updated = false;
+  for (auto val : fusion->usedMathVals()) {
+    auto tv = dynamic_cast<TensorView*>(val);
+    if (tv == nullptr) {
+      continue;
+    }
+    if (tv->hasComputeWith()) {
+      if (exprs_sorted.empty()) {
+        exprs_sorted = reorderExprsForComputeAt();
+      }
+      if (tv->resolveComputeWith(exprs_sorted)) {
+        updated = true;
+        compute_at_map_->updateComputeWith(tv);
+      }
+    }
+  }
+
+  return updated;
 }
 
 } // namespace cuda

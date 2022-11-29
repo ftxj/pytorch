@@ -61,9 +61,11 @@ class IterDomain;
 class TensorDomain;
 class TensorView;
 
-class Bool;
-class Double;
-class Int;
+template <typename DT>
+class Scalar;
+using Bool = Scalar<bool>;
+using Double = Scalar<double>;
+using Int = Scalar<int64_t>;
 class ComplexDouble;
 class NamedScalar;
 
@@ -75,6 +77,7 @@ class UnaryOp;
 class BinaryOp;
 class TernaryOp;
 class SelectOp;
+class IndexSelectOp;
 class RNGOp;
 class ReductionOp;
 class GroupedReductionOp;
@@ -113,6 +116,7 @@ class GroupedGridReduction;
 class GridBroadcast;
 class GridWelford;
 class GroupedGridWelford;
+class VectorizedWelfordOp;
 class AllocateFusedReduction;
 class InitMagicZero;
 class UpdateMagicZero;
@@ -152,6 +156,7 @@ class TORCH_CUDA_CU_API OptOutConstDispatch : public PolymorphicBase {
   virtual void handle(const BinaryOp* stmt);
   virtual void handle(const TernaryOp* stmt);
   virtual void handle(const SelectOp* stmt);
+  virtual void handle(const IndexSelectOp* stmt);
   virtual void handle(const RNGOp* stmt);
   virtual void handle(const ReductionOp* stmt);
   virtual void handle(const GroupedReductionOp* stmt);
@@ -187,6 +192,7 @@ class TORCH_CUDA_CU_API OptOutConstDispatch : public PolymorphicBase {
   virtual void handle(const kir::GridBroadcast*);
   virtual void handle(const kir::GridWelford*);
   virtual void handle(const kir::GroupedGridWelford*);
+  virtual void handle(const kir::VectorizedWelfordOp*);
   virtual void handle(const kir::AllocateFusedReduction*);
 };
 
@@ -221,6 +227,7 @@ class TORCH_CUDA_CU_API OptOutDispatch : public PolymorphicBase {
   virtual void handle(BinaryOp* stmt);
   virtual void handle(TernaryOp* stmt);
   virtual void handle(SelectOp* stmt);
+  virtual void handle(IndexSelectOp* stmt);
   virtual void handle(RNGOp* stmt);
   virtual void handle(ReductionOp* stmt);
   virtual void handle(GroupedReductionOp* stmt);
@@ -256,6 +263,7 @@ class TORCH_CUDA_CU_API OptOutDispatch : public PolymorphicBase {
   virtual void handle(kir::GridBroadcast* stmt);
   virtual void handle(kir::GridWelford* stmt);
   virtual void handle(kir::GroupedGridWelford* stmt);
+  virtual void handle(kir::VectorizedWelfordOp* stmt);
   virtual void handle(kir::AllocateFusedReduction* stmt);
 };
 
@@ -300,13 +308,13 @@ class TORCH_CUDA_CU_API OptOutMutator : public PolymorphicBase {
   void registerMutation(Val* val, Val* mutation);
 
   Val* maybeMutated(Val* val) {
-    if (mutations.find(val) == mutations.end()) {
+    if (mutations_.find(val) == mutations_.end()) {
       return val;
     }
-    return mutations.at(val);
+    return mutations_.at(val);
   }
 
-  std::unordered_map<Val*, Val*> mutations;
+  std::unordered_map<Val*, Val*> mutations_;
 
   //****Functions below defined in mutator.cpp*****
 
@@ -323,53 +331,9 @@ class TORCH_CUDA_CU_API OptOutMutator : public PolymorphicBase {
   virtual void mutate(kir::Predicate*);
   virtual void mutate(kir::TensorIndex*);
 
-  // Exprs
-  virtual void mutate(FullOp*);
-  virtual void mutate(ARangeOp*);
-  virtual void mutate(EyeOp*);
-  virtual void mutate(UnaryOp*);
-  virtual void mutate(BinaryOp*);
-  virtual void mutate(TernaryOp*);
-  virtual void mutate(SelectOp*);
-  virtual void mutate(RNGOp*);
-  virtual void mutate(ReductionOp*);
-  virtual void mutate(GroupedReductionOp*);
-  virtual void mutate(WelfordOp*);
-  virtual void mutate(GroupedWelfordOp*);
-  virtual void mutate(LoadStoreOp*);
-  virtual void mutate(TorchGatherOp*);
-  virtual void mutate(MmaOp*);
-  virtual void mutate(BroadcastOp*);
-  virtual void mutate(SqueezeOp*);
-
-  virtual void mutate(Split*);
-  virtual void mutate(Merge*);
-  virtual void mutate(Swizzle2D*);
-  virtual void mutate(TransposeOp*);
-  virtual void mutate(ExpandOp*);
-  virtual void mutate(ShiftOp*);
-  virtual void mutate(GatherOp*);
-  virtual void mutate(ViewAsScalar*);
-  virtual void mutate(ViewOp*);
-
-  virtual void mutate(kir::Allocate*);
-  virtual void mutate(kir::BlockSync*);
-  virtual void mutate(kir::GridSync*);
-  virtual void mutate(kir::CpAsyncWait*);
-  virtual void mutate(kir::CpAsyncCommit*);
-  virtual void mutate(kir::InitMagicZero*);
-  virtual void mutate(kir::UpdateMagicZero*);
-  virtual void mutate(kir::ForLoop*);
-  virtual void mutate(kir::IfThenElse*);
-  virtual void mutate(kir::GridReduction*);
-  virtual void mutate(kir::GroupedGridReduction*);
-  virtual void mutate(kir::GridBroadcast*);
-  virtual void mutate(kir::GridWelford*);
-  virtual void mutate(kir::GroupedGridWelford*);
-  virtual void mutate(kir::AllocateFusedReduction*);
-
  protected:
-  void removeExpr(IrContainer*, Expr*);
+  virtual void removeExpr(IrContainer*, Expr*) const;
+  virtual void registerNewExpr(Expr*) {}
 };
 
 } // namespace cuda

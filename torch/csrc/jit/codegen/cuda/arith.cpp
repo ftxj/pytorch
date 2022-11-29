@@ -34,6 +34,34 @@ TensorView* maybe_broadcast_inner_to_rank(TensorView* t, size_t rank) {
   return t;
 }
 
+TensorView* maybe_broadcast_index_tv(TensorView* t, size_t dim, size_t rank) {
+  size_t ori_rank =
+      TensorDomain::noReductions(t->getMaybeRFactorDomain()).size();
+  TORCH_INTERNAL_ASSERT(
+      ori_rank == 1,
+      "The rank of index tensorview in index_select must be 1, but got ",
+      ori_rank);
+  TORCH_INTERNAL_ASSERT(
+      dim < rank,
+      "The dim of index_select must be < rank, but got ",
+      dim,
+      " >= ",
+      rank);
+  std::vector<bool> bcast_dims(rank, false);
+  // broadcast outter on inp to match rank with other.
+  if (dim + 1 < rank) {
+    std::fill(bcast_dims.begin() + dim + 1, bcast_dims.end(), true);
+  }
+  // broadcast inner on inp to match rank with other.
+  if (dim > 0) {
+    std::fill(bcast_dims.begin(), bcast_dims.begin() + dim, true);
+  }
+  if (dim + 1 < rank || dim > 0) {
+    t = broadcast(t, bcast_dims);
+  }
+  return t;
+}
+
 Val* simplifiedInt(Val* val) {
   TORCH_INTERNAL_ASSERT(
       val->isConstInt(), "Expecting Const Int's only in this routine.");
@@ -88,14 +116,16 @@ Val* newScalar(ValType vtype, DataType dtype) {
       switch (dtype) {
         case DataType::Bool:
           return IrBuilder::create<Bool>();
-        case DataType::Double:
         case DataType::Float:
         case DataType::Half:
         case DataType::BFloat16:
-          return IrBuilder::create<Double>();
+          return IrBuilder::create<Double>(DataType::Float);
+        case DataType::Double:
+          return IrBuilder::create<Double>(DataType::Double);
         case DataType::Int32:
+          return IrBuilder::create<Int>(DataType::Int32);
         case DataType::Int:
-          return IrBuilder::create<Int>();
+          return IrBuilder::create<Int>(DataType::Int);
         case DataType::ComplexFloat:
         case DataType::ComplexDouble:
           return IrBuilder::create<ComplexDouble>();
@@ -480,6 +510,52 @@ TensorView* select(TensorView* tv, int dim, Int* index) {
   return out;
 }
 
+// index_select
+TensorView* index_select(TensorView* lookup_tv, int dim, TensorView* index_tv) {
+  DataType dtype = lookup_tv->getDataType().value();
+  TORCH_CHECK(
+      dtype != DataType::Null, "Invalid datatype provided for new value.");
+  auto lookup_dom =
+      TensorDomain::noReductions(lookup_tv->getMaybeRFactorDomain());
+  auto index_dom =
+      TensorDomain::noReductions(index_tv->getMaybeRFactorDomain());
+  size_t n_dims = lookup_dom.size();
+  TORCH_CHECK(n_dims > 0, "index_select can not be applied to 0d tensor.");
+  TORCH_CHECK(index_dom.size() == 1, "index array must be 1d tensor.");
+
+  if (dim < 0) {
+    dim += lookup_dom.size();
+  }
+
+  std::vector<IterDomain*> new_root;
+  new_root.reserve(lookup_dom.size() - 1);
+  TORCH_CHECK(
+      dim >= 0 && dim < lookup_dom.size(),
+      "index_select on invalid axis, received: ",
+      dim,
+      " however tensor view only has ",
+      lookup_dom.size(),
+      " non-reduction dims.");
+
+  for (auto i : c10::irange(lookup_dom.size())) {
+    if (i != dim) {
+      new_root.emplace_back(lookup_dom[i]->cloneWithoutRFactor());
+    } else {
+      new_root.emplace_back(index_dom[0]->cloneWithoutRFactor());
+    }
+  }
+
+  auto td = IrBuilder::create<TensorDomain>(
+      new_root, TensorDomain::getContiguousContiguity(new_root));
+  auto out = IrBuilder::create<TensorView>(td, dtype);
+
+  // broadcast index to lookup's rank.
+  index_tv = maybe_broadcast_index_tv(index_tv->as<TensorView>(), dim, n_dims);
+  IrBuilder::create<IndexSelectOp>(
+      out, lookup_tv, dim, lookup_dom[dim], index_tv);
+  return out;
+}
+
 // TENSOR FACTORIES
 TensorView* rand(const std::vector<Val*>& shape, DataType dtype) {
   auto n = shape.size();
@@ -508,6 +584,23 @@ TensorView* uniform(
                  .build();
   IrBuilder::create<RNGOp>(
       RNGOpType::UniformRange, out, dtype, std::vector<Val*>{low, high});
+  return out;
+}
+
+TensorView* normal(
+    const std::vector<Val*>& shape,
+    Val* mean,
+    Val* std,
+    DataType dtype) {
+  auto n = shape.size();
+  auto out = TensorViewBuilder()
+                 .ndims(n)
+                 .dtype(dtype)
+                 .contiguity(std::vector<bool>(n, true))
+                 .shape(shape)
+                 .build();
+  IrBuilder::create<RNGOp>(
+      RNGOpType::NormalGeneral, out, dtype, std::vector<Val*>{mean, std});
   return out;
 }
 
@@ -1933,6 +2026,7 @@ TensorView* lerp(Val* v1, TensorView* v2, TensorView* v3) {
 TensorView* lerp(TensorView* v1, TensorView* v2, TensorView* v3) {
   return arithOpOverloads(lerp, v1, v2, v3);
 }
+
 // addcmul
 Val* addcmul(Val* v1, Val* v2, Val* v3, Val* s) {
   TORCH_CHECK(

@@ -122,6 +122,7 @@ bool isTvOp(const Expr* expr) {
           BinaryOp,
           TernaryOp,
           SelectOp,
+          IndexSelectOp,
           RNGOp,
           FullOp,
           ARangeOp,
@@ -145,7 +146,8 @@ bool isTvOp(const Expr* expr) {
           kir::GroupedGridReduction,
           kir::GridBroadcast,
           kir::GridWelford,
-          kir::GroupedGridWelford>())) {
+          kir::GroupedGridWelford,
+          kir::VectorizedWelfordOp>())) {
     return true;
   }
   return false;

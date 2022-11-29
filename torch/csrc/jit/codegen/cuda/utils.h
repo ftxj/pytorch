@@ -5,6 +5,8 @@
 #include <torch/csrc/jit/codegen/cuda/type.h>
 #include <torch/csrc/jit/ir/ir.h>
 
+#include <sstream>
+#include <string>
 #include <typeinfo>
 
 namespace torch {
@@ -80,7 +82,8 @@ enum class DisableOption {
   Fma, //! Disable FMA instructions
   IndexHoist, //! Disable index hoisting
   Nvtx, //! Disable NVTX instrumentation
-  PredicateElimination //! Disable predicate elimination
+  PredicateElimination, //! Disable predicate elimination
+  WelfordVectorization //! Disable vectorizaton of Welford ops
 };
 
 TORCH_CUDA_CU_API bool isOptionDisabled(DisableOption option);
@@ -94,6 +97,7 @@ enum class EnableOption {
   KernelProfile, //! Enable intra-kernel performance profiling
   LinearDecomposition, //! Enable linear-bias decomposition
   ConvDecomposition, //! Enable conv-bias decomposition
+  GraphOp, //! Enable graphOps(index_select/gather/scatter)
 };
 
 TORCH_CUDA_CU_API bool isOptionEnabled(EnableOption option);
@@ -232,6 +236,68 @@ std::vector<KeyType> getSortedKeys(
   std::sort(keys.begin(), keys.end(), cmp);
   return keys;
 }
+
+// If std::stringstream << is defined for T, then use << to get its string
+// otherwise, just returns a "<attr>"
+
+template <typename T>
+struct Printer {
+  static std::string toString(const T& value) {
+    return "<attr>";
+  }
+};
+
+#if 0
+
+// Waiting for C++20....
+
+#include <concepts>
+
+template<typename T>
+concept Printable = requires(T a)
+{
+  { std::stringstream{} << a } -> std::convertible_to<std::stringstream>;
+};
+
+template <Printable T>
+struct Printer<T> {
+  static std::string toString(const T& value) {
+    std::stringstream ss;
+    ss << value;
+    return ss.str();
+  }
+};
+
+#else
+
+#define SPECIALIZE_PRINTER(T)                     \
+  template <>                                     \
+  struct Printer<T> {                             \
+    static std::string toString(const T& value) { \
+      std::stringstream ss;                       \
+      ss << value;                                \
+      return ss.str();                            \
+    }                                             \
+  }
+
+SPECIALIZE_PRINTER(bool);
+SPECIALIZE_PRINTER(int);
+SPECIALIZE_PRINTER(int64_t);
+SPECIALIZE_PRINTER(DataType);
+SPECIALIZE_PRINTER(MemoryType);
+SPECIALIZE_PRINTER(UnaryOpType);
+SPECIALIZE_PRINTER(BinaryOpType);
+SPECIALIZE_PRINTER(TernaryOpType);
+SPECIALIZE_PRINTER(LoadStoreOpType);
+SPECIALIZE_PRINTER(DoubleBufferLoopStage);
+SPECIALIZE_PRINTER(Swizzle2DType);
+SPECIALIZE_PRINTER(SwizzleMode);
+SPECIALIZE_PRINTER(std::vector<int>);
+SPECIALIZE_PRINTER(std::vector<int64_t>);
+
+#undef SPECIALIZE_PRINTER
+
+#endif
 
 } // namespace cuda
 } // namespace fuser
