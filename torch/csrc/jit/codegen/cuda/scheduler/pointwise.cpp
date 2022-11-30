@@ -109,7 +109,7 @@ std::shared_ptr<PointwiseParams> getPointwiseHeuristics(
         max_input_dtype_size,
         (int64_t)dataTypeSize(inp->getDataType().value(), index_type));
   }
-
+  std::cout << "max_input_dtype_size = " << max_input_dtype_size << std::endl;
   // We always cacheBefore output at the beginning of the scheduling. And after
   // cacheBefore, the reference tensor will have all reduction IDs removed.
   auto ref_root =
@@ -183,14 +183,18 @@ std::shared_ptr<PointwiseParams> getPointwiseHeuristics(
                (int64_t)vectorizable_inputs_outputs_entry.get().size()) >>
            2),
           (int64_t)1));
-
+  std::cout << "max unroll factor = " << max_unroll_factor << std::endl;
   // Don't unroll at the cost of getting a full wave on the GPU
+  std::cout << "n_elems = " << n_elems << ", " << "device_multiprocessor_count = " << \
+    device_multiprocessor_count << ", kThreadX = " << kThreadX << std::endl;
+  
   if (n_elems < device_multiprocessor_count * kThreadX &&
       max_unroll_factor > 1) {
     max_unroll_factor = std::min(
         max_unroll_factor,
         ceilDiv(n_elems, device_multiprocessor_count * kThreadX));
   }
+  std::cout << "max unroll factor = " << max_unroll_factor << std::endl;
 
   auto params = std::make_shared<PointwiseParams>("Pointwise heuristics");
 
@@ -368,6 +372,8 @@ std::shared_ptr<PointwiseParams> getPointwiseHeuristics(
       largest_out,
       break_point,
       vectorize_factor);
+  std::cout << "vec size = " << expanded_vector_word_size << std::endl;
+  std::cout << "unroll size = " << max_unroll_factor << std::endl;
 
   expanded_vector_word_size = std::min(
       static_cast<size_t>(max_unroll_factor), expanded_vector_word_size);
@@ -375,6 +381,9 @@ std::shared_ptr<PointwiseParams> getPointwiseHeuristics(
   if (expanded_vector_word_size > vectorize_factor) {
     vectorize_factor = expanded_vector_word_size;
   }
+
+  std::cout << "real vec size = " << vectorize_factor << std::endl;
+
 
   if (vectorize_factor == 1) {
     params->vectorize = false;
@@ -426,10 +435,14 @@ LaunchParams schedulePointwise(
     Fusion* fusion,
     const at::ArrayRef<c10::IValue>& runtime_inputs) {
   FUSER_PERF_SCOPE("scheduleFusion");
+  std::cout << "before point wise schedule = " << std::endl;
+  std::cout << fusion << std::endl;
   auto params = getPointwiseHeuristics(fusion, runtime_inputs);
   TORCH_INTERNAL_ASSERT(
       params != nullptr, "Could not schedule pointwise operation.");
   schedulePointwise(fusion, *params);
+  std::cout << "after point wise schedule = " << std::endl;
+  std::cout << fusion << std::endl;
   return params->lparams;
 }
 
@@ -448,6 +461,8 @@ bool hasReferenceTensorView(Fusion* fusion) {
 // input/output caches)
 void schedulePointwise(Fusion* fusion, const PointwiseParams& params) {
   FusionGuard fg(fusion);
+  std::cout << "before schedulePointwise" << std::endl;
+  std::cout << fusion << std::endl;
 
   // Make sure we don't have global memory set on intermediate tensors from
   // fusion segmentation
@@ -464,6 +479,9 @@ void schedulePointwise(Fusion* fusion, const PointwiseParams& params) {
 
   // Cache and fork outputs
   auto cached_outputs = scheduler_utils::cacheAndForkOutputs(fusion, true);
+
+  std::cout << "after cache & fork" << std::endl;
+  std::cout << fusion << std::endl;
 
   std::vector<TensorView*> input_tvs;
   {

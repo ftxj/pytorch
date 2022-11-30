@@ -1367,6 +1367,7 @@ class ReductionScheduler : public SchedulerEntry {
 
   void schedule(Fusion* fusion) override {
     FUSER_PERF_SCOPE("Schedule Single Reduction");
+    std::cout << " schedule Reduction --" << std::endl;
     scheduleReduction(fusion, reductionParams());
   }
 
@@ -1492,6 +1493,7 @@ class TransposeScheduler : public SchedulerEntry {
 
   void schedule(Fusion* fusion) override {
     FUSER_PERF_SCOPE("Schedule Transpose Fusion");
+    std::cout << " schedule Transpose --" << std::endl;
     scheduleTranspose(fusion, transposeParams());
   }
 
@@ -1605,6 +1607,7 @@ class PointWiseScheduler : public SchedulerEntry {
 
   void schedule(Fusion* fusion) override {
     FUSER_PERF_SCOPE("Schedule PointWise Fusion");
+    std::cout << "schedule Pointwise -- " << std::endl;
     schedulePointwise(fusion, pointwiseParams());
   }
 
@@ -1629,6 +1632,7 @@ class PersistentKernelScheduler : public SchedulerEntry {
 
   void schedule(Fusion* fusion) override {
     FUSER_PERF_SCOPE("Schedule Persistent Fusion");
+    std::cout << "schedule Persistent-- " << std::endl;
     schedulePersistentKernel(fusion, reductionParams());
   }
 

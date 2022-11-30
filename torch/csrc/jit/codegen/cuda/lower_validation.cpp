@@ -524,7 +524,7 @@ void validateAndCollectVectorizeInfo(Fusion* fusion) {
   for (auto tv : used_tvs) {
     bool has_vectorize_dim = false;
     bool has_misaligned_vectorize_dim = false;
-
+    std::cout << "tv = " << tv->toString() << std::endl;
     for (const auto i : c10::irange(tv->nDims())) {
       IterDomain* id = tv->axis(i);
       IterDomain* concrete_id =
@@ -561,12 +561,15 @@ void validateAndCollectVectorizeInfo(Fusion* fusion) {
       }
     }
     if (has_vectorize_dim) {
+      std::cout << "why index select not error ?" << std::endl;
+      std::cout << tv->toString() << std::endl;
       TORCH_INTERNAL_ASSERT(
           tv->definition() == nullptr ||
               (tv->definition()->isA<UnaryOp>() &&
                tv->definition()->as<UnaryOp>()->getUnaryOpType() ==
                    UnaryOpType::Set) ||
-              tv->definition()->isA<LoadStoreOp>(),
+              tv->definition()->isA<LoadStoreOp>() || 
+              tv->definition()->isA<TorchGatherOp>(), 
           "Vectorized accesses cannot be inline with computation, they are only supported with a Set operation.",
           "TensorView: ",
           tv);

@@ -159,7 +159,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   static std::string generateKernelDefinition(
       const kir::Kernel* kernel,
       const std::string& kernel_name) {
-    kernel->print();
     CudaKernelGenerator codegen(kernel);
     codegen.genDeclaration(kernel_name);
     codegen.startBlock();

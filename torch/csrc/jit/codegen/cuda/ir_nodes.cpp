@@ -770,61 +770,21 @@ Val* GroupedWelfordOp::getInitValOfOutput(Val* output_val) const {
   return initVals().at(expr_index).get(val_name);
 }
 
-//
+NVFUSER_DEFINE_CLONE_AND_CREATE(TorchGatherOp)
+
 TorchGatherOp::TorchGatherOp(
-  IrBuilderPasskey passkey,
-  SelectOpType type,
-  Val* out,
-  Val* in1,
-  IterDomain* select_id,
-  int dim,
-  Val* in3)
-  : Expr(passkey),
-    torch_gather_op_type_{type},
-    out_{out},
-    in1_{in1},
-    select_id_{select_id},
-    dim_{dim},
-    in3_{in3} {
-  addInput(in1);
-  addInput(in3);
+    IrBuilderPasskey passkey,
+    Val* out,
+    Val* in,
+    int dim,
+    Val* indices)
+    : Expr(passkey) {
+  addInput(in);
+  addInput(indices);
   addOutput(out);
+  addAttribute(IrBuilder::create<Attribute<int>>(passkey.ir_container_, dim));
 }
 
-TorchGatherOp::TorchGatherOp(const TorchGatherOp* src, IrCloner* ir_cloner)
-    : Expr(src, ir_cloner),
-      torch_gather_op_type_(src->torch_gather_op_type_),
-      select_id_(ir_cloner->clone(src->select_id_)),
-      out_(ir_cloner->clone(src->out_)),
-      in1_(ir_cloner->clone(src->in1_)),
-      dim_(src->dim_),
-      in3_(ir_cloner->clone(src->in3_)) {}
-
-
-std::unordered_map<IterDomain*, Val*> TorchGatherOp::getIndexOverridingMap() const {
-  return {{select_id_, in3()}};
-}
-
-bool TorchGatherOp::sameAs(const Statement* other) const {
-  if (this == other) {
-    return true;
-  }
-  if (!other->isA<TorchGatherOp>()) {
-    return false;
-  }
-  const auto other_op = other->as<TorchGatherOp>();
-  if (!select_id_->sameAs(other_op->select_id_))
-    return false;
-  return Expr::sameAs(other);
-}
-
-Expr* TorchGatherOp::shallowCopy() const {
-  std::cout << "shallowCopy dim = " << dim_ << std::endl;
-  auto result = IrBuilder::create<TorchGatherOp>(torch_gather_op_type_, 
-    out(), in1(), select_id_, dim_, in3());
-  result->copyPredicatesFrom(this);
-  return result;
-}
 
 MmaOp::MmaOp(
     IrBuilderPasskey passkey,

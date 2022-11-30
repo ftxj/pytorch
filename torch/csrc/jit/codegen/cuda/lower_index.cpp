@@ -269,17 +269,16 @@ void IndexLowering::handle(const TorchGatherOp* top) {
     );
     index_tv_index_for_dims.push_back(index_tv_index_for_dim);
   }
-  std::cout << "replace top->dim() = " << top->dim() << std::endl;
-  std::cout << "replace to = " << indices->toString() << std::endl;
   
   index_tv_index_for_dims[top->dim()] = IrBuilder::mulExpr(indices, input_tv_strides[top->dim() + 1]);
-
   auto input = SimplifyingIrBuilder::create<kir::TensorIndex>(
       dynamic_cast<TensorView*>(top->input(0)), index_tv_index_for_dims);
 
   const auto out = lowerDstIndex(top->output(0));
   pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));
   GpuLower::current()->propagateExprInfo(top, back());
+}
+
 void IndexLowering::handle(const IndexSelectOp* sop) {
   const auto indices = lowerSrcIndex(sop->input(1), sop->output(0));
   const std::unordered_map<IterDomain*, Val*> override_index = {

@@ -643,20 +643,14 @@ struct ReplaceValInIndexVal : public OptInDispatch {
     last_visited_val_ = out;
   }
 
-  void handle(TorchGatherOp* top) final {
-    handle(top->in1());
-    auto in1 = last_visited_val_;
-    handle(top->in3());
-    auto in3 = last_visited_val_;
-    TORCH_INTERNAL_ASSERT(top->out()->isA<Int>());
+  void handle(TorchGatherOp* gop) final {
+    handle(gop->in1());
+    auto input = last_visited_val_;
+    handle(gop->in2());
+    auto indices = last_visited_val_;
+    TORCH_INTERNAL_ASSERT(gop->out()->isA<Int>());
     auto out = IrBuilder::create<Int>(c10::nullopt);
-    IrBuilder::create<TorchGatherOp>(
-        top->getTorchGatherOpType(),
-        out,
-        in1,
-        top->getSelectAxis(),
-        top->dim(),
-        in3);
+    IrBuilder::create<TorchGatherOp>(out, input, gop->dim(), indices);
     last_visited_val_ = out;
   }
 
@@ -748,9 +742,6 @@ bool isSelectInput(TensorView* tv) {
     if (expr->isA<SelectOp>()) {
       return true;
     }
-    if (expr->isA<TorchGatherOp>()) {
-      return true;
-    }
   }
   return false;
 }
@@ -763,6 +754,12 @@ bool isIndexSelectLookupTv(const TensorView* tv) {
         return true;
       }
     }
+    else if (expr->isA<TorchGatherOp>()) {
+      auto idx_sel = expr->as<TorchGatherOp>();
+      if (idx_sel->input(0) == tv) {
+        return true;
+      }
+    }
   }
   return false;
 }
@@ -771,6 +768,12 @@ bool isIndexSelectIndicesTv(const TensorView* tv) {
   for (auto expr : tv->uses()) {
     if (expr->isA<IndexSelectOp>()) {
       auto idx_sel = expr->as<IndexSelectOp>();
+      if (idx_sel->input(1) == tv) {
+        return true;
+      }
+    }
+    else if (expr->isA<TorchGatherOp>()) {
+      auto idx_sel = expr->as<TorchGatherOp>();
       if (idx_sel->input(1) == tv) {
         return true;
       }

@@ -12,35 +12,6 @@ namespace jit {
 
 using namespace torch::jit::fuser::cuda;
 
-TEST_F(NVFuserTest, SelectCodeCheck_CUDA) {
-  Fusion fusion;
-  FusionGuard fg(&fusion);
-
-  auto tv0 = makeSymbolicTensor(3);
-  auto index = IrBuilder::create<Int>();
-
-  fusion.addInput(tv0);
-  fusion.addInput(index);
-  auto tv1 = select(tv0, 0, index);
-  fusion.addOutput(tv1);
-
-  std::cout << fusion << std::endl;
-
-  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
-  auto input0 = at::randn({2, 2, 2}, options);
-  auto output = at::empty_like(input0);
-  auto tv0_ref = at::select(input0, 1, 1);
-  std::vector<IValue> aten_inputs = {input0, 1};
-
-  FusionExecutor fe;
-  fe.compileFusion(&fusion, aten_inputs);
-  std::cout << fe.kernelString() << std::endl;
-  fe.runFusion(aten_inputs, {output});
-
-  TORCH_CHECK(tv0_ref.allclose(output));
-}
-
-
 TEST_F(NVFuserTest, FusionSelectOpPointwise_CUDA) {
   auto fusion_ptr = std::make_unique<Fusion>();
   Fusion& fusion = *fusion_ptr.get();
@@ -172,7 +143,7 @@ TEST_F(NVFuserTest, FusionIndexSelectSimple_CUDA) {
     FusionGuard fg(&fusion);
     // dimensionality of the problem
     int nDims = 2;
-    int nElem = std::rand() % 1023 + 1;
+    int nElem = std::rand() % 200000 + 1;
     int nElem_select = nElem + 115;
     int nFeat = std::rand() % 128 + 1;
 
@@ -184,6 +155,8 @@ TEST_F(NVFuserTest, FusionIndexSelectSimple_CUDA) {
     fusion.addInput(tv_idx);
     TensorView* tv_sel = index_select(tv0, 0, tv_idx);
     fusion.addOutput(tv_sel);
+    std::cout << "begining fusion =" << std::endl;
+    std::cout << fusion << std::endl;
 
     auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
     auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
@@ -196,6 +169,8 @@ TEST_F(NVFuserTest, FusionIndexSelectSimple_CUDA) {
     auto output_ref = at::index_select(input0, 0, input_idx);
 
     FusionExecutorCache executor_cache(std::move(fusion_ptr));
+    std::cout << "after cache fusion =" << std::endl;
+    std::cout << fusion << std::endl;
     auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
     testValidate(
         &fusion, cg_outputs, aten_inputs, {output_ref}, __LINE__, __FILE__);
@@ -337,7 +312,7 @@ TEST_F(NVFuserTest, FusionIndexSelectCanSch_CUDA) {
   at::manual_seed(0);
   // dimensionality of the problem
   int nDims = 2;
-  int nElem = 31;
+  int nElem = 18240;
   int nElem_select = nElem + 15;
   int nFeat = 64;
 
@@ -435,7 +410,7 @@ TEST_F(NVFuserTest, FusionIndexSelect_Sum_CUDA) {
   FusionGuard fg(&fusion);
   // dimensionality of the problem
   int nDims = 2;
-  int nElem = 1023;
+  int nElem = 18240;
   int nElem_select = nElem + 115;
   int nFeat = 128;
 
@@ -483,7 +458,7 @@ TEST_F(NVFuserTest, FusionIndexSelectIdxTvFuseable_CUDA) {
   FusionGuard fg(&fusion);
   // dimensionality of the problem
   int nDims = 2;
-  int nElem = 23;
+  int nElem = 28240;
   int nElem_select = nElem + 15;
   int nFeat = 32;
 

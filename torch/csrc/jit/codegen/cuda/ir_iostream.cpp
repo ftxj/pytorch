@@ -693,18 +693,15 @@ void IrPrinter::handle(const ShiftOp* sop) {
            << "}, {" << sop->padWidth() << "} )\n";
 }
 
-void IrPrinter::handle(const TorchGatherOp* top) {
-  indent() << top->output(0) << "\n";
-  indent() << "   = gather( \n" 
-          << "data = " << top->input(0) << ",\n"
-          << "axis = " << top->getSelectAxis() << "\n"
-          << "index = " << top->input(1) << " )\n";
-  auto mapping = top->getIndexOverridingMap();
-  for(auto domain_val : mapping) {
-    indent() << "domain = " << domain_val.first << "\n"
-            << "value = " << domain_val.second << "\n";
+void IrPrinter::handle(const TorchGatherOp* gop) {
+  indent() << gop->output(0) << "\n";
+  indent() << "   = gather( ";
+  if (gop->input(0)->isA<kir::TensorIndex>()) {
+    os_ << gop->input(0)->as<kir::TensorIndex>()->view();
+  } else {
+    os_ << gop->input(0);
   }
-  indent() << ")\n";  
+  os_ << ", dim = " << gop->dim() << ", " << gop->input(1) << " )\n"; 
 }
 
 void IrPrinter::handle(const MmaOp* mma) {

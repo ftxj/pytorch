@@ -203,7 +203,8 @@ void FusionExecutor::compileFusion(
     TORCH_INTERNAL_ASSERT(
         out->getValType() == ValType::TensorView,
         "Output types from fusions that are not tensors are not supported at this point.");
-
+  std::cout << "before compile fusion " << std::endl;
+  std::cout << fusion << std::endl;
     const auto maybe_rfactor_domain =
         out->as<TensorView>()->getMaybeRFactorDomain();
     // walking through outputs to see if output shapes are dependent on
@@ -233,7 +234,10 @@ void FusionExecutor::compileFusion(
       break;
     }
   }
-  fusion->print();
+
+  std::cout << "after first stage " << std::endl;
+  std::cout << fusion << std::endl;
+
   if (isDebugDumpEnabled(DebugDumpOption::FusionIr)) {
     fusion->print();
   } else if (isDebugDumpEnabled(DebugDumpOption::FusionIrMath)) {
@@ -320,7 +324,6 @@ void FusionExecutor::compileFusion(
   }
 
   // TODO: pass block_size here;
-  std::cout << kernel << std::endl;
   c10::optional<int> block_size = c10::nullopt;
   if (!args.empty()) {
     auto expr_eval = executor_utils::bindInputs(args, kernel);

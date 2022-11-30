@@ -219,19 +219,6 @@ class TORCH_CUDA_CU_API UnaryOp : public Expr {
   UnaryOpType getUnaryOpType() const {
     return attribute(0)->as<Attribute<UnaryOpType>>()->value;
   }
-<<<<<<< HEAD
-
-  bool sameAs(const Statement* other) const override;
-
-  bool is_gather() const {return debug_is_gather;}
-
- private:
-  const UnaryOpType unary_op_type_;
-  Val* const out_ = nullptr;
-  Val* const in_ = nullptr;
-  bool debug_is_gather = false;
-=======
->>>>>>> devel
 };
 
 //! A specialization for Binary operations. Binary operations take in two inputs
@@ -907,59 +894,38 @@ class TORCH_CUDA_CU_API GroupedWelfordOp : public Expr {
 };
 
 class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
-public:
+ public:
+  using Expr::Expr;
   TorchGatherOp(
     IrBuilderPasskey, 
-    SelectOpType,
     Val* out, 
     Val* in,
-    IterDomain* select_id,
     int dim,
     Val* index
   );
 
-  TorchGatherOp(const TorchGatherOp* src, IrCloner* ir_cloner);
-  
+  NVFUSER_DECLARE_CLONE_AND_CREATE
+
   virtual const char* getOpString() const override {
     return "TorchGatherOp";
   }
 
-  Expr* shallowCopy() const override;
+  int dim() const {
+    return attribute(0)->as<Attribute<int>>()->value;
+  }
 
   Val* out() const {
-    return out_;
+    return output(0);
   }
 
   Val* in1() const {
-    return in1_;
-  }
-  
-  IterDomain* getSelectAxis() const {
-    return select_id_;
+    return input(0);
   }
 
-  Val* in3() const {
-    return in3_;
+  Val* in2() const {
+    return input(1);
   }
 
-  int dim() const {
-    return dim_;
-  }
-  std::unordered_map<IterDomain*, Val*> getIndexOverridingMap() const;
-
-  SelectOpType getTorchGatherOpType() const {
-    return torch_gather_op_type_;
-  }
-
-  bool sameAs(const Statement* other) const override;
-
-private:
-  const SelectOpType torch_gather_op_type_;
-  Val* const out_ = nullptr;
-  Val* const in1_ = nullptr;
-  Val* const in3_ = nullptr;
-  IterDomain* select_id_;
-  const int dim_ = 0;
 };
 
 

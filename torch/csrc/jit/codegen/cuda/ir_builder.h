@@ -29,7 +29,6 @@ class TORCH_CUDA_CU_API IrBuilder {
     T* node = new T(IrBuilderPasskey(container), std::forward<Args>(args)...);
 
     container->registerStmt(IrBuilderPasskey(container), node);
-
     return node;
   }
 

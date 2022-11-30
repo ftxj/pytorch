@@ -643,7 +643,7 @@ static const char* ternary_op_type2string(TernaryOpType t) {
 static const char* select_op_type2string(SelectOpType t) {
   switch (t) {
     case SelectOpType::TorchGather:
-      return "torch.gather";
+      return "gather";
     case SelectOpType::Select:
       return "select";
     case SelectOpType::IndexSelect:

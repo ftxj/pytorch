@@ -445,7 +445,7 @@ class TORCH_CUDA_CU_API TensorView : public Val {
     return has_swizzle_op_;
   }
 
-  void setAsLookupTV(int dim) {
+  void setAsLookupTV(size_t dim) {
     if (domain_ != nullptr) {
       if (dim < domain_->domain().size()) {
         domain_->domain()[dim]->setIterTypeAsLookup();

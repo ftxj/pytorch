@@ -544,12 +544,10 @@ class ReplaceExprInput : private kir::ExprMutator {
     auto replaced_inputs = getMaybeInputReplacementMap(node);
     if (replaced_inputs.has_value()) {
       auto replacement = IrBuilder::create<TorchGatherOp>(
-          node->getTorchGatherOpType(),
           node->out(),
           node->in1(),
-          node->getSelectAxis(),
           node->dim(),
-          node->in3());
+          node->in2());
       registerReplaceWithPredicate(node, replacement);
     }
   }

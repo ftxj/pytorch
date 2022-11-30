@@ -2090,10 +2090,8 @@ TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
       " however tensor view only has ",
       dom.size(),
       " non-reduction dims.");
-  std::cout << "input dim = " << dim << std::endl;
   Val* out = newValLike(index, tv->getDataType().value(), true); // shape = index, type = input
-  IrBuilder::create<TorchGatherOp>(
-      SelectOpType::TorchGather, out, tv, dom[dim], dim, index);
+  IrBuilder::create<TorchGatherOp>(out, tv, dim, index);
   return out->as<TensorView>();
 }
 
