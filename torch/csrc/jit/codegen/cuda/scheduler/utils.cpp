@@ -977,19 +977,14 @@ std::vector<TensorView*> cacheInputs(Fusion* fusion, bool unroll) {
   // If we're going to unroll, make a cache of the inputs
   auto in_tvs = ir_utils::filterByType<TensorView>(fusion->inputs());
   for (auto tv : in_tvs) {
-    std::cout << "judge cache = " << tv->toString() << std::endl;
-    std::cout << "judge cache size = " << tv->uses().size() << std::endl;
-    std::cout << "judge cache isFusionOutput() = " << tv->isFusionOutput() << std::endl;
-    std::cout << "judge cache ir_utils::isSelectInput = " << ir_utils::isSelectInput(tv) << std::endl;
-    std::cout << "judge cache isIndexSelectLookupTv() = " << ir_utils::isIndexSelectLookupTv(tv) << std::endl;
-
-    if (tv->uses().empty() || tv->isFusionOutput() ||
-        ir_utils::isSelectInput(tv) || ir_utils::isIndexSelectLookupTv(tv)) {
+    if (tv->uses().empty() || tv->isFusionOutput() || 
+        ir_utils::isSelectInput(tv) || 
+        ir_utils::isTorchGatherIndicesTv(tv) || ir_utils::isTorchGatherLookupTv(tv) || 
+        ir_utils::isIndexSelectLookupTv(tv)) {
       // Right now, tensors that are input to the select op can't be cached as
       // they must be in global memory.
       continue;
     }
-    std::cout << "cache input tv = " << tv->toString() << std::endl;
     auto cached_tv = tv->cacheAfter();
     cached_inputs.emplace_back(cached_tv);
   }
@@ -1324,28 +1319,24 @@ std::vector<TensorView*> getInputsOutputsWithInnerDim(
   // scheduler prefer to use output instead of input as reference tensor.
   for (auto output_tv :
        ir_utils::filterByType<TensorView>(reference_tv->fusion()->outputs())) {
-    std::cout << "judge tv = " << output_tv->toString() << std::endl;
     if (hasInnerDim(output_tv, vectorizable_dims, vectorize_pass)) {
       vectorizable_tensors.push_back(output_tv);
-      std::cout << "is vec tv " << std::endl;
     }
   }
-  std::cout << "get vec tensor size out = " << vectorizable_tensors.size() << std::endl; 
+
   for (auto input_tv :
        ir_utils::filterByType<TensorView>(reference_tv->fusion()->inputs())) {
     // for index_select(lookup_tv, dim, index_tv) op
     // ignore it's lookup_tv.
-    std::cout << "judge tv = " << input_tv->toString() << std::endl;
-    if (ir_utils::isIndexSelectLookupTv(input_tv)) {
+    if (ir_utils::isTorchGatherLookupTv(input_tv) ||
+       ir_utils::isTorchGatherIndicesTv(input_tv) ||
+       ir_utils::isIndexSelectLookupTv(input_tv)) {
       continue;
     }
     if (hasInnerDim(input_tv, vectorizable_dims, vectorize_pass)) {
       vectorizable_tensors.push_back(input_tv);
-      std::cout << "is vec tv " << std::endl;
     }
   }
-  std::cout << "get vec tensor size out + in = " << vectorizable_tensors.size() << std::endl; 
-
 
   return vectorizable_tensors;
 }

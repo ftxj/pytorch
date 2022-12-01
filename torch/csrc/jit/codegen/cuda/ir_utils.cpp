@@ -754,12 +754,6 @@ bool isIndexSelectLookupTv(const TensorView* tv) {
         return true;
       }
     }
-    else if (expr->isA<TorchGatherOp>()) {
-      auto idx_sel = expr->as<TorchGatherOp>();
-      if (idx_sel->input(0) == tv) {
-        return true;
-      }
-    }
   }
   return false;
 }
@@ -772,7 +766,25 @@ bool isIndexSelectIndicesTv(const TensorView* tv) {
         return true;
       }
     }
-    else if (expr->isA<TorchGatherOp>()) {
+  }
+  return false;
+}
+
+bool isTorchGatherLookupTv(const TensorView* tv) {
+  for (auto expr : tv->uses()) {
+    if (expr->isA<TorchGatherOp>()) {
+      auto idx_sel = expr->as<TorchGatherOp>();
+      if (idx_sel->input(0) == tv) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool isTorchGatherIndicesTv(const TensorView* tv) {
+  for (auto expr : tv->uses()) {
+    if (expr->isA<TorchGatherOp>()) {
       auto idx_sel = expr->as<TorchGatherOp>();
       if (idx_sel->input(1) == tv) {
         return true;
@@ -781,6 +793,7 @@ bool isIndexSelectIndicesTv(const TensorView* tv) {
   }
   return false;
 }
+
 
 IterDomain* getSelectedDomainIfTvIsIndexSelectOutput(const TensorView* tv) {
   auto tv_def = tv->definition();

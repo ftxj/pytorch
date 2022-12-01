@@ -203,8 +203,6 @@ void FusionExecutor::compileFusion(
     TORCH_INTERNAL_ASSERT(
         out->getValType() == ValType::TensorView,
         "Output types from fusions that are not tensors are not supported at this point.");
-  std::cout << "before compile fusion " << std::endl;
-  std::cout << fusion << std::endl;
     const auto maybe_rfactor_domain =
         out->as<TensorView>()->getMaybeRFactorDomain();
     // walking through outputs to see if output shapes are dependent on
@@ -234,9 +232,6 @@ void FusionExecutor::compileFusion(
       break;
     }
   }
-
-  std::cout << "after first stage " << std::endl;
-  std::cout << fusion << std::endl;
 
   if (isDebugDumpEnabled(DebugDumpOption::FusionIr)) {
     fusion->print();

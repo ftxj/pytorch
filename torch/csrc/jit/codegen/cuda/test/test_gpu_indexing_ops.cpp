@@ -155,8 +155,6 @@ TEST_F(NVFuserTest, FusionIndexSelectSimple_CUDA) {
     fusion.addInput(tv_idx);
     TensorView* tv_sel = index_select(tv0, 0, tv_idx);
     fusion.addOutput(tv_sel);
-    std::cout << "begining fusion =" << std::endl;
-    std::cout << fusion << std::endl;
 
     auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
     auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
@@ -169,8 +167,6 @@ TEST_F(NVFuserTest, FusionIndexSelectSimple_CUDA) {
     auto output_ref = at::index_select(input0, 0, input_idx);
 
     FusionExecutorCache executor_cache(std::move(fusion_ptr));
-    std::cout << "after cache fusion =" << std::endl;
-    std::cout << fusion << std::endl;
     auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
     testValidate(
         &fusion, cg_outputs, aten_inputs, {output_ref}, __LINE__, __FILE__);
