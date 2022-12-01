@@ -103,6 +103,41 @@ class TORCH_CUDA_CU_API IndexSelectOp : public Expr {
   }
 };
 
+class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
+ public:
+  using Expr::Expr;
+  TorchGatherOp(
+    IrBuilderPasskey, 
+    Val* out, 
+    Val* in,
+    int dim,
+    Val* index
+  );
+
+  NVFUSER_DECLARE_CLONE_AND_CREATE
+
+  virtual const char* getOpString() const override {
+    return "TorchGatherOp";
+  }
+
+  int dim() const {
+    return attribute(0)->as<Attribute<int>>()->value;
+  }
+
+  Val* out() const {
+    return output(0);
+  }
+
+  Val* in1() const {
+    return input(0);
+  }
+
+  Val* in2() const {
+    return input(1);
+  }
+
+};
+
 class TORCH_CUDA_CU_API ARangeOp : public Expr {
  public:
   using Expr::Expr;

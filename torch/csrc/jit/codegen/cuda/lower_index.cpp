@@ -221,6 +221,83 @@ void IndexLowering::handle(const IndexSelectOp* sop) {
   GpuLower::current()->propagateExprInfo(sop, back());
 }
 
+namespace {
+Val* packToRealIndices(kir::TensorIndex* idx) {
+  Val* real_indices = nullptr;
+  bool first = true;
+  for(auto x : idx->indices()) {
+    if(first) {
+      real_indices = x;
+      first = false;
+    }
+    else {
+      real_indices = SimplifyingIrBuilder::addExpr(real_indices, x);
+    }
+  }
+  return real_indices;
+}
+
+std::vector<Val*> getStrideForEachAxis(std::vector<IterDomain*> &domain) {
+  std::vector<Val*> strides(1, IrBuilder::create<Int>(1));
+  Val* stride = IrBuilder::create<Int>(1);
+  for(auto x = domain.rbegin(); x != domain.rend(); ++x) {
+    stride = SimplifyingIrBuilder::mulExpr(stride, (*x)->extent());
+    strides.push_back(stride);
+  }
+  std::reverse(strides.begin(), strides.end());
+  return strides;
+}
+}
+
+void IndexLowering::handle(const TorchGatherOp* top) {
+
+  const auto indices = lowerSrcIndex(top->input(1), top->output(0));
+  // const std::unordered_map<IterDomain*, Val*> override_index;
+  auto index_domains = dynamic_cast<TensorView*>(top->input(1))->getRootDomain();  
+  auto input_domains = dynamic_cast<TensorView*>(top->input(0))->getRootDomain();  
+  // bug here. (when index tensor is produced by some other op).
+  auto index_tv_indices = dynamic_cast<kir::TensorIndex*>(indices);
+
+  // caculate index value for InputTv, for example:
+  // T0 is InputTv, T1 is IndexTv. 
+  // size for T0 is [S0, S1, S2], size for T1 is [S3, S4, S5]; and
+  // S3 <= S0, S4 <= S1, S5 <= S2.
+  // T2[I4, I5, I6] = torch_gather(T0[I1, I2, I3], 0, T1[I4, I5, I6])
+  // so, the index value for InputTv is
+  // I1 = [(I4 * S4 * S5) + (I5 * S6) + I6] / (S1 * S2) % S0
+  // I2 = [(I4 * S4 * S5) + (I5 * S6) + I6] / (S2) % S1
+  // I3 = [(I4 * S4 * S5) + (I5 * S6) + I6] / (1) % S2
+
+  // get [(I4 * S4 * S5) + (I5 * S6) + I6]
+  Val* index_tv_all_index = packToRealIndices(index_tv_indices);
+  // get [S4 * S5 * S6, S5 * S6, S6, 1]
+  auto index_tv_reverse_strides = getStrideForEachAxis(index_domains);
+  // get [S0 * S1 * S2, S1 * S1, S2, 1]
+  auto input_tv_strides = getStrideForEachAxis(input_domains);
+  std::vector<Val*> input_tv_index;
+  for(size_t dim = 0; dim < index_domains.size(); ++dim) {
+    Val* index_tv_index_for_dim = nullptr;
+    index_tv_index_for_dim = IrBuilder::mulExpr(
+      IrBuilder::modExpr(
+        IrBuilder::divExpr(
+          index_tv_all_index, 
+          index_tv_reverse_strides[dim + 1]),  
+        index_domains[dim]->extent() 
+      ), 
+      input_tv_strides[dim + 1]
+    );
+    input_tv_index.push_back(index_tv_index_for_dim);
+  }
+
+  input_tv_index[top->dim()] = IrBuilder::mulExpr(indices, input_tv_strides[top->dim() + 1]);
+  auto input = SimplifyingIrBuilder::create<kir::TensorIndex>(
+      dynamic_cast<TensorView*>(top->input(0)), input_tv_index);
+
+  const auto out = lowerDstIndex(top->output(0));
+  pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));
+  GpuLower::current()->propagateExprInfo(top, back());
+}
+
 void IndexLowering::handle(const SelectOp* sop) {
   const auto input = lowerSrcIndex(
       sop->input(0), sop->output(0), sop->getIndexOverridingMap());

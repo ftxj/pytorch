@@ -161,6 +161,21 @@ IndexSelectOp::IndexSelectOp(
 
 NVFUSER_DEFINE_CLONE_AND_CREATE(IndexSelectOp)
 
+TorchGatherOp::TorchGatherOp(
+    IrBuilderPasskey passkey,
+    Val* out,
+    Val* in,
+    int dim,
+    Val* indices)
+    : Expr(passkey) {
+  addInput(in);
+  addInput(indices);
+  addOutput(out);
+  addAttribute(IrBuilder::create<Attribute<int>>(passkey.ir_container_, dim));
+}
+
+NVFUSER_DEFINE_CLONE_AND_CREATE(TorchGatherOp)
+
 ARangeOp::ARangeOp(
     IrBuilderPasskey passkey,
     Val* out,

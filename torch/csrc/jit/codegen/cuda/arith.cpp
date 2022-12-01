@@ -550,6 +550,27 @@ TensorView* index_select(TensorView* lookup_tv, int dim, TensorView* index_tv) {
   return out;
 }
 
+// torch.gather
+TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
+  auto dom = TensorDomain::noReductions(tv->getMaybeRFactorDomain());
+  TORCH_CHECK(dom.size() > 0, "gather can not be applied to 0d tensor.");
+  if (dim < 0) {
+    dim += dom.size();
+  }
+  TORCH_CHECK(
+      dim >= 0 && dim < dom.size(),
+      "Gather on invalid axis, received: ",
+      dim,
+      " however tensor view only has ",
+      dom.size(),
+      " non-reduction dims.");
+  // out have the same shape as index
+  Val* out = newValLike(index, tv->getDataType().value()); 
+  IrBuilder::create<TorchGatherOp>(out, tv, dim, index);
+  return out->as<TensorView>();
+}
+
+
 // TENSOR FACTORIES
 TensorView* rand(const std::vector<Val*>& shape, DataType dtype) {
   auto n = shape.size();

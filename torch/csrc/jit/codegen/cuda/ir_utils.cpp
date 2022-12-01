@@ -410,6 +410,18 @@ std::vector<IndexSelectOp*> getIndexSelectOps(Fusion* fusion) {
   return idx_sel_ops;
 }
 
+std::vector<TorchGatherOp*> getTorchGatherOps(Fusion* fusion) {
+  std::vector<TorchGatherOp*> torch_gather_ops;
+
+  for (auto expr : fusion->exprs()) {
+    if (expr->isA<TorchGatherOp>()) {
+      torch_gather_ops.push_back(expr->as<TorchGatherOp>());
+    }
+  }
+
+  return torch_gather_ops;
+}
+
 std::vector<SelectOp*> getSelectOps(Fusion* fusion) {
   std::vector<SelectOp*> select_ops;
 
@@ -745,6 +757,30 @@ bool isIndexSelectIndicesTv(const TensorView* tv) {
   for (auto expr : tv->uses()) {
     if (expr->isA<IndexSelectOp>()) {
       auto idx_sel = expr->as<IndexSelectOp>();
+      if (idx_sel->input(1) == tv) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool isTorchGatherLookupTv(const Val* tv) {
+  for (auto expr : tv->uses()) {
+    if (expr->isA<TorchGatherOp>()) {
+      auto idx_sel = expr->as<TorchGatherOp>();
+      if (idx_sel->input(0) == tv) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool isTorchGatherIndicesTv(const Val* tv) {
+  for (auto expr : tv->uses()) {
+    if (expr->isA<TorchGatherOp>()) {
+      auto idx_sel = expr->as<TorchGatherOp>();
       if (idx_sel->input(1) == tv) {
         return true;
       }
