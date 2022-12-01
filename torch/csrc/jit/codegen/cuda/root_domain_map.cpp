@@ -100,7 +100,6 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
   }
 
   std::unordered_map<IterDomain*, IterDomain*> dom_map;
-  if(ir_utils::isTorchGatherLookupTv(producer)) return dom_map;
   
   const auto producer_root =
       TensorDomain::noReductions(producer->getMaybeRFactorDomain());

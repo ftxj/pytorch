@@ -1359,6 +1359,10 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
     return getIterType() == IterType::Broadcast;
   }
 
+  bool isGatherScatter() const {
+    return getIterType() == IterType::GatherScatter;
+  }
+
   bool isGather() const {
     return getIterType() == IterType::Gather;
   }

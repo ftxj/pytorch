@@ -40,6 +40,10 @@ std::unordered_map<Val*, Val*> getSimplificationMap(Fusion* fusion) {
     if (id0->isBroadcast() || id1->isBroadcast()) {
       return;
     }
+    
+    if (id0->isGatherScatter() || id1->isGatherScatter()) {
+      return;
+    }
 
     auto disjoint_set_0_it = id_to_disjoint_root_set.find(id0);
     auto disjoint_set_1_it = id_to_disjoint_root_set.find(id1);
@@ -80,9 +84,6 @@ std::unordered_map<Val*, Val*> getSimplificationMap(Fusion* fusion) {
 
   auto fusion_vals = fusion->usedMathVals();
   for (auto producer_tv : ir_utils::filterByType<TensorView>(fusion_vals)) {
-    if(ir_utils::isTorchGatherLookupTv(producer_tv)) {
-      continue;
-    }
     auto consumer_tvs = ir_utils::consumerTvsOf(producer_tv);
     for (auto consumer_tv : consumer_tvs) {
       auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);

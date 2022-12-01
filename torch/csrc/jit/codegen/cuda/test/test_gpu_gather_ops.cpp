@@ -73,7 +73,7 @@ TEST_F(NVFuserTest, TorchGatherOpAllDim_CUDA) {
       fusion.addInput(tv_idx);
       auto tv_out = torch_gather(tv1, dim, tv_idx);
       fusion.addOutput(tv_out);
-
+      std::cout << fusion << std::endl;
       std::vector<int64_t> input_dims(rank, 0);
       for(int idim = 0; idim < rank; ++idim) {
         input_dims[idim] = (std::rand() % max_dim_size) + 2;
