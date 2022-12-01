@@ -49,6 +49,7 @@ class TORCH_CUDA_CU_API IndexLowering : private OptOutConstDispatch {
   void handle(const SelectOp*) final;
   void handle(const IndexSelectOp*) final;
   void handle(const TorchGatherOp*) final;
+  void handle(const ScatterAddOp*) final;
   void handle(const RNGOp*) final;
   void handle(const ReductionOp*) final;
   void handle(const GroupedReductionOp*) final;

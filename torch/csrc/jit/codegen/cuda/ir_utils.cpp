@@ -789,6 +789,31 @@ bool isTorchGatherIndicesTv(const Val* tv) {
   return false;
 }
 
+
+bool isScatterAddLookupTv(const TensorView* tv) {
+  for (auto expr : tv->uses()) {
+    if (expr->isA<ScatterAddOp>()) {
+      auto idx_sel = expr->as<ScatterAddOp>();
+      if (idx_sel->input(0) == tv) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool isScatterAddIndicesTv(const TensorView* tv) {
+  for (auto expr : tv->uses()) {
+    if (expr->isA<ScatterAddOp>()) {
+      auto idx_sel = expr->as<ScatterAddOp>();
+      if (idx_sel->input(1) == tv) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 IterDomain* getSelectedDomainIfTvIsIndexSelectOutput(const TensorView* tv) {
   auto tv_def = tv->definition();
   if (tv_def != nullptr) {

@@ -260,6 +260,34 @@ void IndexLowering::handle(const TorchGatherOp* top) {
   GpuLower::current()->propagateExprInfo(top, back());
 }
 
+void IndexLowering::handle(const ScatterAddOp* top) {
+
+  auto input = lowerSrcIndex(top->input(0), top->output(0));
+  auto lowered_index = lowerSrcIndex(top->input(1), top->output(0));
+  auto lowered_index_cast = lowered_index;
+  if (GpuLower::current()->kernel()->indexType() !=
+      top->input(1)->getDataType().value()) {
+    lowered_index_cast =
+        IrBuilder::newScalar(GpuLower::current()->kernel()->indexType());
+    IrBuilder::create<UnaryOp>(
+        UnaryOpType::Cast, lowered_index_cast, lowered_index);
+  }
+
+  const std::unordered_map<IterDomain*, Val*> override_index = {
+      {top->getSelectAxis(), lowered_index}
+  };
+
+  const auto out = lowerSizeNonEqualSrcIndex(
+      top->input(1), top->output(0), top->input(0), override_index);
+
+  const auto new_out = lowerSizeNonEqualSrcIndex(
+      top->input(1), top->output(0), top->input(0), override_index);
+
+  
+  pushBack(IrBuilder::create<ScatterAddOp>(new_out, out, input, top->dim(), top->getSelectAxis(), lowered_index));
+  GpuLower::current()->propagateExprInfo(top, back());
+}
+
 void IndexLowering::handle(const SelectOp* sop) {
   const auto input = lowerSrcIndex(
       sop->input(0), sop->output(0), sop->getIndexOverridingMap());

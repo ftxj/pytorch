@@ -562,6 +562,17 @@ void IrPrinter::handle(const TorchGatherOp* gop) {
   os_ << ", dim = " << gop->dim() << ", " << gop->input(1) << " )\n"; 
 }
 
+void IrPrinter::handle(const ScatterAddOp* gop) {
+  indent() << gop->output(0) << "\n";
+  indent() << "   = scatter_add( ";
+  if (gop->input(0)->isA<kir::TensorIndex>()) {
+    os_ << gop->input(0)->as<kir::TensorIndex>()->view();
+  } else {
+    os_ << gop->input(0);
+  }
+  os_ << ", dim = " << gop->dim() << ", " << gop->input(1) << ", out - " << gop->input(2)  << " )\n"; 
+}
+
 void IrPrinter::handle(const ReductionOp* rop) {
   indent() << rop->out() << "\n";
   indent() << "   = reduction( " << rop->in()
@@ -1033,7 +1044,7 @@ void IrPrinter::handle(const kir::AllocateFusedReduction* node) {
 
 void IrTransformPrinter::handle(Fusion* f) {
   auto all_vals = f->usedMathVals();
-
+  
   for (auto tv : ir_utils::filterByType<TensorView>(all_vals)) {
     IrPrinter::handle(tv);
     os() << "\n";

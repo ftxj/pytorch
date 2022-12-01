@@ -590,6 +590,24 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
   return out_tensor->as<TensorView>();
 }
 
+// torch.scatter_add_
+TensorView* scatter_add(TensorView* out, TensorView* tv, int dim, TensorView* index) {
+  auto dom = TensorDomain::noReductions(tv->getMaybeRFactorDomain());
+  TORCH_CHECK(dom.size() > 0, "scatter can not be applied to 0d tensor.");
+  if (dim < 0) {
+    dim += dom.size();
+  }
+  TORCH_CHECK(
+      dim >= 0 && dim < dom.size(),
+      "Gather on invalid axis, received: ",
+      dim,
+      " however tensor view only has ",
+      dom.size(),
+      " non-reduction dims.");
+  Val* new_out = newValLike(out, out->getDataType().value());
+  IrBuilder::create<ScatterAddOp>(new_out, out, tv, dim, dom[dim], index);
+  return new_out->as<TensorView>();
+}
 
 // TENSOR FACTORIES
 TensorView* rand(const std::vector<Val*>& shape, DataType dtype) {
@@ -2109,6 +2127,7 @@ TensorView* addcmul(Val* v1, TensorView* v2, TensorView* v3, Val* v4) {
 TensorView* addcmul(TensorView* v1, TensorView* v2, TensorView* v3, Val* v4) {
   return arithOpOverloads(addcmul, v1, v2, v3, v4);
 }
+
 
 // TERNARY OPERATIONS
 // where (c ? v1 : v2)
