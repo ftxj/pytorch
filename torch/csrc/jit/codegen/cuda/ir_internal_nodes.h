@@ -928,6 +928,45 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
 
 };
 
+class TORCH_CUDA_CU_API ScatterAddOp : public Expr {
+ public:
+  using Expr::Expr;
+  ScatterAddOp(
+    IrBuilderPasskey, 
+    Val* new_out, 
+    Val* out, 
+    Val* in,
+    int dim,
+    Val* index
+  );
+
+  NVFUSER_DECLARE_CLONE_AND_CREATE
+
+  virtual const char* getOpString() const override {
+    return "ScatterAddOp";
+  }
+
+  int dim() const {
+    return attribute(0)->as<Attribute<int>>()->value;
+  }
+
+  Val* out() const {
+    return output(0);
+  }
+
+  Val* in1() const {
+    return input(0);
+  }
+
+  Val* in2() const {
+    return input(1);
+  }
+  
+  Val* in3() const {
+    return input(3);
+  }
+
+};
 
 //! Fused Matmul operation
 class TORCH_CUDA_CU_API MmaOp : public Expr {

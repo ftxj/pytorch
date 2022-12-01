@@ -202,6 +202,42 @@ void IndexLowering::handle(const TernaryOp* top) {
   GpuLower::current()->propagateExprInfo(top, back());
 }
 
+Val* packToRealIndices(kir::TensorIndex* idx) {
+  Val* real_indices = nullptr;
+  bool first = true;
+  for(auto x : idx->indices()) {
+    if(first) {
+      real_indices = x;
+      first = false;
+    }
+    else {
+      real_indices = SimplifyingIrBuilder::addExpr(real_indices, x);
+    }
+  }
+  return real_indices;
+}
+
+std::vector<Val*> packToStrideMoreToLess(std::vector<IterDomain*> &domain) {
+  std::vector<Val*> strides(1, IrBuilder::create<Int>(1));
+  Val* stride = IrBuilder::create<Int>(1);
+  for(auto x : domain) {
+    stride = SimplifyingIrBuilder::mulExpr(stride, x->extent());
+    strides.push_back(stride);
+  }
+  std::reverse(strides.begin(), strides.end());
+  return strides;
+}
+
+std::vector<Val*> packToReverseStrideMoreToLess(std::vector<IterDomain*> &domain) {
+  std::vector<Val*> strides(1, IrBuilder::create<Int>(1));
+  Val* stride = IrBuilder::create<Int>(1);
+  for(auto x = domain.rbegin(); x != domain.rend(); ++x) {
+    stride = SimplifyingIrBuilder::mulExpr(stride, (*x)->extent());
+    strides.push_back(stride);
+  }
+  std::reverse(strides.begin(), strides.end());
+  return strides;
+}
 
 void IndexLowering::handle(const TorchGatherOp* top) {
   
@@ -210,49 +246,17 @@ void IndexLowering::handle(const TorchGatherOp* top) {
   auto index_domains = dynamic_cast<TensorView*>(top->input(1))->getRootDomain();  
   auto input_domains = dynamic_cast<TensorView*>(top->input(0))->getRootDomain();  
   // bug here. (when index tensor is produced by some other op).
-  auto index_tv_indices = dynamic_cast<kir::TensorIndex*>(indices)->indices();
+  auto index_tv_indices = dynamic_cast<kir::TensorIndex*>(indices);
 
+  Val* index_tv_all_index = packToRealIndices(index_tv_indices);
 
-  Val* index_tv_all_index = nullptr;
-  bool first = true;
-  for(auto x : index_tv_indices) {
-    if(first) {
-      index_tv_all_index = x;
-      first = false;
-    }
-    else {
-      index_tv_all_index = SimplifyingIrBuilder::addExpr(index_tv_all_index, x);
-    }
-  }
-
-  std::vector<Val*> index_tv_strides(1, IrBuilder::create<Int>(1));
-  Val* index_tv_stride = IrBuilder::create<Int>(1);
-  for(auto x : index_domains) {
-    index_tv_stride = SimplifyingIrBuilder::mulExpr(index_tv_stride, x->extent());
-    index_tv_strides.push_back(index_tv_stride);
-  }
-  std::reverse(index_tv_strides.begin(), index_tv_strides.end());
-
-
-  // 1, T2, T2 * T1, T2 * T1 * T0
+  auto index_tv_strides = packToStrideMoreToLess(index_domains);
+  
   // T2 * T1 * T0, T2 * T1, T2, 1
-  std::vector<Val*> index_tv_reverse_strides(1, IrBuilder::create<Int>(1));
-  Val* index_tv_reverse_stride = IrBuilder::create<Int>(1);
-  for(auto x = index_domains.rbegin(); x != index_domains.rend(); ++x) {
-    index_tv_reverse_stride = SimplifyingIrBuilder::mulExpr(index_tv_reverse_stride, (*x)->extent());
-    index_tv_reverse_strides.push_back(index_tv_reverse_stride);
-  }
-  std::reverse(index_tv_reverse_strides.begin(), index_tv_reverse_strides.end());
+  auto index_tv_reverse_strides = packToReverseStrideMoreToLess(index_domains);
 
   // 1, T2, T2 * T1, T2 * T1 * T0
-  // 2, 1, 0, -1
-  std::vector<Val*> input_tv_strides(1, IrBuilder::create<Int>(1));
-  Val* input_tv_stride = IrBuilder::create<Int>(1);
-  for(auto x = input_domains.rbegin(); x != input_domains.rend(); ++x) {
-    input_tv_stride = SimplifyingIrBuilder::mulExpr(input_tv_stride, (*x)->extent());
-    input_tv_strides.push_back(input_tv_stride);
-  }
-  std::reverse(input_tv_strides.begin(), input_tv_strides.end());
+  auto input_tv_strides = packToReverseStrideMoreToLess(input_domains);
 
 
   std::vector<Val*> index_tv_index_for_dims;
@@ -276,6 +280,56 @@ void IndexLowering::handle(const TorchGatherOp* top) {
 
   const auto out = lowerDstIndex(top->output(0));
   pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));
+  GpuLower::current()->propagateExprInfo(top, back());
+}
+
+
+void IndexLowering::handle(const ScatterAddOp* top) {
+
+  const auto indices = lowerSrcIndex(top->input(1), top->output(0));
+  const auto output = lowerSrcIndex(top->input(2), top->output(0));
+  const auto input = lowerSrcIndex(top->input(0), top->output(0));
+
+  // const std::unordered_map<IterDomain*, Val*> override_index;
+  auto index_domains = dynamic_cast<TensorView*>(top->input(1))->getRootDomain();  
+  auto output_domains = dynamic_cast<TensorView*>(top->input(2))->getRootDomain();  
+  // bug here. (when index tensor is produced by some other op).
+  auto index_tv_indices = dynamic_cast<kir::TensorIndex*>(indices);
+
+  Val* index_tv_all_index = packToRealIndices(index_tv_indices);
+
+  auto index_tv_strides = packToStrideMoreToLess(index_domains);
+  
+  // T2 * T1 * T0, T2 * T1, T2, 1
+  auto index_tv_reverse_strides = packToReverseStrideMoreToLess(index_domains);
+
+  // 1, T2, T2 * T1, T2 * T1 * T0
+  auto output_tv_strides = packToReverseStrideMoreToLess(output_domains);
+
+
+  std::vector<Val*> index_tv_index_for_dims;
+  for(size_t dim = 0; dim < index_domains.size(); ++dim) {
+    Val* index_tv_index_for_dim = nullptr;
+    index_tv_index_for_dim = IrBuilder::mulExpr(
+      IrBuilder::modExpr(
+        IrBuilder::divExpr(
+          index_tv_all_index, 
+          index_tv_reverse_strides[dim + 1]),  // 0 -> T2 * T1, 1 -> T2, 2 -> 1
+        index_domains[dim]->extent() // 0 -> T0, 1 -> T1, 2 -> T2 
+      ), 
+      output_tv_strides[dim + 1] // 0 -> T2 * T1, 1 -> T2, 2 -> 1
+    );
+    index_tv_index_for_dims.push_back(index_tv_index_for_dim);
+  }
+  
+  index_tv_index_for_dims[top->dim()] = IrBuilder::mulExpr(indices, output_tv_strides[top->dim() + 1]);
+  auto out = SimplifyingIrBuilder::create<kir::TensorIndex>(
+      dynamic_cast<TensorView*>(top->input(2)), index_tv_index_for_dims);
+
+  auto new_out = SimplifyingIrBuilder::create<kir::TensorIndex>(
+      dynamic_cast<TensorView*>(top->output(0)), index_tv_index_for_dims);
+
+  pushBack(IrBuilder::create<ScatterAddOp>(new_out, out, input, top->dim(), indices));
   GpuLower::current()->propagateExprInfo(top, back());
 }
 

@@ -786,6 +786,24 @@ TorchGatherOp::TorchGatherOp(
 }
 
 
+NVFUSER_DEFINE_CLONE_AND_CREATE(ScatterAddOp)
+
+ScatterAddOp::ScatterAddOp(
+    IrBuilderPasskey passkey,
+    Val* new_out,
+    Val* out,
+    Val* in,
+    int dim,
+    Val* indices)
+    : Expr(passkey) {
+  addInput(in);
+  addInput(indices);
+  addInput(out);
+  addOutput(new_out);
+  addAttribute(IrBuilder::create<Attribute<int>>(passkey.ir_container_, dim));
+}
+
+
 MmaOp::MmaOp(
     IrBuilderPasskey passkey,
     Val* out,

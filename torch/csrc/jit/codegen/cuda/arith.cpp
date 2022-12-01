@@ -2064,18 +2064,6 @@ TensorView* addcmul(TensorView* v1, TensorView* v2, TensorView* v3, Val* v4) {
   return arithOpOverloads(addcmul, v1, v2, v3, v4);
 }
 
-template <typename T1, typename T3>
-TensorView* arithOpOverloadsForTorchGather(
-    Val* (*func)(Val*, int, Val*),
-    T1* v1,
-    int dim,
-    T3* v3) {
-  Val* out =
-      func(v1->template as<Val>(), dim, v3->template as<Val>());
-  TORCH_INTERNAL_ASSERT(out->isA<TensorView>());
-  return out->as<TensorView>();
-}
-
 TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
   auto dom = TensorDomain::noReductions(tv->getMaybeRFactorDomain());
   TORCH_CHECK(dom.size() > 0, "gather can not be applied to 0d tensor.");
@@ -2093,6 +2081,25 @@ TensorView* torch_gather(TensorView* tv, int dim, TensorView* index) {
   Val* out = newValLike(index, tv->getDataType().value(), true); // shape = index, type = input
   IrBuilder::create<TorchGatherOp>(out, tv, dim, index);
   return out->as<TensorView>();
+}
+
+TensorView* scatter_add(TensorView* out, TensorView* tv, int dim, TensorView* index) {
+  auto dom = TensorDomain::noReductions(tv->getMaybeRFactorDomain());
+  TORCH_CHECK(dom.size() > 0, "scatter can not be applied to 0d tensor.");
+  tv->setAsLookupTV(dim);
+  if (dim < 0) {
+    dim += dom.size();
+  }
+  TORCH_CHECK(
+      dim >= 0 && dim < dom.size(),
+      "Gather on invalid axis, received: ",
+      dim,
+      " however tensor view only has ",
+      dom.size(),
+      " non-reduction dims.");
+  Val* new_out = newValLike(out, out->getDataType().value(), true);
+  IrBuilder::create<ScatterAddOp>(new_out, out, tv, dim, index);
+  return new_out->as<TensorView>();
 }
 
 

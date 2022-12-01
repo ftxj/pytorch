@@ -60,6 +60,15 @@ using namespace at::indexing;
 
 // sh build.sh;
 // build/bin/test_jit --gtest_filter='NVFuserTest.FusionIndexSelect_CUDA*'
+TEST_F(NVFuserTest, InputOutputSameTest_CUDA) {
+  auto fusion_ptr = std::make_unique<Fusion>();
+  Fusion& fusion = *fusion_ptr.get();
+  FusionGuard fg(&fusion);
+  TensorView* tv1 = makeContigTensor(3);
+  fusion.addInput(tv1);
+  fusion.addOutput(tv1);
+  std::cout << fusion << std::endl;
+}
 
 // pass
 TEST_F(NVFuserTest, TorchGatherOpAllDim_CUDA) {

@@ -98,15 +98,9 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
           dynamic_cast<IndexSelectOp*>(consumer_tv_->definition())) {
     idx_selected_id = sop->getSelectAxis();
   }
-  bool is_gather_op = false;
-  if (TorchGatherOp* sop = dynamic_cast<TorchGatherOp*>(consumer_tv_->definition())) {
-   // torch.gather does not need recompute produce-consumer relationship
-    if(producer == sop->in1())
-      is_gather_op = true;
-  } 
 
   std::unordered_map<IterDomain*, IterDomain*> dom_map;
-  if(is_gather_op) return dom_map;
+  if(ir_utils::isTorchGatherLookupTv(producer)) return dom_map;
   
   const auto producer_root =
       TensorDomain::noReductions(producer->getMaybeRFactorDomain());
@@ -902,39 +896,6 @@ void ComputeAtRootDomainMapBuilder::handle(Expr* e) {
   }
   BackwardVisitor::handle(e);
   visited_.insert(e);
-}
-
-void ComputeAtRootDomainMapBuilder::mapTorchGatherOp(TorchGatherOp* e) {
-  if (e->output(0)->getValType() != ValType::TensorView) {
-    return;
-  }
-
-  // Broadcast is handled separately, so e should never be BroadcastOp.
-
-  TORCH_INTERNAL_ASSERT(e->outputs().size() >= 1);
-  const TensorView* out_tv = e->output(0)->as<TensorView>();
-  const TensorDomain* out_td = out_tv->domain();
-  const auto& out_root = out_td->getRootDomain();
-
-  // Record equalities from output to all the inputs
-  // ignores un-concretizable broadcasts
-  for (auto* in_tv : ir_utils::filterByType<TensorView>(e->inputs())) {
-    const TensorDomain* in_td = in_tv->domain();
-    std::vector<IterDomain*> in_root =
-        TensorDomain::noReductions(in_tv->getMaybeRFactorDomain());
-    for (const auto it : c10::irange(in_root.size())) {
-      if (e->outputs().size() > 1) {
-        for (auto o : e->outputs()) {
-          auto o_tv = o->as<TensorView>();
-          auto o_td = o_tv->domain();
-          auto o_root = o_td->getRootDomain();
-          setMaybeMapped(in_td, in_root[it], o_td, o_root[it]);
-        }
-      } else {
-        setMaybeMapped(in_td, in_root[it], out_td, out_root[it]);
-      }
-    }
-  }
 }
 
 void ComputeAtRootDomainMapBuilder::mapPointwiseOrReductionOp(Expr* e) {

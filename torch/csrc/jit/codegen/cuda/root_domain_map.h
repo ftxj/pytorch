@@ -391,7 +391,6 @@ class TORCH_CUDA_CU_API ComputeAtRootDomainMapBuilder
   //! Map pointwise IterDomains from inputs of expressions to outputs.
   //! Do not map reduction IterDomains in inputs.
   void mapPointwiseOrReductionOp(Expr* e);
-  void mapTorchGatherOp(TorchGatherOp* e);
 
   using BackwardVisitor::handle;
 
@@ -432,7 +431,11 @@ class TORCH_CUDA_CU_API ComputeAtRootDomainMapBuilder
   }
 
   void handle(TorchGatherOp* top) override {
-    mapTorchGatherOp(top);
+    mapPointwiseOrReductionOp(top);
+  }
+
+  void handle(ScatterAddOp* top) override {
+    mapPointwiseOrReductionOp(top);
   }
 
   void handle(MmaOp* wop) override {

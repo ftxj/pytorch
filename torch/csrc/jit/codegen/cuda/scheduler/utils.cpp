@@ -455,6 +455,7 @@ PersistentBufferInfo persistentBuffers(Fusion* fusion) {
     for (auto consumer : consumers) {
       if (dynamic_cast<SelectOp*>(consumer->definition()) ||
           dynamic_cast<IndexSelectOp*>(consumer->definition()) ||
+          dynamic_cast<ScatterAddOp*>(consumer->definition()) ||
           dynamic_cast<TorchGatherOp*>(consumer->definition())) {
         continue;
       }

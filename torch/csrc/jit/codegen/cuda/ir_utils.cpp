@@ -654,6 +654,20 @@ struct ReplaceValInIndexVal : public OptInDispatch {
     last_visited_val_ = out;
   }
 
+  void handle(ScatterAddOp* gop) final {
+    handle(gop->in1());
+    auto input = last_visited_val_;
+    handle(gop->in2());
+    auto indices = last_visited_val_;
+    handle(gop->in3());
+    auto out = last_visited_val_;
+    TORCH_INTERNAL_ASSERT(gop->out()->isA<Int>());
+    auto new_out = IrBuilder::create<Int>(c10::nullopt);
+    IrBuilder::create<ScatterAddOp>(new_out, out, input, gop->dim(), indices);
+    last_visited_val_ = new_out;
+  }
+
+
   // Clone expression after recurisvely replacing inputs
   void handle(BinaryOp* bop) override {
     handle(bop->lhs());
@@ -770,7 +784,7 @@ bool isIndexSelectIndicesTv(const TensorView* tv) {
   return false;
 }
 
-bool isTorchGatherLookupTv(const TensorView* tv) {
+bool isTorchGatherLookupTv(const Val* tv) {
   for (auto expr : tv->uses()) {
     if (expr->isA<TorchGatherOp>()) {
       auto idx_sel = expr->as<TorchGatherOp>();
@@ -782,7 +796,7 @@ bool isTorchGatherLookupTv(const TensorView* tv) {
   return false;
 }
 
-bool isTorchGatherIndicesTv(const TensorView* tv) {
+bool isTorchGatherIndicesTv(const Val* tv) {
   for (auto expr : tv->uses()) {
     if (expr->isA<TorchGatherOp>()) {
       auto idx_sel = expr->as<TorchGatherOp>();
@@ -794,6 +808,30 @@ bool isTorchGatherIndicesTv(const TensorView* tv) {
   return false;
 }
 
+
+bool isScatterAddLookupTv(const TensorView* tv) {
+  for (auto expr : tv->uses()) {
+    if (expr->isA<ScatterAddOp>()) {
+      auto idx_sel = expr->as<ScatterAddOp>();
+      if (idx_sel->input(0) == tv) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool isScatterAddIndicesTv(const TensorView* tv) {
+  for (auto expr : tv->uses()) {
+    if (expr->isA<ScatterAddOp>()) {
+      auto idx_sel = expr->as<ScatterAddOp>();
+      if (idx_sel->input(1) == tv) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 IterDomain* getSelectedDomainIfTvIsIndexSelectOutput(const TensorView* tv) {
   auto tv_def = tv->definition();
