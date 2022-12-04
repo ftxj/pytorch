@@ -339,6 +339,14 @@ class Index {
       const IndexFromIdGraph& index_from_id_graph);
 
  public:
+  
+  static kir::TensorIndex* getIndexForNonEqualDomains(
+      TensorView* producer_tv, 
+      TensorView* unknown_tv,
+      TensorView* consumer_tv,
+      const std::vector<kir::ForLoop*>& loops,
+      const std::unordered_map<IterDomain*, Val*>& override_index);
+
   // Indexing functions
   // Consumer = Producer
   // i.e. T0 = T1... -> T0 is the consumer, T1 is the producer

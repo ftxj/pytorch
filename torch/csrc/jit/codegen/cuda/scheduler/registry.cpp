@@ -48,18 +48,6 @@ bool rejectScheduleForTorchGather(TorchGatherOp* torch_gather,
       "First input of TorchGatherOp can only be used by TorchGatherOp");
       return true;
   }
-  if (!torch_gather->input(1)->isFusionInput()) {
-    scheduler_debug_utils::canScheduleRejectReason(
-      schedule_stragety,
-      "Index input of TorchGatherOp must be fusion input.");
-      return true;
-  }
-  if (torch_gather->input(1)->uses().size() > 1) {
-    scheduler_debug_utils::canScheduleRejectReason(
-      schedule_stragety,
-      "Index input of TorchGatherOp can only be used by TorchGatherOp");
-      return true;
-  }
   return false;
 }
 

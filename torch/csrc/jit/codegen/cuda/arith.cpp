@@ -586,7 +586,7 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
           out_domain, TensorDomain::getContiguousContiguity(out_domain)),
       inp->getDataType().value());
 
-  IrBuilder::create<TorchGatherOp>(out_tensor, inp, dim, index);
+  IrBuilder::create<TorchGatherOp>(out_tensor, inp, dim, inp_domain[dim], index);
   return out_tensor->as<TensorView>();
 }
 

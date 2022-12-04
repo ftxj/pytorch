@@ -16,9 +16,10 @@ DomainMap::DomainMap(Fusion* fusion) : fusion_(fusion), ca_map_(fusion) {
     select_ids_.emplace(select->getSelectAxis());
   }
   for (auto select : ir_utils::getTorchGatherOps(fusion)) {
-    auto inp = dynamic_cast<TensorView*>(select->input(0));
-    auto domains = inp->domain()->domain();
-    for(auto id : domains) {
+    TORCH_INTERNAL_ASSERT(select->input(0)->isA<TensorView>());
+    auto inp = select->input(0)->as<TensorView>();
+    auto inp_domain = TensorDomain::noReductions(inp->getMaybeRFactorDomain());
+    for(auto id : inp_domain) {
       select_ids_.emplace(id);
     }
   }

@@ -166,11 +166,13 @@ TorchGatherOp::TorchGatherOp(
     Val* out,
     Val* in,
     int dim,
+    IterDomain* select_id,
     Val* indices)
     : Expr(passkey) {
   addInput(in);
   addInput(indices);
   addOutput(out);
+  addAttribute(select_id);
   addAttribute(IrBuilder::create<Attribute<int>>(passkey.ir_container_, dim));
 }
 

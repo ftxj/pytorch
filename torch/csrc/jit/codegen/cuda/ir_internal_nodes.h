@@ -111,6 +111,7 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
     Val* out, 
     Val* in,
     int dim,
+    IterDomain* select_id,
     Val* index
   );
 
@@ -123,17 +124,9 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
   int dim() const {
     return attribute(0)->as<Attribute<int>>()->value;
   }
-
-  Val* out() const {
-    return output(0);
-  }
-
-  Val* in1() const {
-    return input(0);
-  }
-
-  Val* in2() const {
-    return input(1);
+  
+  IterDomain* getSelectAxis() const {
+    return attribute(0)->as<IterDomain>();
   }
 
 };
