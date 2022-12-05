@@ -1264,6 +1264,10 @@ TensorView* TensorView::cacheAfter(c10::optional<LoadStoreOpType> cache_op) {
       !ir_utils::isSelectInput(this) && !ir_utils::isIndexSelectLookupTv(this),
       "Right now, caching tensors that are input to the select op is not allowed as they must be in global memory.")
 
+  TORCH_CHECK(
+      !ir_utils::isScatterAddIndicesTv(this) && !ir_utils::isScatterAddLookupTv(this) && !ir_utils::isScatterAddInplaceTv(this),
+      "Right now, caching tensors that are input/output to the scatter op is not allowed as they must be in global memory.")
+
   // It also did additional transformation when this tensor is an
   // input and the outputs of its consumers have computeAt. Make sure
   // we no longer rely on that behavior.

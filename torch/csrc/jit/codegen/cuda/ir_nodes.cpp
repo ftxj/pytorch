@@ -185,6 +185,7 @@ ScatterAddOp::ScatterAddOp(
     Val* in,
     int dim,
     IterDomain* select_id,
+    IterDomain* select_id_out,
     Val* indices)
     : Expr(passkey) {
   addInput(in);
@@ -192,6 +193,7 @@ ScatterAddOp::ScatterAddOp(
   addInput(out);
   addOutput(new_out);
   addAttribute(select_id);
+  addAttribute(select_id_out);
   addAttribute(IrBuilder::create<Attribute<int>>(passkey.ir_container_, dim));
 }
 

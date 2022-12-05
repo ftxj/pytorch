@@ -587,26 +587,47 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
       inp->getDataType().value());
 
   IrBuilder::create<TorchGatherOp>(out_tensor, inp, dim, inp_domain[dim], index);
-  return out_tensor->as<TensorView>();
+  return out_tensor;
 }
 
 // torch.scatter_add_
-TensorView* scatter_add(TensorView* out, TensorView* tv, int dim, TensorView* index) {
-  auto dom = TensorDomain::noReductions(tv->getMaybeRFactorDomain());
-  TORCH_CHECK(dom.size() > 0, "scatter can not be applied to 0d tensor.");
+TensorView* scatter_add(TensorView* out, TensorView* inp, int dim, TensorView* index) {
+  
+  auto inp_domain = TensorDomain::noReductions(inp->getMaybeRFactorDomain());
+  auto idx_domain = TensorDomain::noReductions(index->getMaybeRFactorDomain());
+  auto out_domain = TensorDomain::noReductions(out->getMaybeRFactorDomain());
+
+  TORCH_CHECK(idx_domain.size() > 0, "gather can not be applied to 0d tensor.");
+  TORCH_CHECK(
+    idx_domain.size() == inp_domain.size(),
+    "the input and index tensor must have the same dimensions for torch.gather"
+  );
+
   if (dim < 0) {
-    dim += dom.size();
+    dim += idx_domain.size();
   }
   TORCH_CHECK(
-      dim >= 0 && dim < dom.size(),
-      "Gather on invalid axis, received: ",
-      dim,
-      " however tensor view only has ",
-      dom.size(),
-      " non-reduction dims.");
-  Val* new_out = newValLike(out, out->getDataType().value());
-  IrBuilder::create<ScatterAddOp>(new_out, out, tv, dim, dom[dim], index);
-  return new_out->as<TensorView>();
+    dim >= 0 && dim < inp_domain.size(),
+    "torch.gather on invalid axis, received: ",
+    dim,
+    " however tensor view only has ",
+    idx_domain.size(),
+    " non-reduction dims.");
+  std::vector<IterDomain*> new_out_domain;
+  for(int i = 0; i < out_domain.size(); ++i) {
+    new_out_domain.push_back(
+      IterDomainBuilder(out_domain[i])
+        .iter_type(IterType::GatherScatter)
+        .build());
+  }
+
+  TensorView* new_out = IrBuilder::create<TensorView>(
+      IrBuilder::create<TensorDomain>(
+          new_out_domain, TensorDomain::getContiguousContiguity(new_out_domain)),
+      out->getDataType().value());
+  auto n_out_domain = TensorDomain::noReductions(new_out->getMaybeRFactorDomain());
+  IrBuilder::create<ScatterAddOp>(new_out, out, inp, dim, out_domain[dim], n_out_domain[dim], index);
+  return new_out;
 }
 
 // TENSOR FACTORIES

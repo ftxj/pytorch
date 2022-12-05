@@ -23,6 +23,10 @@ DomainMap::DomainMap(Fusion* fusion) : fusion_(fusion), ca_map_(fusion) {
       select_ids_.emplace(id);
     }
   }
+  for (auto select : ir_utils::getScatterAddOps(fusion)) {
+    select_ids_.emplace(select->getInplaceSelectAxis());
+    select_ids_.emplace(select->getOutputSelectAxis());
+  }
 }
 
 // Determine if all IterDomains in input are mapped to the given tensor

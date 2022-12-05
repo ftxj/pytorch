@@ -141,6 +141,7 @@ class TORCH_CUDA_CU_API ScatterAddOp : public Expr {
     Val* in,
     int dim,
     IterDomain* select_id,
+    IterDomain* select_id_2,
     Val* index
   );
 
@@ -151,11 +152,15 @@ class TORCH_CUDA_CU_API ScatterAddOp : public Expr {
   }
 
   int dim() const {
-    return attribute(1)->as<Attribute<int>>()->value;
+    return attribute(2)->as<Attribute<int>>()->value;
   }
   
-  IterDomain* getSelectAxis() const {
+  IterDomain* getInplaceSelectAxis() const {
     return attribute(0)->as<IterDomain>();
+  }
+  
+  IterDomain* getOutputSelectAxis() const {
+    return attribute(1)->as<IterDomain>();
   }
 };
 

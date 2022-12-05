@@ -422,6 +422,18 @@ std::vector<TorchGatherOp*> getTorchGatherOps(Fusion* fusion) {
   return torch_gather_ops;
 }
 
+std::vector<ScatterAddOp*> getScatterAddOps(Fusion* fusion) {
+  std::vector<ScatterAddOp*> scatter_add_ops;
+
+  for (auto expr : fusion->exprs()) {
+    if (expr->isA<ScatterAddOp>()) {
+      scatter_add_ops.push_back(expr->as<ScatterAddOp>());
+    }
+  }
+
+  return scatter_add_ops;
+}
+
 std::vector<SelectOp*> getSelectOps(Fusion* fusion) {
   std::vector<SelectOp*> select_ops;
 
@@ -790,7 +802,7 @@ bool isTorchGatherIndicesTv(const Val* tv) {
 }
 
 
-bool isScatterAddLookupTv(const TensorView* tv) {
+bool isScatterAddLookupTv(const Val* tv) {
   for (auto expr : tv->uses()) {
     if (expr->isA<ScatterAddOp>()) {
       auto idx_sel = expr->as<ScatterAddOp>();
@@ -802,11 +814,23 @@ bool isScatterAddLookupTv(const TensorView* tv) {
   return false;
 }
 
-bool isScatterAddIndicesTv(const TensorView* tv) {
+bool isScatterAddIndicesTv(const Val* tv) {
   for (auto expr : tv->uses()) {
     if (expr->isA<ScatterAddOp>()) {
       auto idx_sel = expr->as<ScatterAddOp>();
       if (idx_sel->input(1) == tv) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool isScatterAddInplaceTv(const Val* tv) {
+  for (auto expr : tv->uses()) {
+    if (expr->isA<ScatterAddOp>()) {
+      auto idx_sel = expr->as<ScatterAddOp>();
+      if (idx_sel->input(2) == tv) {
         return true;
       }
     }

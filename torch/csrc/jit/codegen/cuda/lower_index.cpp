@@ -261,7 +261,6 @@ void IndexLowering::handle(const TorchGatherOp* top) {
 }
 
 void IndexLowering::handle(const ScatterAddOp* top) {
-
   auto input = lowerSrcIndex(top->input(0), top->output(0));
   auto lowered_index = lowerSrcIndex(top->input(1), top->output(0));
   auto lowered_index_cast = lowered_index;
@@ -274,17 +273,20 @@ void IndexLowering::handle(const ScatterAddOp* top) {
   }
 
   const std::unordered_map<IterDomain*, Val*> override_index = {
-      {top->getSelectAxis(), lowered_index}
+      {top->getInplaceSelectAxis(), lowered_index}
   };
-
   const auto out = lowerSizeNonEqualSrcIndex(
-      top->input(1), top->output(0), top->input(0), override_index);
+      top->input(1), top->input(2), top->output(0), override_index);
 
+  const std::unordered_map<IterDomain*, Val*> override_index_out = {
+      {top->output(0)->as<TensorView>()->getRootDomain()[top->dim()], lowered_index}
+  };
   const auto new_out = lowerSizeNonEqualSrcIndex(
-      top->input(1), top->output(0), top->input(0), override_index);
-
+      top->input(1), top->output(0), top->output(0), override_index_out);
   
-  pushBack(IrBuilder::create<ScatterAddOp>(new_out, out, input, top->dim(), top->getSelectAxis(), lowered_index));
+  pushBack(IrBuilder::create<ScatterAddOp>(new_out, out, input, 
+      top->dim(), top->getInplaceSelectAxis(), top->getOutputSelectAxis(), 
+      lowered_index));
   GpuLower::current()->propagateExprInfo(top, back());
 }
 

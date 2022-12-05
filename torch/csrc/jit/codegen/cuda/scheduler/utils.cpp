@@ -981,11 +981,15 @@ std::vector<TensorView*> cacheInputs(Fusion* fusion, bool unroll) {
     if (tv->uses().empty() || tv->isFusionOutput() ||
         ir_utils::isTorchGatherIndicesTv(tv) || 
         ir_utils::isTorchGatherLookupTv(tv) || 
+        ir_utils::isScatterAddLookupTv(tv) ||
+        ir_utils::isScatterAddIndicesTv(tv) ||
+        ir_utils::isScatterAddInplaceTv(tv) || 
         ir_utils::isSelectInput(tv) || ir_utils::isIndexSelectLookupTv(tv)) {
       // Right now, tensors that are input to the select op can't be cached as
       // they must be in global memory.
       continue;
     }
+    std::cout << "cached " << tv->toString() << std::endl;
     auto cached_tv = tv->cacheAfter();
     cached_inputs.emplace_back(cached_tv);
   }
@@ -1000,7 +1004,8 @@ std::vector<std::pair<TensorView*, TensorView*>> cacheAndForkOutputs(
   std::vector<std::pair<TensorView*, TensorView*>> cached_outputs;
   // For intermediate outputs, apply cacheFork
   for (auto output : ir_utils::filterByType<TensorView>(fusion->outputs())) {
-    if (output->definition() == nullptr) {
+    if (output->definition() == nullptr ||
+      output->definition()->isA<ScatterAddOp>()) {
       continue;
     }
     if (!output->uses().empty()) {
@@ -1320,6 +1325,9 @@ std::vector<TensorView*> getInputsOutputsWithInnerDim(
   // scheduler prefer to use output instead of input as reference tensor.
   for (auto output_tv :
        ir_utils::filterByType<TensorView>(reference_tv->fusion()->outputs())) {
+    if (ir_utils::isScatterAddInplaceTv(output_tv)) {
+      continue;
+    }
     if (hasInnerDim(output_tv, vectorizable_dims, vectorize_pass)) {
       vectorizable_tensors.push_back(output_tv);
     }
@@ -1331,6 +1339,9 @@ std::vector<TensorView*> getInputsOutputsWithInnerDim(
     // ignore it's lookup_tv.
     if (ir_utils::isTorchGatherLookupTv(input_tv) ||
        ir_utils::isTorchGatherIndicesTv(input_tv) ||
+       ir_utils::isScatterAddInplaceTv(input_tv) ||
+       ir_utils::isScatterAddIndicesTv(input_tv) ||
+       ir_utils::isScatterAddLookupTv(input_tv) ||
        ir_utils::isIndexSelectLookupTv(input_tv)) {
       continue;
     }

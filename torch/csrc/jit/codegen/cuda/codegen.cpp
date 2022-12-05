@@ -1077,16 +1077,8 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
   void handle(const ScatterAddOp* sop) final {
     // generate code
-    if (!print_inline_) {
-      indent() << gen(sop->output(0));
-      if (!sop->output(0)->isScalar()) {
-        code_ << "\n";
-        indent() << kTab;
-      }
-      code_ << " = ";
-    }
-
-    code_ << gen(sop->input(0)) << "+" << gen(sop->input(2)) << ";\n";
+    indent() << "atomicAdd(&" << gen(sop->input(2)) << ", " << gen(sop->input(0)) << ");\n ";
+    indent() << gen(sop->output(0)) << " = " << gen(sop->input(2)) << ";\n ";
   }
 
 
