@@ -122,7 +122,7 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
   }
 
   int dim() const {
-    return attribute(0)->as<Attribute<int>>()->value;
+    return attribute(1)->as<Attribute<int>>()->value;
   }
   
   IterDomain* getSelectAxis() const {
