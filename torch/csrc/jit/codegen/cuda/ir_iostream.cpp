@@ -36,14 +36,16 @@ std::string varName(const Val* val) {
 static void checkInlineable(const Expr* expr) {
   for (auto input : expr->inputs()) {
     TORCH_CHECK(
-        input->isScalar(),
+        input->isScalar() ||
+            (expr->isA<UnaryOp>() &&
+             expr->as<UnaryOp>()->getUnaryOpType() == UnaryOpType::Address),
         "Printing inline computations involving values other than scalars is not currently supported.");
   }
   TORCH_CHECK(
       expr->outputs().size() == 1,
       "Cannot print inline computations if there's more than one output.");
   TORCH_CHECK(
-      expr->output(0)->isScalar(),
+      expr->output(0)->isScalar() || expr->output(0)->isA<NamedScalar>(),
       "Printing inline computations involving values other than scalars is not currently supported.");
 }
 
@@ -768,12 +770,7 @@ void IrPrinter::handle(const kir::TensorIndex* ti) {
       TORCH_INTERNAL_ASSERT(false, "Unknown tensor memory type.");
   }
   os_ << "[";
-  for (auto index : ti->indices()) {
-    print_inline(index);
-    if (index != ti->indices().back()) {
-      os_ << ", ";
-    }
-  }
+  print_inline(ti->index());
   os_ << "]";
   os_ << " view( T" << varName(ti->view()) << " )";
 }

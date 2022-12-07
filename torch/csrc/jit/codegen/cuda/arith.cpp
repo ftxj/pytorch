@@ -77,7 +77,7 @@ Val* simplifiedInt(Val* val) {
 Val* promoteSize(Val* v1, Val* v2) {
   if (v1 == nullptr) {
     TORCH_INTERNAL_ASSERT(
-        v2 == nullptr || v2->isAnInt(),
+        v2 == nullptr || v2->isIntegralScalar(),
         "Expecting Int's only in this routine.");
     return v2;
   }
@@ -85,7 +85,8 @@ Val* promoteSize(Val* v1, Val* v2) {
     return v1;
   }
   TORCH_INTERNAL_ASSERT(
-      v1->isAnInt() && v2->isAnInt(), "Expecting Int's only in this routine.");
+      v1->isIntegralScalar() && v2->isIntegralScalar(),
+      "Expecting Int's only in this routine.");
 
   if (!v1->isConstInt() && !v2->isConstInt()) {
     return v1;
@@ -124,6 +125,8 @@ Val* newScalar(ValType vtype, DataType dtype) {
           return IrBuilder::create<Double>(DataType::Double);
         case DataType::Int32:
           return IrBuilder::create<Int>(DataType::Int32);
+        case DataType::Index:
+          return IrBuilder::create<Int>(DataType::Index);
         case DataType::Int:
           return IrBuilder::create<Int>(DataType::Int);
         case DataType::ComplexFloat:
@@ -458,7 +461,7 @@ Val* unaryIsOp(UnaryOpType type, Val* v) {
 }
 
 TensorView* unaryIsOp(UnaryOpType type, TensorView* v) {
-  return unaryOp(type, v->asVal())->as<TensorView>();
+  return unaryIsOp(type, v->asVal())->as<TensorView>();
 }
 
 Val* unaryOp(UnaryOpType type, Val* v1, const TypePromotionConfig& config) {
