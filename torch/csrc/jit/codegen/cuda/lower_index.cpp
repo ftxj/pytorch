@@ -34,25 +34,6 @@ Val* IndexLowering::lowerDstIndex(Val* dst) const {
   }
 }
 
-Val* IndexLowering::lowerSizeNonEqualSrcIndex(
-    Val* producer_src,
-    Val* other_src,
-    Val* dst,
-    const std::unordered_map<IterDomain*, Val*>& override_index) const {
-  if (auto tv_other_src = dynamic_cast<TensorView*>(other_src)) {
-    TORCH_INTERNAL_ASSERT(dst->isA<TensorView>());
-    TORCH_INTERNAL_ASSERT(producer_src->isA<TensorView>());
-    return Index::getIndexForNonEqualDomains(
-        producer_src->as<TensorView>(),
-        tv_other_src,
-        dst->as<TensorView>(),
-        for_loops_,
-        override_index);
-  } else {
-    return other_src;
-  }
-}
-
 void IndexLowering::pushBack(Expr* expr) {
   if (active_scope_ == nullptr) {
     lowered_exprs_.push_back(expr);
@@ -236,7 +217,7 @@ void IndexLowering::handle(const TorchGatherOp* top) {
   auto lowered_index = lowerSrcIndex(top->input(1), top->output(0));
   auto lowered_index_cast = lowered_index;
   if (GpuLower::current()->kernel()->indexType() !=
-      top->input(1)->getDataType().value()) {
+      top->indexTv()->getDataType().value()) {
     lowered_index_cast =
         IrBuilder::newScalar(GpuLower::current()->kernel()->indexType());
     IrBuilder::create<UnaryOp>(
@@ -246,8 +227,7 @@ void IndexLowering::handle(const TorchGatherOp* top) {
   const std::unordered_map<IterDomain*, Val*> override_index = {
       {top->getSelectAxis(), lowered_index}};
 
-  const auto input = lowerSizeNonEqualSrcIndex(
-      top->input(1), top->input(0), top->output(0), override_index);
+  auto input = lowerSrcIndex(top->lookupTv(), top->output(0), override_index);
 
   const auto out = lowerDstIndex(top->output(0));
   pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));

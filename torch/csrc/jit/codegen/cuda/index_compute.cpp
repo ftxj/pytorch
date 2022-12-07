@@ -1341,8 +1341,10 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
 
   // Replay producer to look like consumer so we can index on producer since
   // our loop nests look like consumer
-  auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
-  auto producerAsC =
+  auto pairwise_map =
+      PairwiseRootDomainMap(producer_tv, consumer_tv, false, true);
+
+  TensorDomain* producerAsC =
       TransformReplay::replayPasC(producer_tv, consumer_tv, -1, pairwise_map)
           .first;
 
@@ -1352,7 +1354,7 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
   // Map sent to best effort replay needs to match the exact incantation for
   // compute_at_mode.cpp with MappingMode::Index
   auto c2p_root_map =
-      PairwiseRootDomainMap(producer_tv, consumer_tv, true)
+      PairwiseRootDomainMap(producer_tv, consumer_tv, true, true)
           .mapConsumerToProducer(consumer_tv->domain(), producer_tv->domain());
 
   // This replay has to be consistent with compute at index map.
@@ -1361,7 +1363,21 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
       consumer_tv->domain()->domain(),
       c2p_root_map);
 
-  const auto& c2p_map = replay_producer_as_consumer.getReplay();
+  auto c2p_map = replay_producer_as_consumer.getReplay();
+
+  // Make sure at least root domains are mapped even when extents may
+  // be different
+  for (const auto& kv :
+       PairwiseRootDomainMap(producer_tv, consumer_tv, true, false)
+           .mapConsumerToProducer(
+               consumer_tv->domain(), producer_tv->domain())) {
+    auto consumer_root_id = kv.first;
+    auto producer_root_id = kv.second;
+    if (c2p_map.find(consumer_root_id) == c2p_map.end()) {
+      c2p_map.emplace(consumer_root_id, producer_root_id);
+    }
+  }
+
   const auto p2c_map = invertOneToOneMap(c2p_map);
 
   // Forward vectorized IDs to index into producer correctly
@@ -1792,51 +1808,6 @@ std::vector<Val*> Index::getPerDimLogicalIndex(
   IndexFromIdGraph index_from_id_graph =
       getTensorIndexFromIdGraph(loops, consumer_tv);
   return getRootIndices(consumer_tv, loops, index_from_id_graph);
-}
-
-kir::TensorIndex* Index::getIndexForNonEqualDomains(
-    TensorView* producer_tv,
-    TensorView* unknown_tv,
-    TensorView* consumer_tv,
-    const std::vector<kir::ForLoop*>& loops,
-    const std::unordered_map<IterDomain*, Val*>& override_index) {
-  const auto producer_indices =
-      Index::getPerDimLogicalIndex(consumer_tv, loops);
-  const auto producer_strides = Index::getStrides(producer_tv);
-  const auto producer_domains = producer_tv->getRootDomain();
-  TORCH_INTERNAL_ASSERT(producer_indices.size() == producer_strides.size());
-
-  Val* producer_flatten_index = nullptr;
-  for (size_t i = 0; i < producer_strides.size(); ++i) {
-    producer_flatten_index = SimplifyingIrBuilder::addExpr(
-        producer_flatten_index,
-        SimplifyingIrBuilder::mulExpr(
-            producer_indices[i], producer_strides[i]));
-  }
-
-  const auto unknown_domains = unknown_tv->getRootDomain();
-  const auto unknown_strides = getStrides(unknown_tv);
-
-  std::vector<Val*> unknwon_index;
-  for (size_t dim = 0; dim < producer_strides.size(); ++dim) {
-    auto producer_d = producer_domains[dim];
-
-    auto override_it = override_index.find(unknown_domains[dim]);
-    const bool is_overriden = override_it != override_index.end();
-
-    if (is_overriden) {
-      unknwon_index.push_back(
-          IrBuilder::mulExpr(override_it->second, unknown_strides[dim]));
-    } else {
-      unknwon_index.push_back(IrBuilder::mulExpr(
-          IrBuilder::modExpr(
-              IrBuilder::divExpr(producer_flatten_index, producer_strides[dim]),
-              producer_d->extent()),
-          unknown_strides[dim]));
-    }
-  }
-  return SimplifyingIrBuilder::create<kir::TensorIndex>(
-      unknown_tv, unknwon_index);
 }
 
 std::vector<Val*> Index::getStrides(const TensorView* tv) {

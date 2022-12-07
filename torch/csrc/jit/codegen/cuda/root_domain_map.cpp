@@ -48,8 +48,12 @@ std::unordered_map<IterDomain*, IterDomain*> RootDomainMap::
 PairwiseRootDomainMap::PairwiseRootDomainMap(
     const TensorView* producer,
     const TensorView* consumer,
-    bool is_exact)
-    : producer_tv_(producer), consumer_tv_(consumer), is_exact_(is_exact) {
+    bool is_exact,
+    bool require_same_extent)
+    : producer_tv_(producer),
+      consumer_tv_(consumer),
+      is_exact_(is_exact),
+      require_same_extent_(require_same_extent) {
   TORCH_INTERNAL_ASSERT(producer != nullptr);
   TORCH_INTERNAL_ASSERT(consumer != nullptr);
   TORCH_INTERNAL_ASSERT(producer->fusion() == consumer->fusion());
@@ -76,6 +80,11 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
   if (consumer_tv_->definition()->isA<TransposeOp>()) {
     return mapTranspose(
         producer, consumer, root_dims_to_map, producer_to_consumer);
+  } else if (
+      consumer_tv_->definition()->isA<TorchGatherOp>() &&
+      require_same_extent_) {
+    // Nothing to map when having same extent is required
+    return {};
   }
 
   std::vector<bool> broadcast_flags;
@@ -90,13 +99,20 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
   }
 
   IterDomain* selected_id = nullptr;
-  IterDomain* idx_selected_id = nullptr;
+  bool select_skip_consumer = true;
   if (SelectOp* sop = dynamic_cast<SelectOp*>(consumer_tv_->definition())) {
     selected_id = sop->getSelectAxis();
+    select_skip_consumer = false;
   } else if (
       IndexSelectOp* sop =
           dynamic_cast<IndexSelectOp*>(consumer_tv_->definition())) {
-    idx_selected_id = sop->getSelectAxis();
+    selected_id = sop->getSelectAxis();
+    select_skip_consumer = true;
+  } else if (
+      TorchGatherOp* gop =
+          dynamic_cast<TorchGatherOp*>(consumer_tv_->definition())) {
+    selected_id = gop->getSelectAxis();
+    select_skip_consumer = true;
   }
 
   std::unordered_map<IterDomain*, IterDomain*> dom_map;
@@ -108,14 +124,13 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
     IterDomain* producer_id = producer_root[itp];
     IterDomain* consumer_id = consumer_root[itc];
 
-    // When the producer ID is the dim of a SelectOp, there is no
+    // When the producer ID is the dim of a select-like op, there is no
     // mapping for it.
     if (producer_id == selected_id) {
       itp++;
-      continue;
-    } else if (producer_id == idx_selected_id) {
-      itp++;
-      itc++;
+      if (select_skip_consumer) {
+        itc++;
+      }
       continue;
     }
 

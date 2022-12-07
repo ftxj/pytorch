@@ -83,7 +83,8 @@ class TORCH_CUDA_CU_API PairwiseRootDomainMap : public RootDomainMap {
   explicit PairwiseRootDomainMap(
       const TensorView* producer,
       const TensorView* consumer,
-      bool is_exact = false);
+      bool is_exact = false,
+      bool require_same_extent = false);
 
   const TensorView* producer() const {
     return producer_tv_;
@@ -113,6 +114,7 @@ class TORCH_CUDA_CU_API PairwiseRootDomainMap : public RootDomainMap {
   const TensorView* consumer_tv_ = nullptr;
   //! If true, does not map broadcast IDs with non-broadcast IDs
   const bool is_exact_ = false;
+  const bool require_same_extent_ = false;
 };
 
 //! Represents an iteration domain of a TensorDomain. Only used for
