@@ -78,9 +78,15 @@ class TORCH_CUDA_CU_API IndexLowering : private OptOutConstDispatch {
       Val* dst,
       const std::unordered_map<IterDomain*, Val*>& override_index = {}) const;
 
-  Val* lowerSizeNonEqualSrcIndex(
-      Val* producer_src, 
-      Val* other_src,
+  // lower index for producer in the case of different dimension size 
+  // of producer and consumer. In some operator like 
+  // `output = gather(input, dim, index)`, the dimension size of `input tensor` 
+  // and the `output tensor` can be different. (or `src tensor` and `output tensor` 
+  // in output = scatter(input, dim, index, src)). `override_index` is used as in 
+  // lowerSrcIndex, and currently this method only used by torch.gather and 
+  // torch.scatter_add.
+  Val* lowerSrcForNonEqualSize(
+      Val* src, 
       Val* dst,
       const std::unordered_map<IterDomain*, Val*>& override_index = {}) const;
 

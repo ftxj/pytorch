@@ -340,10 +340,13 @@ class Index {
 
  public:
   
-  static kir::TensorIndex* getIndexForNonEqualDomains(
-      TensorView* producer_tv, 
-      TensorView* unknown_tv,
-      TensorView* consumer_tv,
+  // In some operator like `output = gather(input, dim, index)`, 
+  // the dimension size of `input tensor and the `output tensor` can be different. 
+  // (or `src tensor` and `output tensor` in output = scatter(input, dim, index, src))
+  // This method get the correct TensorIndex for this type of producer.
+  static kir::TensorIndex* getProducerIndexForNonEqualSize(
+      TensorView* producer, 
+      TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops,
       const std::unordered_map<IterDomain*, Val*>& override_index);
 
