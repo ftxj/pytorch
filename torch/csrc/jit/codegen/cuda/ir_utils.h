@@ -362,10 +362,6 @@ TORCH_CUDA_CU_API bool isIndexSelectIndicesTv(const TensorView* tv);
 TORCH_CUDA_CU_API bool isTorchGatherIndicesTv(const Val* tv);
 TORCH_CUDA_CU_API bool isTorchGatherLookupTv(const Val* tv);
 
-// Get selected domain if tv is index select's output or return nullptr
-TORCH_CUDA_CU_API IterDomain* getSelectedDomainIfTvIsIndexSelectOutput(
-    const TensorView* tv);
-
 } // namespace ir_utils
 } // namespace cuda
 } // namespace fuser
