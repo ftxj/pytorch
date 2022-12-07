@@ -82,6 +82,8 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
         producer, consumer, root_dims_to_map, producer_to_consumer);
   } else if (
       consumer_tv_->definition()->isA<TorchGatherOp>() &&
+      consumer_tv_->definition()->as<TorchGatherOp>()->lookupTv() ==
+          producerTv() &&
       require_same_extent_) {
     // Nothing to map when having same extent is required
     return {};
@@ -212,8 +214,9 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::
 
 std::string PairwiseRootDomainMap::toString() const {
   std::stringstream ss;
-  ss << "{producer: " << producer() << ", consumer: " << consumer();
-  auto p2c = mapProducerToConsumer(producer()->domain(), consumer()->domain());
+  ss << "{producer: " << producerTv() << ", consumer: " << consumerTv();
+  auto p2c =
+      mapProducerToConsumer(producerTv()->domain(), consumerTv()->domain());
   for (auto pair : p2c) {
     ss << ", " << pair.first->toString() << " -> " << pair.second->toString();
   }

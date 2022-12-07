@@ -86,11 +86,11 @@ class TORCH_CUDA_CU_API PairwiseRootDomainMap : public RootDomainMap {
       bool is_exact = false,
       bool require_same_extent = false);
 
-  const TensorView* producer() const {
+  const TensorView* producerTv() const {
     return producer_tv_;
   }
 
-  const TensorView* consumer() const {
+  const TensorView* consumerTv() const {
     return consumer_tv_;
   }
 
