@@ -120,6 +120,14 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
     return "TorchGatherOp";
   }
 
+  TensorView* lookupTv() const {
+    return input(0)->as<TensorView>();
+  }
+
+  TensorView* indexTv() const {
+    return input(1)->as<TensorView>();
+  }
+
   int dim() const {
     return attribute(1)->as<Attribute<int>>()->value;
   }
