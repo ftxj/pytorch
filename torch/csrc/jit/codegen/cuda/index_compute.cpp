@@ -670,7 +670,7 @@ void IndexCompute::run(const LoopIndexing& loop_indexing) {
     // Resolve missing values from permissive map.
     updateIndexMapFromPermissiveMap(expr);
 
-    handle(expr); 
+    handle(expr);
   }
 }
 
