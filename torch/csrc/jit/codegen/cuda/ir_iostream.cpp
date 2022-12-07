@@ -559,7 +559,7 @@ void IrPrinter::handle(const TorchGatherOp* gop) {
   } else {
     os_ << gop->input(0);
   }
-  os_ << ", dim = " << gop->dim() << ", " << gop->input(1) << " )\n"; 
+  os_ << ", dim = " << gop->dim() << ", " << gop->input(1) << " )\n";
 }
 
 void IrPrinter::handle(const ReductionOp* rop) {

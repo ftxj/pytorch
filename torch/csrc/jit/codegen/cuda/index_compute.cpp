@@ -670,10 +670,9 @@ void IndexCompute::run(const LoopIndexing& loop_indexing) {
     // Resolve missing values from permissive map.
     updateIndexMapFromPermissiveMap(expr);
 
-    // some redundant calculation here 
+    // some redundant calculation here
     // because collectIndexIntoPermissiveMap has already done
-    handle(expr); 
-    
+    handle(expr);
   }
 }
 
@@ -1945,52 +1944,48 @@ std::vector<Val*> Index::getPerDimLogicalIndex(
 }
 
 kir::TensorIndex* Index::getIndexForNonEqualDomains(
-    TensorView* producer_tv, 
+    TensorView* producer_tv,
     TensorView* unknown_tv,
     TensorView* consumer_tv,
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
-
-  const auto producer_indices = Index::getPerDimLogicalIndex(consumer_tv, loops);
+  const auto producer_indices =
+      Index::getPerDimLogicalIndex(consumer_tv, loops);
   const auto producer_strides = Index::getStrides(producer_tv);
   const auto producer_domains = producer_tv->getRootDomain();
   TORCH_INTERNAL_ASSERT(producer_indices.size() == producer_strides.size());
-  
-  Val* producer_flatten_index = nullptr;
-  for(size_t i = 0; i < producer_strides.size(); ++i) {
-      producer_flatten_index = SimplifyingIrBuilder::addExpr(
-        producer_flatten_index, 
-        SimplifyingIrBuilder::mulExpr(producer_indices[i], producer_strides[i])
-      );
-  }
 
+  Val* producer_flatten_index = nullptr;
+  for (size_t i = 0; i < producer_strides.size(); ++i) {
+    producer_flatten_index = SimplifyingIrBuilder::addExpr(
+        producer_flatten_index,
+        SimplifyingIrBuilder::mulExpr(
+            producer_indices[i], producer_strides[i]));
+  }
 
   const auto unknown_domains = unknown_tv->getRootDomain();
   const auto unknown_strides = getStrides(unknown_tv);
 
   std::vector<Val*> unknwon_index;
-  for(size_t dim = 0; dim < producer_strides.size(); ++dim) {
+  for (size_t dim = 0; dim < producer_strides.size(); ++dim) {
     auto producer_d = producer_domains[dim];
 
     auto override_it = override_index.find(unknown_domains[dim]);
     const bool is_overriden = override_it != override_index.end();
 
-    if(is_overriden) {
-      unknwon_index.push_back(IrBuilder::mulExpr(override_it->second, unknown_strides[dim]));
-    }
-    else {
+    if (is_overriden) {
+      unknwon_index.push_back(
+          IrBuilder::mulExpr(override_it->second, unknown_strides[dim]));
+    } else {
       unknwon_index.push_back(IrBuilder::mulExpr(
-        IrBuilder::modExpr(
-          IrBuilder::divExpr(
-            producer_flatten_index, 
-            producer_strides[dim]),  
-          producer_d->extent() 
-        ), 
-        unknown_strides[dim])
-      );
+          IrBuilder::modExpr(
+              IrBuilder::divExpr(producer_flatten_index, producer_strides[dim]),
+              producer_d->extent()),
+          unknown_strides[dim]));
     }
   }
-  return SimplifyingIrBuilder::create<kir::TensorIndex>(unknown_tv, unknwon_index);
+  return SimplifyingIrBuilder::create<kir::TensorIndex>(
+      unknown_tv, unknwon_index);
 }
 
 std::vector<Val*> Index::getStrides(const TensorView* tv) {

@@ -79,7 +79,7 @@ class TORCH_CUDA_CU_API IndexLowering : private OptOutConstDispatch {
       const std::unordered_map<IterDomain*, Val*>& override_index = {}) const;
 
   Val* lowerSizeNonEqualSrcIndex(
-      Val* producer_src, 
+      Val* producer_src,
       Val* other_src,
       Val* dst,
       const std::unordered_map<IterDomain*, Val*>& override_index = {}) const;

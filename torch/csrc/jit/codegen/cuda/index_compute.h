@@ -339,9 +339,8 @@ class Index {
       const IndexFromIdGraph& index_from_id_graph);
 
  public:
-  
   static kir::TensorIndex* getIndexForNonEqualDomains(
-      TensorView* producer_tv, 
+      TensorView* producer_tv,
       TensorView* unknown_tv,
       TensorView* consumer_tv,
       const std::vector<kir::ForLoop*>& loops,

@@ -35,7 +35,7 @@ Val* IndexLowering::lowerDstIndex(Val* dst) const {
 }
 
 Val* IndexLowering::lowerSizeNonEqualSrcIndex(
-    Val* producer_src, 
+    Val* producer_src,
     Val* other_src,
     Val* dst,
     const std::unordered_map<IterDomain*, Val*>& override_index) const {
@@ -43,7 +43,11 @@ Val* IndexLowering::lowerSizeNonEqualSrcIndex(
     TORCH_INTERNAL_ASSERT(dst->isA<TensorView>());
     TORCH_INTERNAL_ASSERT(producer_src->isA<TensorView>());
     return Index::getIndexForNonEqualDomains(
-        producer_src->as<TensorView>(), tv_other_src, dst->as<TensorView>(), for_loops_, override_index);
+        producer_src->as<TensorView>(),
+        tv_other_src,
+        dst->as<TensorView>(),
+        for_loops_,
+        override_index);
   } else {
     return other_src;
   }
@@ -237,7 +241,6 @@ void IndexLowering::handle(const IndexSelectOp* sop) {
 }
 
 void IndexLowering::handle(const TorchGatherOp* top) {
-
   auto lowered_index = lowerSrcIndex(top->input(1), top->output(0));
   auto lowered_index_cast = lowered_index;
   if (GpuLower::current()->kernel()->indexType() !=
@@ -249,8 +252,7 @@ void IndexLowering::handle(const TorchGatherOp* top) {
   }
 
   const std::unordered_map<IterDomain*, Val*> override_index = {
-      {top->getSelectAxis(), lowered_index}
-  };
+      {top->getSelectAxis(), lowered_index}};
 
   const auto input = lowerSizeNonEqualSrcIndex(
       top->input(1), top->input(0), top->output(0), override_index);

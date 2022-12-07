@@ -107,13 +107,12 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
  public:
   using Expr::Expr;
   TorchGatherOp(
-    IrBuilderPasskey, 
-    Val* out, 
-    Val* in,
-    int dim,
-    IterDomain* select_id,
-    Val* index
-  );
+      IrBuilderPasskey,
+      Val* out,
+      Val* in,
+      int dim,
+      IterDomain* select_id,
+      Val* index);
 
   NVFUSER_DECLARE_CLONE_AND_CREATE
 
@@ -124,11 +123,10 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
   int dim() const {
     return attribute(1)->as<Attribute<int>>()->value;
   }
-  
+
   IterDomain* getSelectAxis() const {
     return attribute(0)->as<IterDomain>();
   }
-
 };
 
 class TORCH_CUDA_CU_API ARangeOp : public Expr {

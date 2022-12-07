@@ -557,8 +557,7 @@ TORCH_CUDA_CU_API TensorView* index_select(
 TORCH_CUDA_CU_API TensorView* torch_gather(
     TensorView* input,
     int dim,
-    TensorView* index
-);
+    TensorView* index);
 
 // addcmul
 TORCH_CUDA_CU_API Val* addcmul(Val* v1, Val* v2, Val* v3, Val* s);

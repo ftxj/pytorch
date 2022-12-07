@@ -164,11 +164,11 @@ IterType promoteIterType(IterType type1, IterType type2) {
 
   // Do not propagate Gather and VectorComponent
   if (type1 == IterType::Gather || type1 == IterType::VectorComponent ||
-    type1 == IterType::GatherScatter) {
+      type1 == IterType::GatherScatter) {
     type1 = IterType::Iteration;
   }
   if (type2 == IterType::Gather || type2 == IterType::VectorComponent ||
-    type2 == IterType::GatherScatter) {
+      type2 == IterType::GatherScatter) {
     type2 = IterType::Iteration;
   }
 
@@ -554,31 +554,28 @@ TensorView* index_select(TensorView* lookup_tv, int dim, TensorView* index_tv) {
 
 // torch.gather
 TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
-
   auto inp_domain = TensorDomain::noReductions(inp->getMaybeRFactorDomain());
   auto idx_domain = TensorDomain::noReductions(index->getMaybeRFactorDomain());
   TORCH_CHECK(idx_domain.size() > 0, "gather can not be applied to 0d tensor.");
   TORCH_CHECK(
-    idx_domain.size() == inp_domain.size(),
-    "the input and index tensor must have the same dimensions for torch.gather"
-  );
+      idx_domain.size() == inp_domain.size(),
+      "the input and index tensor must have the same dimensions for torch.gather");
 
   if (dim < 0) {
     dim += idx_domain.size();
   }
   TORCH_CHECK(
-    dim >= 0 && dim < inp_domain.size(),
-    "torch.gather on invalid axis, received: ",
-    dim,
-    " however tensor view only has ",
-    idx_domain.size(),
-    " non-reduction dims.");
+      dim >= 0 && dim < inp_domain.size(),
+      "torch.gather on invalid axis, received: ",
+      dim,
+      " however tensor view only has ",
+      idx_domain.size(),
+      " non-reduction dims.");
   std::vector<IterDomain*> out_domain;
-  for(int i = 0; i < idx_domain.size(); ++i) {
-    out_domain.push_back(
-      IterDomainBuilder(idx_domain[i])
-        .iter_type(IterType::GatherScatter)
-        .build());
+  for (int i = 0; i < idx_domain.size(); ++i) {
+    out_domain.push_back(IterDomainBuilder(idx_domain[i])
+                             .iter_type(IterType::GatherScatter)
+                             .build());
   }
 
   TensorView* out_tensor = IrBuilder::create<TensorView>(
@@ -586,10 +583,10 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
           out_domain, TensorDomain::getContiguousContiguity(out_domain)),
       inp->getDataType().value());
 
-  IrBuilder::create<TorchGatherOp>(out_tensor, inp, dim, inp_domain[dim], index);
+  IrBuilder::create<TorchGatherOp>(
+      out_tensor, inp, dim, inp_domain[dim], index);
   return out_tensor->as<TensorView>();
 }
-
 
 // TENSOR FACTORIES
 TensorView* rand(const std::vector<Val*>& shape, DataType dtype) {
