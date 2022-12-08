@@ -79,13 +79,9 @@ class TORCH_CUDA_CU_API IndexLowering : private OptOutConstDispatch {
       Val* dst,
       const std::unordered_map<IterDomain*, Val*>& override_index = {}) const;
 
-  Val* lowerSizeNonEqualSrcIndex(
-      Val* producer_src, 
-      Val* other_src,
+  Val* lowerDstIndex(
       Val* dst,
       const std::unordered_map<IterDomain*, Val*>& override_index = {}) const;
-
-  Val* lowerDstIndex(Val* dst) const;
 
   void handleBlockReduction(const ReductionOp* rop, Val* out, Val* in);
   void handleGridReduction(const ReductionOp* rop, Val* out, Val* in);

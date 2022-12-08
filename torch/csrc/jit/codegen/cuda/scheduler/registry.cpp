@@ -34,19 +34,20 @@ std::deque<std::deque<TensorView*>> tvChains(
   return tv_chains;
 }
 
-bool rejectScheduleForTorchGather(TorchGatherOp* torch_gather, 
-  ScheduleHeuristic schedule_stragety) {
+bool rejectScheduleForTorchGather(
+    TorchGatherOp* torch_gather,
+    ScheduleHeuristic schedule_stragety) {
   if (!torch_gather->input(0)->isFusionInput()) {
     scheduler_debug_utils::canScheduleRejectReason(
-      schedule_stragety,
-      "First input of TorchGatherOp must be fusion input.");
-      return true;
+        schedule_stragety,
+        "First input of TorchGatherOp must be fusion input.");
+    return true;
   }
   if (torch_gather->input(0)->uses().size() > 1) {
     scheduler_debug_utils::canScheduleRejectReason(
-      schedule_stragety,
-      "First input of TorchGatherOp can only be used by TorchGatherOp");
-      return true;
+        schedule_stragety,
+        "First input of TorchGatherOp can only be used by TorchGatherOp");
+    return true;
   }
   return false;
 }
@@ -1265,9 +1266,9 @@ class ReductionScheduler : public SchedulerEntry {
       }
     }
     for (auto torch_gather : ir_utils::getTorchGatherOps(fusion)) {
-      if(rejectScheduleForTorchGather(torch_gather, 
-        ScheduleHeuristic::Reduction)) {
-          return false;
+      if (rejectScheduleForTorchGather(
+              torch_gather, ScheduleHeuristic::Reduction)) {
+        return false;
       }
     }
 
@@ -1472,9 +1473,9 @@ class TransposeScheduler : public SchedulerEntry {
     }
 
     for (auto torch_gather : ir_utils::getTorchGatherOps(fusion)) {
-      if(rejectScheduleForTorchGather(torch_gather, 
-        ScheduleHeuristic::Transpose)) {
-          return false;
+      if (rejectScheduleForTorchGather(
+              torch_gather, ScheduleHeuristic::Transpose)) {
+        return false;
       }
       auto root = TensorDomain::noReductions(
           torch_gather->input(0)->as<TensorView>()->getMaybeRFactorDomain());
@@ -1595,9 +1596,9 @@ class PointWiseScheduler : public SchedulerEntry {
     }
 
     for (auto torch_gather : ir_utils::getTorchGatherOps(fusion)) {
-      if(rejectScheduleForTorchGather(torch_gather, 
-        ScheduleHeuristic::PointWise)) {
-          return false;
+      if (rejectScheduleForTorchGather(
+              torch_gather, ScheduleHeuristic::PointWise)) {
+        return false;
       }
     }
 
@@ -1718,9 +1719,9 @@ class PersistentKernelScheduler : public SchedulerEntry {
     }
 
     for (auto torch_gather : ir_utils::getTorchGatherOps(fusion)) {
-      if(rejectScheduleForTorchGather(torch_gather, 
-        ScheduleHeuristic::Persistent)) {
-          return false;
+      if (rejectScheduleForTorchGather(
+              torch_gather, ScheduleHeuristic::Persistent)) {
+        return false;
       }
     }
 

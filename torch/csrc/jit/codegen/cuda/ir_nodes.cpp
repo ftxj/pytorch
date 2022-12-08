@@ -180,20 +180,18 @@ NVFUSER_DEFINE_CLONE_AND_CREATE(TorchGatherOp)
 
 ScatterAddOp::ScatterAddOp(
     IrBuilderPasskey passkey,
-    Val* new_out,
     Val* out,
-    Val* in,
+    Val* input,
     int dim,
-    IterDomain* select_id,
-    IterDomain* select_id_out,
-    Val* indices)
+    Val* index,
+    Val* src,
+    IterDomain* select_id)
     : Expr(passkey) {
-  addInput(in);
-  addInput(indices);
-  addInput(out);
-  addOutput(new_out);
+  addInput(input);
+  addInput(index);
+  addInput(src);
+  addOutput(out);
   addAttribute(select_id);
-  addAttribute(select_id_out);
   addAttribute(IrBuilder::create<Attribute<int>>(passkey.ir_container_, dim));
 }
 
@@ -205,8 +203,7 @@ ARangeOp::ARangeOp(
     Val* start,
     Val* end,
     Val* step,
-    DataType dtype,
-    Val* linear_index)
+    DataType dtype)
     : Expr(passkey) {
   addInput(start);
   addInput(end);
@@ -214,17 +211,11 @@ ARangeOp::ARangeOp(
   addOutput(out);
   addAttribute(
       IrBuilder::create<Attribute<DataType>>(passkey.ir_container_, dtype));
-  addAttribute(linear_index);
 }
 
 NVFUSER_DEFINE_CLONE_AND_CREATE(ARangeOp)
 
-EyeOp::EyeOp(
-    IrBuilderPasskey passkey,
-    Val* out,
-    DataType dtype,
-    Val* index1,
-    Val* index2)
+EyeOp::EyeOp(IrBuilderPasskey passkey, Val* out, DataType dtype)
     : Expr(passkey) {
   if (out->isA<TensorView>()) {
     addInput(out->as<TensorView>()->getRootDomain()[0]->extent());
@@ -236,8 +227,6 @@ EyeOp::EyeOp(
   addOutput(out);
   addAttribute(
       IrBuilder::create<Attribute<DataType>>(passkey.ir_container_, dtype));
-  addAttribute(index1);
-  addAttribute(index2);
 }
 
 NVFUSER_DEFINE_CLONE_AND_CREATE(EyeOp)
@@ -1184,13 +1173,13 @@ IterDomain::IterDomain(
       "IterDomain cannot be both a broadcast and rfactor domain.");
 
   TORCH_INTERNAL_ASSERT(
-      extent->isAnInt(),
+      extent->isIntegralScalar(),
       "Cannot create an iter domain over an extent that is not an int but received ",
       extent,
       " .");
 
   TORCH_INTERNAL_ASSERT(
-      start->isAnInt(),
+      start->isIntegralScalar(),
       "Cannot create an iter domain with a start that is not an int but received ",
       start,
       " .");
@@ -1357,7 +1346,8 @@ std::pair<IterDomain*, IterDomain*> IterDomain::split(
       !in->extent()->isZeroInt(),
       "Splitting IterDomains with ending values that are 0 is not supported at this time.");
 
-  TORCH_CHECK(factor->isAnInt(), "Cannot split by non-integer value ", factor);
+  TORCH_CHECK(
+      factor->isIntegralScalar(), "Cannot split by non-integer value ", factor);
 
   if (factor->getValType() == ValType::Scalar) {
     TORCH_CHECK(
@@ -2139,7 +2129,7 @@ Split::Split(
     Val* stop_offset)
     : Expr(passkey) {
   TORCH_INTERNAL_ASSERT(
-      factor->isAnInt(),
+      factor->isIntegralScalar(),
       "Attempted to create a Split node with a non-integer factor.");
   if (start_offset == nullptr) {
     start_offset = passkey.ir_container_->zeroVal();

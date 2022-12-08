@@ -115,38 +115,6 @@ std::string genCall(
   return ss.str();
 }
 
-//! A utility class to check if an expression of a particular type exists
-class ExprFinder : kir::ConstIrVisitor {
- public:
-  //! True if expr or any of its nested expressions is included in
-  //! expr_types
-  static bool exists(
-      const Expr* expr,
-      const std::unordered_set<std::type_index>& expr_types) {
-    ExprFinder finder(expr_types);
-    finder.handle(std::vector<const Expr*>{expr});
-    return finder.is_found_;
-  }
-
- private:
-  ExprFinder(const std::unordered_set<std::type_index>& expr_types)
-      : expr_types_(expr_types) {}
-
-  using kir::ConstIrVisitor::handle;
-
-  void handle(const Expr* expr) final {
-    if (expr_types_.find(typeid(*expr)) != expr_types_.end()) {
-      is_found_ = true;
-      return;
-    }
-    kir::ConstIrVisitor::handle(expr);
-  }
-
- private:
-  const std::unordered_set<std::type_index>& expr_types_;
-  bool is_found_ = false;
-};
-
 class CudaKernelGenerator : private OptOutConstDispatch {
   static constexpr const char* kTab = "  ";
 
@@ -483,33 +451,11 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     if (ns->getParallelIndex().has_value() ||
         ns->getParallelDim().has_value()) {
       code_ << "((nvfuser_index_t)" << ns->name() << ")";
-    } else {
+    } else if (ns->definition() == nullptr) {
       code_ << ns->name();
+    } else {
+      code_ << genInline(ns->definition());
     }
-  }
-
-  //! Returns the sum of all indices in a TensorIndex,
-  //!  or 0 if the indices vector is empty.
-  //! Used lowering generic tensor index and lowering
-  //!  mma fragment indices.
-  std::string genTensorIndex(const kir::TensorIndex* ti) {
-    bool first = true;
-    std::stringstream index;
-    for (auto* ind : ti->indices()) {
-      if (!ind->isZeroInt()) {
-        if (!first) {
-          index << " + ";
-        }
-        index << genInline(ind);
-        first = false;
-      }
-    }
-
-    if (first) {
-      index << "0";
-    }
-
-    return index.str();
   }
 
   void handle(const kir::TensorIndex* ti) final {
@@ -518,7 +464,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     if (is_volatile) {
       code_ << "*(volatile " << ti->getDataType().value() << "*)&";
     }
-    code_ << varName(ti->view()) << "[" << genTensorIndex(ti) << "]";
+    code_ << varName(ti->view()) << "[" << genInline(ti->index()) << "]";
   }
 
   void handle(const ViewAsScalar* sv) final {
@@ -581,26 +527,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     code_ << "*" << genVectorPointer(ldst->out(), dtype, vector_word_size)
           << ","
           << "&" << gen(ldst->in()) << ");\n";
-  }
-
-  void handle(const FullOp* fop) final {
-    indent() << gen(fop->output(0)) << " = (" << fop->dtype() << ")"
-             << gen(fop->getFillValue()) << ";\n";
-  }
-
-  void handle(const ARangeOp* aop) final {
-    auto index =
-        genTensorIndex(aop->getLinearLogicalIndex()->as<kir::TensorIndex>());
-    indent() << gen(aop->output(0)) << " = arange<" << aop->dtype() << ">";
-    code_ << "(" << index << ", " << gen(aop->start()) << ", "
-          << gen(aop->step()) << ");\n";
-  }
-
-  void handle(const EyeOp* aop) final {
-    auto index1 = gen(aop->getIndex1());
-    auto index2 = gen(aop->getIndex2());
-    indent() << gen(aop->output(0)) << " = (" << aop->dtype() << ")";
-    code_ << "(" << index1 << " == " << index2 << ");\n";
   }
 
   void handle(const UnaryOp* uop) final {
@@ -737,14 +663,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
     const auto op_type = uop->getUnaryOpType();
 
-    if (uop->out()->isA<NamedScalar>()) {
-      if (auto op = inline_op_str(op_type)) {
-        indent() << gen(uop->out()) << " = " << *op << genInline(uop->in())
-                 << ";\n";
-      }
-      return;
-    }
-
     if (!print_inline_) {
       indent() << gen(uop->out());
       if (!uop->out()->isScalar() && !uop->in()->isScalar()) {
@@ -791,7 +709,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   void handle(const RNGOp* rop) final {
     // TODO: TORCH_INTERNAL_ASSERT that the scheduler correctly creates an
     // innermost ID of size 4 (float) or size 2 (double)?
-    auto index = genTensorIndex(rop->getPhiloxIndex()->as<kir::TensorIndex>());
+    auto index = genInline(rop->getPhiloxIndex());
     int multiple = rop->getPhiloxMultiple();
     indent() << "nvfuser_index_t linear_index" << rop->name() << " = " << index
              << ";\n";
@@ -1077,8 +995,8 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
   void handle(const ScatterAddOp* sop) final {
     // generate code
-    indent() << "atomicAdd(&" << gen(sop->input(2)) << ", " << gen(sop->input(0)) << ");\n ";
-    indent() << gen(sop->output(0)) << " = " << gen(sop->input(2)) << ";\n ";
+    indent() << "atomicAdd(&" << gen(sop->output(0)) << ", " << gen(sop->lookupTv()) << ");\n ";
+    indent() << "atomicAdd(&" << gen(sop->out2Tv()) << ", " << gen(sop->inputTv()) << ");\n ";
   }
 
 
@@ -1128,13 +1046,13 @@ class CudaKernelGenerator : private OptOutConstDispatch {
              << getInputARegisterSize(options.macro) << ","
              << getInputARegisterSize(options.macro) << ">*>(&"
              << varName(mma->inA()->as<kir::TensorIndex>()->view()) << ")["
-             << genTensorIndex(mma->inA()->as<kir::TensorIndex>()) << "])"
+             << genInline(mma->inA()->as<kir::TensorIndex>()->index()) << "])"
              << ",\n";
     indent() << kTab << "&(reinterpret_cast<Array<" << dtype << ","
              << getInputBRegisterSize(options.macro) << ","
              << getInputBRegisterSize(options.macro) << ">*>(&"
              << varName(mma->inB()->as<kir::TensorIndex>()->view()) << ")["
-             << genTensorIndex(mma->inB()->as<kir::TensorIndex>()) << "])";
+             << genInline(mma->inB()->as<kir::TensorIndex>()->index()) << "])";
   }
 
   void genMmaInitialization(const MmaOp* mma, const UnaryOp* uop) {
@@ -2489,19 +2407,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
         " which is handled by its own handler");
   }
 
-  //! True if loop is grouped. The IterDomain of the loop must have
-  //! ParallelType::Group, but it isn't sufficient as the loop may be
-  //! for an initialization expression, for which the loop shold not
-  //! be grouped. Make sure a GroupedGridReduction is found.
-  bool isGroupedLoop(const kir::ForLoop* loop) {
-    if (loop->iter_domain()->getParallelType() != ParallelType::Group) {
-      return false;
-    }
-    return ExprFinder::exists(
-        loop,
-        {typeid(kir::GroupedGridReduction), typeid(kir::GroupedGridWelford)});
-  }
-
   void handle(const kir::ForLoop* loop) final {
     if (loop->isTrivial()) {
       handleTrivialLoop(loop);
@@ -2510,7 +2415,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
     // If a loop is grouped, no loop is created, but it isn't
     // considered trivial as the loop trip count is not one.
-    if (isGroupedLoop(loop)) {
+    if (loop->isGroup()) {
       grouped_loops_.push_back(loop);
       handleScope(loop->body());
       grouped_loops_.pop_back();

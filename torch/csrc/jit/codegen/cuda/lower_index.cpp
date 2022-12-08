@@ -26,26 +26,13 @@ Val* IndexLowering::lowerSrcIndex(
   }
 }
 
-Val* IndexLowering::lowerDstIndex(Val* dst) const {
-  if (auto tv = dynamic_cast<TensorView*>(dst)) {
-    return Index::getConsumerIndex(tv, for_loops_);
-  } else {
-    return dst;
-  }
-}
-
-Val* IndexLowering::lowerSizeNonEqualSrcIndex(
-    Val* producer_src, 
-    Val* other_src,
+Val* IndexLowering::lowerDstIndex(
     Val* dst,
     const std::unordered_map<IterDomain*, Val*>& override_index) const {
-  if (auto tv_other_src = dynamic_cast<TensorView*>(other_src)) {
-    TORCH_INTERNAL_ASSERT(dst->isA<TensorView>());
-    TORCH_INTERNAL_ASSERT(producer_src->isA<TensorView>());
-    return Index::getIndexForNonEqualDomains(
-        producer_src->as<TensorView>(), tv_other_src, dst->as<TensorView>(), for_loops_, override_index);
+  if (auto tv = dynamic_cast<TensorView*>(dst)) {
+    return Index::getConsumerIndex(tv, for_loops_, override_index);
   } else {
-    return other_src;
+    return dst;
   }
 }
 
@@ -118,8 +105,7 @@ void IndexLowering::handle(const RNGOp* rop) {
   TORCH_INTERNAL_ASSERT(out_tv != nullptr, "rand scalar not yet supported");
 
   // TensorIndex for philox subsequence and component.
-  auto philox_index = SimplifyingIrBuilder::create<kir::TensorIndex>(
-      out_tv, Index::getLinearLogicalIndex(out_tv, for_loops_));
+  auto philox_index = Index::getLinearLogicalIndex(out_tv, for_loops_);
 
   // TensorIndex for writing rand_like output.
   const auto out = lowerDstIndex(out_tv);
@@ -142,9 +128,10 @@ void IndexLowering::handle(const FullOp* fop) {
 
   // TensorIndex for writing output.
   const auto out = lowerDstIndex(out_tv);
-  auto lowered =
-      IrBuilder::create<FullOp>(out, fop->getFillValue(), fop->dtype());
+  auto result = castOp(fop->dtype(), fop->getFillValue());
+  GpuLower::current()->commonIndexMap().hoistIndex(result, for_loops_);
 
+  auto lowered = IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, result);
   pushBack(lowered);
   GpuLower::current()->propagateExprInfo(fop, back());
 }
@@ -155,14 +142,11 @@ void IndexLowering::handle(const ARangeOp* aop) {
   auto out_tv = dynamic_cast<TensorView*>(aop->output(0));
   TORCH_INTERNAL_ASSERT(out_tv != nullptr);
 
-  // linear index for computing arange output
-  auto linear_index = SimplifyingIrBuilder::create<kir::TensorIndex>(
-      out_tv, Index::getLinearLogicalIndex(out_tv, for_loops_));
-
   // TensorIndex for writing arange output.
   const auto out = lowerDstIndex(out_tv);
-  auto lowered = IrBuilder::create<ARangeOp>(
-      out, aop->start(), aop->end(), aop->step(), aop->dtype(), linear_index);
+  auto result = Index::arange(
+      out_tv, for_loops_, aop->start(), aop->step(), aop->dtype());
+  auto lowered = IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, result);
 
   pushBack(lowered);
   GpuLower::current()->propagateExprInfo(aop, back());
@@ -172,15 +156,10 @@ void IndexLowering::handle(const EyeOp* eop) {
   auto out_tv = dynamic_cast<TensorView*>(eop->output(0));
   TORCH_INTERNAL_ASSERT(out_tv != nullptr);
 
-  // linear index for computing eye output
-  auto indices = Index::getPerDimLogicalIndex(out_tv, for_loops_);
-  TORCH_INTERNAL_ASSERT(indices.size() == 2);
-  auto index1 = indices[0];
-  auto index2 = indices[1];
-
   // TensorIndex for writing eye output.
   const auto out = lowerDstIndex(out_tv);
-  auto lowered = IrBuilder::create<EyeOp>(out, eop->dtype(), index1, index2);
+  auto result = Index::eye(out_tv, for_loops_, eop->dtype());
+  auto lowered = IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, result);
 
   pushBack(lowered);
   GpuLower::current()->propagateExprInfo(eop, back());
@@ -237,11 +216,10 @@ void IndexLowering::handle(const IndexSelectOp* sop) {
 }
 
 void IndexLowering::handle(const TorchGatherOp* top) {
-
   auto lowered_index = lowerSrcIndex(top->input(1), top->output(0));
   auto lowered_index_cast = lowered_index;
   if (GpuLower::current()->kernel()->indexType() !=
-      top->input(1)->getDataType().value()) {
+      top->indexTv()->getDataType().value()) {
     lowered_index_cast =
         IrBuilder::newScalar(GpuLower::current()->kernel()->indexType());
     IrBuilder::create<UnaryOp>(
@@ -249,11 +227,9 @@ void IndexLowering::handle(const TorchGatherOp* top) {
   }
 
   const std::unordered_map<IterDomain*, Val*> override_index = {
-      {top->getSelectAxis(), lowered_index}
-  };
+      {top->getSelectAxis(), lowered_index}};
 
-  const auto input = lowerSizeNonEqualSrcIndex(
-      top->input(1), top->input(0), top->output(0), override_index);
+  auto input = lowerSrcIndex(top->lookupTv(), top->output(0), override_index);
 
   const auto out = lowerDstIndex(top->output(0));
   pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));
@@ -261,11 +237,10 @@ void IndexLowering::handle(const TorchGatherOp* top) {
 }
 
 void IndexLowering::handle(const ScatterAddOp* top) {
-  auto input = lowerSrcIndex(top->input(0), top->output(0));
-  auto lowered_index = lowerSrcIndex(top->input(1), top->output(0));
+  auto lowered_index = lowerSrcIndex(top->indexTv(), top->output(0));
   auto lowered_index_cast = lowered_index;
   if (GpuLower::current()->kernel()->indexType() !=
-      top->input(1)->getDataType().value()) {
+      top->indexTv()->getDataType().value()) {
     lowered_index_cast =
         IrBuilder::newScalar(GpuLower::current()->kernel()->indexType());
     IrBuilder::create<UnaryOp>(
@@ -273,20 +248,16 @@ void IndexLowering::handle(const ScatterAddOp* top) {
   }
 
   const std::unordered_map<IterDomain*, Val*> override_index = {
-      {top->getInplaceSelectAxis(), lowered_index}
-  };
-  const auto out = lowerSizeNonEqualSrcIndex(
-      top->input(1), top->input(2), top->output(0), override_index);
+      {top->getSelectAxis(), lowered_index}};
 
-  const std::unordered_map<IterDomain*, Val*> override_index_out = {
-      {top->output(0)->as<TensorView>()->getRootDomain()[top->dim()], lowered_index}
-  };
-  const auto new_out = lowerSizeNonEqualSrcIndex(
-      top->input(1), top->output(0), top->output(0), override_index_out);
-  
-  pushBack(IrBuilder::create<ScatterAddOp>(new_out, out, input, 
-      top->dim(), top->getInplaceSelectAxis(), top->getOutputSelectAxis(), 
-      lowered_index));
+  const auto out = lowerDstIndex(top->output(0), override_index);
+  const auto out2 = lowerDstIndex(top->output(0));
+
+  auto input = lowerSrcIndex(top->inputTv(), top->output(0));
+  auto src = lowerSrcIndex(top->lookupTv(), top->output(0));
+
+  pushBack(IrBuilder::create<ScatterAddOp>(
+      out, input, top->dim(), out2, src, top->getSelectAxis()));
   GpuLower::current()->propagateExprInfo(top, back());
 }
 

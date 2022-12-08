@@ -107,13 +107,12 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
  public:
   using Expr::Expr;
   TorchGatherOp(
-    IrBuilderPasskey, 
-    Val* out, 
-    Val* in,
-    int dim,
-    IterDomain* select_id,
-    Val* index
-  );
+      IrBuilderPasskey,
+      Val* out,
+      Val* in,
+      int dim,
+      IterDomain* select_id,
+      Val* index);
 
   NVFUSER_DECLARE_CLONE_AND_CREATE
 
@@ -121,14 +120,21 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
     return "TorchGatherOp";
   }
 
+  TensorView* lookupTv() const {
+    return input(0)->as<TensorView>();
+  }
+
+  TensorView* indexTv() const {
+    return input(1)->as<TensorView>();
+  }
+
   int dim() const {
     return attribute(1)->as<Attribute<int>>()->value;
   }
-  
+
   IterDomain* getSelectAxis() const {
     return attribute(0)->as<IterDomain>();
   }
-
 };
 
 class TORCH_CUDA_CU_API ScatterAddOp : public Expr {
@@ -136,13 +142,12 @@ class TORCH_CUDA_CU_API ScatterAddOp : public Expr {
   using Expr::Expr;
   ScatterAddOp(
     IrBuilderPasskey, 
-    Val* new_out, 
     Val* out, 
-    Val* in,
+    Val* input, 
     int dim,
-    IterDomain* select_id,
-    IterDomain* select_id_2,
-    Val* index
+    Val* index,
+    Val* src,
+    IterDomain* select_id
   );
 
   NVFUSER_DECLARE_CLONE_AND_CREATE
@@ -152,16 +157,29 @@ class TORCH_CUDA_CU_API ScatterAddOp : public Expr {
   }
 
   int dim() const {
-    return attribute(2)->as<Attribute<int>>()->value;
+    return attribute(1)->as<Attribute<int>>()->value;
   }
   
-  IterDomain* getInplaceSelectAxis() const {
+  IterDomain* getSelectAxis() const {
     return attribute(0)->as<IterDomain>();
   }
   
-  IterDomain* getOutputSelectAxis() const {
-    return attribute(1)->as<IterDomain>();
+  TensorView* out2Tv() const { // will later
+    return input(1)->as<TensorView>();
   }
+
+  TensorView* lookupTv() const {
+    return input(2)->as<TensorView>();
+  }
+
+  TensorView* indexTv() const {
+    return input(1)->as<TensorView>();
+  }
+
+  TensorView* inputTv() const {
+    return input(0)->as<TensorView>();
+  }
+  
 };
 
 class TORCH_CUDA_CU_API ARangeOp : public Expr {
@@ -174,8 +192,7 @@ class TORCH_CUDA_CU_API ARangeOp : public Expr {
       Val* start,
       Val* end,
       Val* step,
-      DataType dtype,
-      Val* linear_index = nullptr);
+      DataType dtype);
 
   NVFUSER_DECLARE_CLONE_AND_CREATE
 
@@ -197,10 +214,6 @@ class TORCH_CUDA_CU_API ARangeOp : public Expr {
 
   Val* step() const {
     return input(2);
-  }
-
-  Val* getLinearLogicalIndex() const {
-    return attributeVal(1);
   }
 };
 
@@ -226,12 +239,7 @@ class TORCH_CUDA_CU_API EyeOp : public Expr {
  public:
   using Expr::Expr;
 
-  EyeOp(
-      IrBuilderPasskey,
-      Val* out,
-      DataType dtype,
-      Val* index1 = nullptr,
-      Val* index2 = nullptr);
+  EyeOp(IrBuilderPasskey, Val* out, DataType dtype);
 
   NVFUSER_DECLARE_CLONE_AND_CREATE
 
@@ -241,14 +249,6 @@ class TORCH_CUDA_CU_API EyeOp : public Expr {
 
   DataType dtype() const {
     return attribute(0)->as<Attribute<DataType>>()->value;
-  }
-
-  Val* getIndex1() const {
-    return attributeVal(1);
-  }
-
-  Val* getIndex2() const {
-    return attributeVal(2);
   }
 };
 

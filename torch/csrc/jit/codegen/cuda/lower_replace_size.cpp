@@ -40,7 +40,7 @@ std::unordered_map<Val*, Val*> getSimplificationMap(Fusion* fusion) {
     if (id0->isBroadcast() || id1->isBroadcast()) {
       return;
     }
-    
+
     if (id0->isGatherScatter() || id1->isGatherScatter()) {
       return;
     }

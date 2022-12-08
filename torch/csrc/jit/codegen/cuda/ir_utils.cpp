@@ -838,6 +838,7 @@ bool isScatterAddInplaceTv(const Val* tv) {
   return false;
 }
 
+
 IterDomain* getSelectedDomainIfTvIsIndexSelectOutput(const TensorView* tv) {
   auto tv_def = tv->definition();
   if (tv_def != nullptr) {

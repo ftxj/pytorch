@@ -670,10 +670,7 @@ void IndexCompute::run(const LoopIndexing& loop_indexing) {
     // Resolve missing values from permissive map.
     updateIndexMapFromPermissiveMap(expr);
 
-    // some redundant calculation here 
-    // because collectIndexIntoPermissiveMap has already done
-    handle(expr); 
-    
+    handle(expr);
   }
 }
 
@@ -1318,79 +1315,6 @@ void ensureStaticIndexing(
 
 namespace {
 
-//! Returns an iterdomain that corresponds to the
-//!  indexing sub-expression to hoist or a nullopt
-//!  if the index should not be hoisted.
-c10::optional<IterDomain*> getMaybeIndexedIdToHoist(
-    IterDomain* root_id,
-    const TensorView* tv,
-    const IndexCompute& indexing,
-    Val* index) {
-  if (isOptionDisabled(DisableOption::IndexHoist) ||
-      index->definition() == nullptr) {
-    return c10::nullopt;
-  }
-
-  // New swizzle interface not yet supported
-  if (tv->hasSwizzleOp()) {
-    return c10::nullopt;
-  }
-
-  // Find the true indexed domain, which can be a merged contiguous domain.
-  auto contig_id_it = indexing.rootToContigID().find(root_id);
-  TORCH_INTERNAL_ASSERT(
-      contig_id_it != indexing.rootToContigID().end(),
-      "Consumer indexed ID not found: ",
-      root_id->toString());
-  auto indexed_id = contig_id_it->second;
-  // Make sure this contig ID is indeed indexed
-  TORCH_INTERNAL_ASSERT(
-      indexing.indexMap().find(contig_id_it->second) !=
-          indexing.indexMap().end(),
-      "Invalid contig index: ",
-      contig_id_it->second->toString(),
-      ", root ID: ",
-      root_id->toString(),
-      ", TV: ",
-      tv->toString());
-
-  return indexed_id;
-}
-
-// Version of hoisting without using reference tensor,
-//  should eventually deprecate the other one once reference
-//  tensor is completely deprecated.
-Val* hoistConsumerIndex(
-    IterDomain* consumer_root_id,
-    const TensorView* consumer_tv,
-    const IndexCompute& consumer_indexing,
-    std::vector<IterDomain*> loop_domains,
-    const std::unordered_map<IterDomain*, Val*> initial_loop_index_map,
-    const std::vector<kir::ForLoop*>& loops,
-    Val* index) {
-  auto maybe_hoisted_consumer_id = getMaybeIndexedIdToHoist(
-      consumer_root_id, consumer_tv, consumer_indexing, index);
-
-  if (!maybe_hoisted_consumer_id.has_value()) {
-    return index;
-  }
-
-  // Insert the index into the common index map. A previously inserted
-  // val can be returned.
-  auto common_index = GpuLower::current()
-                          ->commonIndexMap()
-                          .insert(
-                              maybe_hoisted_consumer_id.value(),
-                              consumer_tv->domain(),
-                              loop_domains,
-                              initial_loop_index_map,
-                              loops,
-                              index)
-                          .first;
-
-  return common_index;
-}
-
 std::unordered_map<IterDomain*, IterDomain*> invertOneToOneMap(
     const std::unordered_map<IterDomain*, IterDomain*>& map) {
   std::unordered_map<IterDomain*, IterDomain*> inverted;
@@ -1404,68 +1328,6 @@ std::unordered_map<IterDomain*, IterDomain*> invertOneToOneMap(
   return inverted;
 }
 
-Val* hoistProducerIndex(
-    IterDomain* producer_root_id,
-    const TensorView* producer_tv,
-    const IndexCompute& producer_indexing,
-    const TensorView* consumer_tv,
-    const std::unordered_map<IterDomain*, IterDomain*>& p2c_map,
-    std::vector<IterDomain*> loop_domains,
-    const std::unordered_map<IterDomain*, Val*> initial_loop_index_map,
-    const std::vector<kir::ForLoop*>& loops,
-    Val* index,
-    bool is_overriden_index) {
-  if (is_overriden_index) {
-    // do not hoist overridden index. It is used by
-    // select/index_select, so IterDomain equivalence does not mean
-    // the same index math
-    return index;
-  }
-
-  auto maybe_indexed_producer_id = getMaybeIndexedIdToHoist(
-      producer_root_id, producer_tv, producer_indexing, index);
-
-  if (!maybe_indexed_producer_id.has_value()) {
-    return index;
-  }
-
-  // Use the corresponding consumer domain to find matching
-  // for-loops. Note that there's no CA mapping with the producer
-  // domains as the producer TensorDomain is a temporary replay
-  // domain.
-  auto indexed_consumer_id_it = p2c_map.find(maybe_indexed_producer_id.value());
-
-  // There can be no corresponding consumer ID. For example, consider:
-  //   consumer: [b1, i2, i3]
-  //   producer: [i2, i3].
-  // Suppose the consumer is transformed as:
-  //   consumer: [(b1*i2)*i3]
-  // Then the producer would be transformed when indexed:
-  //   producer: [i2*i3]
-  // Assuming i2 and i3 are contiguous, the producer indexing is done
-  // with the mreged i2*i3 domain, but there's no domain in the
-  // cosumer that maps with the producer indexed domain.
-  // It seems non-trivial to support patterns like this. Skip for now.
-  if (indexed_consumer_id_it == p2c_map.end()) {
-    return index;
-  }
-
-  IterDomain* indexed_consumer_id = indexed_consumer_id_it->second;
-
-  auto common_index = GpuLower::current()
-                          ->commonIndexMap()
-                          .insert(
-                              indexed_consumer_id,
-                              consumer_tv->domain(),
-                              loop_domains,
-                              initial_loop_index_map,
-                              loops,
-                              index)
-                          .first;
-
-  return common_index;
-}
-
 } // namespace
 
 std::vector<Val*> Index::getGlobalProducerStridedIndices(
@@ -1477,8 +1339,10 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
 
   // Replay producer to look like consumer so we can index on producer since
   // our loop nests look like consumer
-  auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv);
-  auto producerAsC =
+  auto pairwise_map =
+      PairwiseRootDomainMap(producer_tv, consumer_tv, false, true);
+
+  TensorDomain* producerAsC =
       TransformReplay::replayPasC(producer_tv, consumer_tv, -1, pairwise_map)
           .first;
 
@@ -1488,7 +1352,7 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
   // Map sent to best effort replay needs to match the exact incantation for
   // compute_at_mode.cpp with MappingMode::Index
   auto c2p_root_map =
-      PairwiseRootDomainMap(producer_tv, consumer_tv, true)
+      PairwiseRootDomainMap(producer_tv, consumer_tv, true, true)
           .mapConsumerToProducer(consumer_tv->domain(), producer_tv->domain());
 
   // This replay has to be consistent with compute at index map.
@@ -1497,7 +1361,21 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
       consumer_tv->domain()->domain(),
       c2p_root_map);
 
-  const auto& c2p_map = replay_producer_as_consumer.getReplay();
+  auto c2p_map = replay_producer_as_consumer.getReplay();
+
+  // Make sure at least root domains are mapped even when extents may
+  // be different
+  for (const auto& kv :
+       PairwiseRootDomainMap(producer_tv, consumer_tv, true, false)
+           .mapConsumerToProducer(
+               consumer_tv->domain(), producer_tv->domain())) {
+    auto consumer_root_id = kv.first;
+    auto producer_root_id = kv.second;
+    if (c2p_map.find(consumer_root_id) == c2p_map.end()) {
+      c2p_map.emplace(consumer_root_id, producer_root_id);
+    }
+  }
+
   const auto p2c_map = invertOneToOneMap(c2p_map);
 
   // Forward vectorized IDs to index into producer correctly
@@ -1608,19 +1486,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
         " id: ",
         root_dom[i]->toString());
 
-    // index hoist must be done before the adjustments for halo
-    root_ind = hoistProducerIndex(
-        root_dom[i],
-        producer_tv,
-        producer_indexing,
-        consumer_tv,
-        p2c_map,
-        producer_indexing_from_idgraph.resolved_loop_domains,
-        producer_indexing_from_idgraph.initial_concrete_index_map,
-        loops,
-        root_ind,
-        is_overriden);
-
     root_ind = getProducerIndexWithHalo(
         producer_tv, i, root_ind, consumer_tv, is_overriden);
 
@@ -1638,12 +1503,17 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
       continue;
     } else {
       auto strided_ind = SimplifyingIrBuilder::mulExpr(root_ind, strides[i]);
+      if(!override_index.empty() && i != 0) { // modify later
+        strided_ind = SimplifyingIrBuilder::modExpr(strided_ind, strides[i - 1]);
+      }
       if (i == root_dom.size() - 1 && vectorize_shift != nullptr) {
         strided_inds[i] =
             SimplifyingIrBuilder::addExpr(strided_ind, vectorize_shift);
       } else {
         strided_inds[i] = strided_ind;
       }
+      strided_inds[i] = GpuLower::current()->commonIndexMap().hoistIndex(
+          strided_inds[i], loops);
     }
   }
 
@@ -1684,6 +1554,14 @@ std::unordered_map<IterDomain*, IterDomain*> mapAllProducerDomainsToConsumer(
   }
 
   return p2c_alloc_map;
+}
+
+Val* sumVals(std::vector<Val*> vals) {
+  Val* result_index = GpuLower::current()->kernel()->zeroVal();
+  for (auto v : vals) {
+    result_index = SimplifyingIrBuilder::addExpr(result_index, v);
+  }
+  return result_index;
 }
 
 } // namespace
@@ -1839,19 +1717,6 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
     auto root_ind_i =
         is_overriden ? override_it->second : index_map.at(root_dom[i]);
 
-    // index hoist must be done before the adjustments for halo
-    root_ind_i = hoistProducerIndex(
-        root_dom[i],
-        producer_tv,
-        producer_indexing,
-        consumer_tv,
-        p2c_index_map,
-        producer_indexing_from_idgraph.resolved_loop_domains,
-        producer_indexing_from_idgraph.initial_concrete_index_map,
-        loops,
-        root_ind_i,
-        is_overriden);
-
     root_ind_i = getProducerIndexWithHalo(
         producer_tv, i, root_ind_i, consumer_tv, is_overriden);
 
@@ -1905,6 +1770,8 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
     } else {
       strided_inds[i] = root_ind_i;
     }
+    strided_inds[i] = GpuLower::current()->commonIndexMap().hoistIndex(
+        strided_inds[i], loops);
   }
 
   if (producer_tv->isDoubleBuffered() || producer_tv->isCircularBuffered()) {
@@ -1928,11 +1795,11 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
   return strided_inds;
 }
 
-std::vector<Val*> Index::getLinearLogicalIndex(
+Val* Index::getLinearLogicalIndex(
     TensorView* consumer_tv,
     const std::vector<kir::ForLoop*>& loops) {
   auto guard = ir_utils::overrideContiguityGuard(consumer_tv, true);
-  return getGlobalConsumerStridedIndices(consumer_tv, loops);
+  return sumVals(getGlobalConsumerStridedIndices(consumer_tv, loops));
 }
 
 std::vector<Val*> Index::getPerDimLogicalIndex(
@@ -1942,55 +1809,6 @@ std::vector<Val*> Index::getPerDimLogicalIndex(
   IndexFromIdGraph index_from_id_graph =
       getTensorIndexFromIdGraph(loops, consumer_tv);
   return getRootIndices(consumer_tv, loops, index_from_id_graph);
-}
-
-kir::TensorIndex* Index::getIndexForNonEqualDomains(
-    TensorView* producer_tv, 
-    TensorView* unknown_tv,
-    TensorView* consumer_tv,
-    const std::vector<kir::ForLoop*>& loops,
-    const std::unordered_map<IterDomain*, Val*>& override_index) {
-
-  const auto producer_indices = Index::getPerDimLogicalIndex(consumer_tv, loops);
-  const auto producer_strides = Index::getStrides(producer_tv);
-  const auto producer_domains = producer_tv->getRootDomain();
-  TORCH_INTERNAL_ASSERT(producer_indices.size() == producer_strides.size());
-  
-  Val* producer_flatten_index = nullptr;
-  for(size_t i = 0; i < producer_strides.size(); ++i) {
-      producer_flatten_index = SimplifyingIrBuilder::addExpr(
-        producer_flatten_index, 
-        SimplifyingIrBuilder::mulExpr(producer_indices[i], producer_strides[i])
-      );
-  }
-
-
-  const auto unknown_domains = unknown_tv->getRootDomain();
-  const auto unknown_strides = getStrides(unknown_tv);
-
-  std::vector<Val*> unknwon_index;
-  for(size_t dim = 0; dim < producer_strides.size(); ++dim) {
-    auto producer_d = producer_domains[dim];
-
-    auto override_it = override_index.find(unknown_domains[dim]);
-    const bool is_overriden = override_it != override_index.end();
-
-    if(is_overriden) {
-      unknwon_index.push_back(IrBuilder::mulExpr(override_it->second, unknown_strides[dim]));
-    }
-    else {
-      unknwon_index.push_back(IrBuilder::mulExpr(
-        IrBuilder::modExpr(
-          IrBuilder::divExpr(
-            producer_flatten_index, 
-            producer_strides[dim]),  
-          producer_d->extent() 
-        ), 
-        unknown_strides[dim])
-      );
-    }
-  }
-  return SimplifyingIrBuilder::create<kir::TensorIndex>(unknown_tv, unknwon_index);
 }
 
 std::vector<Val*> Index::getStrides(const TensorView* tv) {
@@ -2068,44 +1886,48 @@ std::vector<Val*> Index::getRootIndices(
 
     auto root_ind = indexing.indexMap().at(root_dom[i]);
 
-    // index hoist must be done before the adjustments for halo
-    root_ind = hoistConsumerIndex(
-        root_dom[i],
-        tv,
-        indexing,
-        index_from_id_graph.resolved_loop_domains,
-        index_from_id_graph.initial_concrete_index_map,
-        loops,
-        root_ind);
-
     root_ind = SimplifyingIrBuilder::addExpr(
         root_ind, getGlobalConsumerOffsetWithPartialSplit(root_dom[i]));
     root_inds[i] = root_ind;
+
+    root_inds[i] =
+        GpuLower::current()->commonIndexMap().hoistIndex(root_inds[i], loops);
   }
   return root_inds;
 }
 
 std::vector<Val*> Index::getGlobalConsumerStridedIndices(
     const TensorView* consumer_tv,
-    const std::vector<kir::ForLoop*>& loops) {
+    const std::vector<kir::ForLoop*>& loops,
+    const std::unordered_map<IterDomain*, Val*>& override_index) {
+
   FUSER_PERF_SCOPE("GpuLower::Lower::getGlobalConsumerIndex");
 
   auto index_from_id_graph = getTensorIndexFromIdGraph(loops, consumer_tv);
   auto consumer_indexing = index_from_id_graph.index;
   auto strides = getStrides(consumer_tv);
   auto root_inds = getRootIndices(consumer_tv, loops, index_from_id_graph);
-
+  auto root_dom = consumer_tv->getMaybeRFactorDomain();
   // Global striding
   auto vectorize_shift =
       loops.empty() ? nullptr : loops.back()->vectorize_shift();
   std::vector<Val*> strided_inds(
       root_inds.size(), GpuLower::current()->kernel()->zeroVal());
   for (const auto i : c10::irange(root_inds.size())) {
+    auto override_it = override_index.find(root_dom[i]);
+    if(override_it != override_index.end() || (!override_index.empty() && i == 0)) { // will modify later
+      for(auto k : override_index) {
+        root_inds[i] = k.second; // just hack, modify later
+      }
+    }
     if (root_inds[i]->isZeroInt()) {
       continue;
     } else {
       auto strided_ind =
           SimplifyingIrBuilder::mulExpr(root_inds[i], strides[i]);
+      if(!override_index.empty() && i != 0) { // modify later
+        strided_ind = SimplifyingIrBuilder::modExpr(strided_ind, strides[i - 1]);
+      }
       if (i == strides.size() - 1 && vectorize_shift != nullptr) {
         strided_inds[i] =
             SimplifyingIrBuilder::addExpr(strided_ind, vectorize_shift);
@@ -2124,7 +1946,8 @@ std::vector<Val*> Index::getGlobalConsumerStridedIndices(
 // Consumer index for either shared or local memory
 std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
     const TensorView* consumer_tv,
-    const std::vector<kir::ForLoop*>& loops) {
+    const std::vector<kir::ForLoop*>& loops,
+    const std::unordered_map<IterDomain*, Val*>& override_index) {
   const auto gpu_lower = GpuLower::current();
 
   auto consumer_indexing_from_idgraph = getTensorIndexFromIdGraph(
@@ -2179,20 +2002,18 @@ std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
         ", loops: ",
         error_msg_loops.str());
 
-    auto root_ind_i = index_map.at(root_dom[i]);
+    auto override_it = override_index.find(root_dom[i]);
+    const bool is_overriden = override_it != override_index.end() || (!override_index.empty());
+    auto item = override_it->second;
+    for(auto k : override_index) {
+      item = k.second; // just hack, modify later
+    }
+    auto root_ind_i =
+        is_overriden ? item : index_map.at(root_dom[i]);
+
     if (root_ind_i->isZeroInt()) {
       continue;
     }
-
-    // index hoist must be done before the adjustments for halo
-    root_ind_i = hoistConsumerIndex(
-        root_dom[i],
-        consumer_tv,
-        consumer_indexing,
-        consumer_indexing_from_idgraph.resolved_loop_domains,
-        consumer_indexing_from_idgraph.initial_concrete_index_map,
-        loops,
-        root_ind_i);
 
     // Compute striding for this index.
     Val* stride = nullptr;
@@ -2231,6 +2052,8 @@ std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
     } else {
       strided_inds[i] = root_ind_i;
     }
+    strided_inds[i] = GpuLower::current()->commonIndexMap().hoistIndex(
+        strided_inds[i], loops);
   }
 
   // This check was originally done in getConsumerStridedIndices, but
@@ -2283,34 +2106,23 @@ std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
   return strided_inds;
 }
 
-std::vector<Val*> Index::getProducerStridedIndices(
+Val* Index::getProducerStridedIndices(
     TensorView* producer,
     const TensorView* consumer,
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getProducerStridedIndices");
   if (producer->domain()->noReductions().size() == 0) {
-    return std::vector<Val*>(
-        producer->getMaybeRFactorDomain().size(),
-        GpuLower::current()->kernel()->zeroVal());
+    return GpuLower::current()->kernel()->zeroVal();
   }
 
-  std::vector<Val*> strided_indices;
   if (producer->getMemoryType() == MemoryType::Global) {
-    strided_indices = getGlobalProducerStridedIndices(
-        producer, consumer, loops, override_index);
+    return sumVals(getGlobalProducerStridedIndices(
+        producer, consumer, loops, override_index));
   } else {
-    strided_indices = getNonGlobalProducerStridedIndices(
-        producer, consumer, loops, override_index);
+    return sumVals(getNonGlobalProducerStridedIndices(
+        producer, consumer, loops, override_index));
   }
-
-  TORCH_INTERNAL_ASSERT(
-      strided_indices.size() ==
-      producer->getMaybeRFactorDomain().size() +
-          (producer->isDoubleBuffered() || producer->isCircularBuffered() ? 1
-                                                                          : 0));
-
-  return strided_indices;
 }
 
 // Producer is the inputs of an expression
@@ -2325,31 +2137,28 @@ kir::TensorIndex* Index::getProducerIndex(
       producer, strided_indices);
 }
 
-std::vector<Val*> Index::getConsumerStridedIndices(
+Val* Index::getConsumerStridedIndices(
     const TensorView* consumer,
-    const std::vector<kir::ForLoop*>& loops) {
+    const std::vector<kir::ForLoop*>& loops,
+    const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getConsumerStridedIndices");
   if (consumer->domain()->noReductions().size() == 0) {
-    return std::vector<Val*>(
-        consumer->getMaybeRFactorDomain().size(),
-        GpuLower::current()->kernel()->zeroVal());
+    return GpuLower::current()->kernel()->zeroVal();
   }
 
-  std::vector<Val*> strided_indices;
   if (consumer->getMemoryType() == MemoryType::Global) {
-    strided_indices = getGlobalConsumerStridedIndices(consumer, loops);
+    return sumVals(getGlobalConsumerStridedIndices(consumer, loops, override_index));
   } else {
-    strided_indices = getNonGlobalConsumerStridedIndices(consumer, loops);
+    return sumVals(getNonGlobalConsumerStridedIndices(consumer, loops, override_index));
   }
-
-  return strided_indices;
 }
 
 // Consumer is the output of an expression
 kir::TensorIndex* Index::getConsumerIndex(
     const TensorView* consumer,
-    const std::vector<kir::ForLoop*>& loops) {
-  auto strided_indices = getConsumerStridedIndices(consumer, loops);
+    const std::vector<kir::ForLoop*>& loops,
+    const std::unordered_map<IterDomain*, Val*>& override_index) {
+  auto strided_indices = getConsumerStridedIndices(consumer, loops, override_index);
   return SimplifyingIrBuilder::create<kir::TensorIndex>(
       consumer, strided_indices);
 }
@@ -2885,61 +2694,6 @@ bool canOmitStopPredicate(
   return true;
 }
 
-std::pair<Val*, Val*> hoistPredicates(
-    Val* start_index,
-    Val* stop_index,
-    const std::vector<kir::ForLoop*>& loops,
-    std::vector<IterDomain*> loop_domains,
-    const std::unordered_map<IterDomain*, Val*>& start_initial_loop_index_map,
-    const std::unordered_map<IterDomain*, Val*>& stop_initial_loop_index_map,
-    kir::ForLoop* unswitch_or_vec_loop,
-    IterDomain* predicated_consumer_id,
-    TensorView* predicated_consumer_tv) {
-  const std::pair<Val*, Val*> same_indices{start_index, stop_index};
-
-  if (isOptionDisabled(DisableOption::IndexHoist)) {
-    return same_indices;
-  }
-
-  const auto start_is_same_as_stop = stop_index == start_index;
-
-  Val* hoisted_stop_index = nullptr;
-
-  if (stop_index->definition() == nullptr) {
-    // If the index doens't have an expression, nothing to hoist
-    hoisted_stop_index = stop_index;
-  } else {
-    bool inserted = false;
-    std::tie(hoisted_stop_index, inserted) =
-        GpuLower::current()->commonIndexMap().insert(
-            predicated_consumer_id,
-            predicated_consumer_tv->domain(),
-            loop_domains,
-            stop_initial_loop_index_map,
-            loops,
-            stop_index);
-  }
-
-  Val* hoisted_start_index = nullptr;
-  if (start_is_same_as_stop) {
-    hoisted_start_index = hoisted_stop_index;
-  } else if (start_index->definition() == nullptr) {
-    hoisted_start_index = start_index;
-  } else {
-    bool inserted = false;
-    std::tie(hoisted_start_index, inserted) =
-        GpuLower::current()->commonIndexMap().insert(
-            predicated_consumer_id,
-            predicated_consumer_tv->domain(),
-            loop_domains,
-            start_initial_loop_index_map,
-            loops,
-            start_index);
-  }
-
-  return {hoisted_start_index, hoisted_stop_index};
-}
-
 // Updates a loop index map with a loop index protected by magic zero
 std::unordered_map<IterDomain*, Val*> updateInitialLoopIndexMap(
     const std::unordered_map<IterDomain*, Val*>& initial_loop_index_map,
@@ -3078,25 +2832,10 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
       start_magic_zero_info = stop_magic_zero_info;
     }
 
-    start_index = start_magic_zero_info.index;
-    stop_index = stop_magic_zero_info.index;
-
-    // Update the loop-index map with the magic-zero protection info
-    // before passing it to the hoisting function
-    std::tie(start_index, stop_index) = hoistPredicates(
-        start_index,
-        stop_index,
-        loops,
-        stop_indexing_from_idgraph.resolved_loop_domains,
-        updateInitialLoopIndexMap(
-            start_indexing_from_idgraph.initial_concrete_index_map,
-            start_magic_zero_info),
-        updateInitialLoopIndexMap(
-            stop_indexing_from_idgraph.initial_concrete_index_map,
-            stop_magic_zero_info),
-        unswitch_or_vec_loop,
-        contig_id,
-        consumer_tv);
+    start_index = GpuLower::current()->commonIndexMap().hoistIndex(
+        start_magic_zero_info.index, loops);
+    stop_index = GpuLower::current()->commonIndexMap().hoistIndex(
+        stop_magic_zero_info.index, loops);
 
     // Build predicates for start positions as:
     //   start_index + start_offset >= 0
@@ -3142,6 +2881,31 @@ RootPredicateInfo RootPredicateInfo::getFalseInfo() {
   info.stop_predicate_ = GpuLower::current()->kernel()->falseVal();
 
   return info;
+}
+
+Val* Index::arange(
+    TensorView* consumer_tv,
+    const std::vector<kir::ForLoop*>& loops,
+    Val* start,
+    Val* step,
+    DataType dtype) {
+  auto linear_index = Index::getLinearLogicalIndex(consumer_tv, loops);
+  start = castOp(dtype, start);
+  step = castOp(dtype, step);
+  auto result = add(start, mul(step, linear_index));
+  GpuLower::current()->commonIndexMap().hoistIndex(result, loops);
+  return result;
+}
+
+Val* Index::eye(
+    TensorView* consumer_tv,
+    const std::vector<kir::ForLoop*>& loops,
+    DataType dtype) {
+  auto indices = Index::getPerDimLogicalIndex(consumer_tv, loops);
+  TORCH_INTERNAL_ASSERT(indices.size() == 2);
+  auto result = castOp(dtype, eq(indices[0], indices[1]));
+  GpuLower::current()->commonIndexMap().hoistIndex(result, loops);
+  return result;
 }
 
 } // namespace cuda

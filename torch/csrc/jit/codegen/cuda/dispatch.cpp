@@ -54,6 +54,7 @@ void Val::dispatch(T handler, Val* val) {
           return;
         case DataType::Int:
         case DataType::Int32:
+        case DataType::Index:
           // Dispatch to Int even with Int32 as we don't have Int32 IR
           // node.
           ptr(handler)->handle(val->as<Int>());
@@ -87,7 +88,12 @@ void Val::dispatch(T handler, Val* val) {
     default:
       break;
   }
-  TORCH_INTERNAL_ASSERT(false, "Unknown valtype in dispatch!");
+  TORCH_INTERNAL_ASSERT(
+      false,
+      "Unknown valtype in dispatch! val: ",
+      val->toString(),
+      " = ",
+      val->toInlineString());
 }
 
 template <typename T>
@@ -294,6 +300,7 @@ void Val::constDispatch(T handler, const Val* val) {
           ptr(handler)->handle(val->as<Double>());
           return;
         case DataType::Int:
+        case DataType::Index:
         case DataType::Int32:
           // Dispatch to Int even with Int32 as we don't have Int32 IR
           // node.
@@ -332,7 +339,12 @@ void Val::constDispatch(T handler, const Val* val) {
     default:
       break;
   }
-  TORCH_INTERNAL_ASSERT(false, "Unknown valtype in dispatch!");
+  TORCH_INTERNAL_ASSERT(
+      false,
+      "Unknown valtype in dispatch! val: ",
+      val->toString(),
+      " = ",
+      val->toInlineString());
 }
 
 template <typename T>
