@@ -2,11 +2,11 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
-#include <torch/csrc/jit/codegen/cuda/kernel_cache.h>
 #include <torch/csrc/jit/codegen/cuda/arith.h>
 #include <torch/csrc/jit/codegen/cuda/executor.h>
 #include <torch/csrc/jit/codegen/cuda/ir_all_nodes.h>
 #include <torch/csrc/jit/codegen/cuda/ir_builder.h>
+#include <torch/csrc/jit/codegen/cuda/kernel_cache.h>
 #include <torch/csrc/jit/codegen/cuda/scheduler/all_schedulers.h>
 
 #include <test/cpp/jit/test_utils.h>
@@ -22,7 +22,7 @@ using namespace torch::jit::fuser::cuda;
 namespace {
   auto randomVector(int64_t low, int64_t high, int rank) {
     std::vector<int64_t> out(rank, 0);
-    for(int idim = 0; idim < rank; ++idim) {
+    for (int idim = 0; idim < rank; ++idim) {
         out[idim] = (std::rand() % (high - low)) + low;
     }
     return out;
@@ -30,7 +30,7 @@ namespace {
 
   auto randomIndexVector(const std::vector<int64_t> &input_dims, int64_t low, int rank) {
     std::vector<int64_t> index_dims(rank, 0);
-    for(int idim = 0; idim < rank; ++idim) {
+    for (int idim = 0; idim < rank; ++idim) {
       index_dims[idim] = (std::rand() % (input_dims[idim] - low)) + low;
     }
     return index_dims;
@@ -44,8 +44,8 @@ TEST_F(NVFuserTest, FusionGatherAllDim_CUDA) {
   at::manual_seed(0);
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
   auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
-  for(int rank = 1; rank <= 4; ++rank) {
-    for(int dim = 0; dim < rank; ++dim) {
+  for (int rank = 1; rank <= 5; ++rank) {
+    for (int dim = 0; dim < rank; ++dim) {
       auto fusion_ptr = std::make_unique<Fusion>();
       Fusion& fusion = *fusion_ptr.get();
       FusionGuard fg(&fusion);
@@ -71,7 +71,7 @@ TEST_F(NVFuserTest, FusionGatherAllDim_CUDA) {
       auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
       testValidate(
           &fusion, cg_outputs, aten_inputs, {tv_out_ref}, __LINE__, __FILE__);
-    } 
+    }
   }
 }
 // Test the fusion support of gather operator(producer) and elemetwise(consumer)
@@ -81,8 +81,8 @@ TEST_F(NVFuserTest, FusionGatherAddMulSmallSize_CUDA) {
   at::manual_seed(0);
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
   auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
-  for(int rank = 1; rank <= 4; ++rank) {
-    for(int dim = 0; dim < rank; ++dim) {
+  for (int rank = 1; rank <= 5; ++rank) {
+    for (int dim = 0; dim < rank; ++dim) {
       auto fusion_ptr = std::make_unique<Fusion>();
       Fusion& fusion = *fusion_ptr.get();
       FusionGuard fg(&fusion);
@@ -100,7 +100,8 @@ TEST_F(NVFuserTest, FusionGatherAddMulSmallSize_CUDA) {
       auto index_dims = randomIndexVector(input_dims, 0, rank);
 
       at::Tensor input = at::randn(input_dims, options); // lookup
-      at::Tensor input_idx = at::randint(0, input_dims[dim], index_dims, options_i);
+      at::Tensor input_idx =
+          at::randint(0, input_dims[dim], index_dims, options_i);
       at::Tensor output = at::zeros(index_dims, options);
 
       auto t_gather = at::gather(input, dim, input_idx);
@@ -113,18 +114,18 @@ TEST_F(NVFuserTest, FusionGatherAddMulSmallSize_CUDA) {
       auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
       testValidate(
           &fusion, cg_outputs, aten_inputs, {tv_out_ref}, __LINE__, __FILE__);
-    } 
+    }
   }
 }
 // Test the fusion support of index tensor as fusion input in gather operator
 TEST_F(NVFuserTest, FusionAddGatherSumAdd_CUDA) {
-  const int max_dim_size = 4;
+  const int max_dim_size = 8;
   std::srand(0);
   at::manual_seed(0);
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
   auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
-  for(int rank = 2; rank <= 4; ++rank) {
-    for(int dim = 0; dim < rank; ++dim) {
+  for (int rank = 2; rank <= 5; ++rank) {
+    for (int dim = 0; dim < rank; ++dim) {
       auto fusion_ptr = std::make_unique<Fusion>();
       Fusion& fusion = *fusion_ptr.get();
       FusionGuard fg(&fusion);
@@ -157,7 +158,7 @@ TEST_F(NVFuserTest, FusionAddGatherSumAdd_CUDA) {
       auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
       testValidate(
           &fusion, cg_outputs, aten_inputs, {t_out}, __LINE__, __FILE__);
-    } 
+    }
   }
 }
 // Test the fusion support of gather operator and reduce
@@ -167,15 +168,15 @@ TEST_F(NVFuserTest, FusionGatherSumAdd_CUDA) {
   at::manual_seed(0);
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
   auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
-  for(int rank = 2; rank <= 4; ++rank) {
-    for(int dim = 0; dim < rank; ++dim) {
+  for (int rank = 2; rank <= 5; ++rank) {
+    for (int dim = 0; dim < rank; ++dim) {
       auto fusion_ptr = std::make_unique<Fusion>();
       Fusion& fusion = *fusion_ptr.get();
       FusionGuard fg(&fusion);
 
       TensorView* tv1 = makeContigTensor(rank);
       TensorView* tv_idx = makeContigTensor(rank, DataType::Int);
-      TensorView* tv2 = makeContigTensor(rank -1);
+      TensorView* tv2 = makeContigTensor(rank - 1);
 
       fusion.addInput(tv1);
       fusion.addInput(tv_idx);
@@ -190,13 +191,14 @@ TEST_F(NVFuserTest, FusionGatherSumAdd_CUDA) {
       auto input_dims = randomVector(2, max_dim_size, rank);
       auto index_dims = randomIndexVector(input_dims, 1, rank);
       std::vector<int64_t> input2_dims(rank - 1, 0);
-      for(int idim = 0; idim < rank - 1; ++idim) {
+      for (int idim = 0; idim < rank - 1; ++idim) {
         input2_dims[idim] = index_dims[idim + 1];
       }
 
       at::Tensor input = at::randn(input_dims, options); // lookup
       at::Tensor input2 = at::randn(input2_dims, options); // lookup
-      at::Tensor input_idx = at::randint(0, input_dims[dim], index_dims, options_i);
+      at::Tensor input_idx =
+          at::randint(0, input_dims[dim], index_dims, options_i);
       at::Tensor output = at::zeros(index_dims, options);
 
       auto t_gather = at::gather(input, dim, input_idx);
@@ -209,7 +211,7 @@ TEST_F(NVFuserTest, FusionGatherSumAdd_CUDA) {
       auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
       testValidate(
           &fusion, cg_outputs, aten_inputs, {tv_out_ref}, __LINE__, __FILE__);
-    } 
+    }
   }
 }
 // Test the correctness when input/index tensor is very large
@@ -219,8 +221,8 @@ TEST_F(NVFuserTest, FusionGatherAddMulHugeSize_CUDA) {
   at::manual_seed(0);
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
   auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
-  for(int rank = 1; rank <= 2; ++rank) {
-    for(int dim = 0; dim < rank; ++dim) {
+  for (int rank = 1; rank <= 2; ++rank) {
+    for (int dim = 0; dim < rank; ++dim) {
       auto fusion_ptr = std::make_unique<Fusion>();
       Fusion& fusion = *fusion_ptr.get();
       FusionGuard fg(&fusion);
@@ -239,7 +241,8 @@ TEST_F(NVFuserTest, FusionGatherAddMulHugeSize_CUDA) {
       auto index_dims = randomIndexVector(input_dims, 0, rank);
 
       at::Tensor input = at::randn(input_dims, options); // lookup
-      at::Tensor input_idx = at::randint(0, input_dims[dim], index_dims, options_i);
+      at::Tensor input_idx =
+          at::randint(0, input_dims[dim], index_dims, options_i);
       at::Tensor output = at::zeros(index_dims, options);
 
       auto t_gather = at::gather(input, dim, input_idx);
@@ -252,7 +255,7 @@ TEST_F(NVFuserTest, FusionGatherAddMulHugeSize_CUDA) {
       auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
       testValidate(
           &fusion, cg_outputs, aten_inputs, {tv_out_ref}, __LINE__, __FILE__);
-    } 
+    }
   }
 }
 // Test the fusion support of input tensor as fusion input
@@ -275,8 +278,8 @@ TEST_F(NVFuserTest, FusionGatherInput_CUDA) {
 
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
   auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
-  at::Tensor t1 = at::randn({4, 4}, options);
-  at::Tensor t_idx = at::randint(0, 4, {4, 4}, options_i);
+  at::Tensor t1 = at::randn({5, 5}, options);
+  at::Tensor t_idx = at::randint(0, 5, {5, 5}, options_i);
 
   FusionExecutorCache executor_cache(std::move(fusion_ptr));
   auto cg_outputs = executor_cache.runFusionWithInputs({t1, t_idx});

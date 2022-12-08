@@ -317,6 +317,16 @@ class Index {
       const TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops);
 
+  // get the strides of a tensor used for the index lowering
+  static std::vector<Val*> getStrides(const TensorView* tv);
+
+  // get the root indices of a tensor used for the index lowering
+  static std::vector<Val*> getRootIndices(
+      const TensorView* tv,
+      const std::vector<kir::ForLoop*>& loops,
+      const IndexFromIdGraph& index_from_id_graph);
+
+ public:
   // Producer if it's in global memory
   static std::vector<Val*> getGlobalProducerStridedIndices(
       TensorView* producer,
@@ -328,27 +338,6 @@ class Index {
   static std::vector<Val*> getGlobalConsumerStridedIndices(
       const TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops);
-
-  // get the strides of a tensor used for the index lowering
-  static std::vector<Val*> getStrides(const TensorView* tv);
-
-  // get the root indices of a tensor used for the index lowering
-  static std::vector<Val*> getRootIndices(
-      const TensorView* tv,
-      const std::vector<kir::ForLoop*>& loops,
-      const IndexFromIdGraph& index_from_id_graph);
-
- public:
-  
-  // In some operator like `output = gather(input, dim, index)`, 
-  // the dimension size of `input tensor and the `output tensor` can be different. 
-  // (or `src tensor` and `output tensor` in output = scatter(input, dim, index, src))
-  // This method get the correct TensorIndex for this type of producer.
-  static kir::TensorIndex* getProducerIndexForNonEqualSize(
-      TensorView* producer, 
-      TensorView* consumer,
-      const std::vector<kir::ForLoop*>& loops,
-      const std::unordered_map<IterDomain*, Val*>& override_index);
 
   // Indexing functions
   // Consumer = Producer
@@ -369,7 +358,7 @@ class Index {
   //! root domain of a producer tensor. The size of the returned
   //! vector is guaranteed to be equal to the number of axes of the
   //! indexing root domain.
-  static std::vector<Val*> getProducerStridedIndices(
+  static Val* getProducerStridedIndices(
       TensorView* producer,
       const TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops,
@@ -379,7 +368,7 @@ class Index {
   //! root domain of a consumer tensor. The size of the returned
   //! vector is guaranteed to be equal to the number of axes of the
   //! indexing root domain.
-  static std::vector<Val*> getConsumerStridedIndices(
+  static Val* getConsumerStridedIndices(
       const TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops);
 
@@ -387,7 +376,7 @@ class Index {
   //! linear memory address a consumer tensor. The returned index is intended to
   //! be used for the computation of some tensor factories, such as: arange and
   //! rand (for Philox pseudo random sequences)
-  static std::vector<Val*> getLinearLogicalIndex(
+  static Val* getLinearLogicalIndex(
       TensorView* consumer_tv,
       const std::vector<kir::ForLoop*>& loops);
 
@@ -426,6 +415,20 @@ class Index {
       const std::vector<kir::ForLoop*>& loops,
       kir::ForLoop* unswitch_or_vec_loop,
       bool padding_predicate);
+
+  //! Compute the result for arange
+  static Val* arange(
+      TensorView* consumer_tv,
+      const std::vector<kir::ForLoop*>& loops,
+      Val* start,
+      Val* step,
+      DataType dtype);
+
+  //! Compute the result for eye
+  static Val* eye(
+      TensorView* consumer_tv,
+      const std::vector<kir::ForLoop*>& loops,
+      DataType dtype);
 };
 
 // Used for local and shared index mapping. Returns a map from loops
