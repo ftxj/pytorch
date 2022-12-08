@@ -167,11 +167,11 @@ IterType promoteIterType(IterType type1, IterType type2) {
 
   // Do not propagate Gather and VectorComponent
   if (type1 == IterType::Gather || type1 == IterType::VectorComponent ||
-      type1 == IterType::GatherScatter) {
+       type1 == IterType::GatherScatter) {
     type1 = IterType::Iteration;
   }
   if (type2 == IterType::Gather || type2 == IterType::VectorComponent ||
-      type2 == IterType::GatherScatter) {
+       type2 == IterType::GatherScatter) {
     type2 = IterType::Iteration;
   }
 

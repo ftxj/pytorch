@@ -36,7 +36,6 @@ namespace {
     return index_dims;
   }
 }
-
 // Test the correctness of gather operator in different dimensions and selcted dim. 
 TEST_F(NVFuserTest, FusionGatherAllDim_CUDA) {
   const int max_dim_size = 64;
@@ -284,7 +283,45 @@ TEST_F(NVFuserTest, FusionGatherInput_CUDA) {
   FusionExecutorCache executor_cache(std::move(fusion_ptr));
   auto cg_outputs = executor_cache.runFusionWithInputs({t1, t_idx});
 }
+// Test for different extents size 
+TEST_F(NVFuserTest, FusionDifferentExtent_CUDA) {
+  const int max_dim_size = 45536;
+  const int rank = 3;
+  const std::vector<int64_t> input_dims {
+      4, 6, 5};
+  const std::vector<int64_t> index_dims {
+      2, 3, 5};
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+  auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
+  for (int dim = 0; dim < rank; ++dim) {
+    auto fusion_ptr = std::make_unique<Fusion>();
+    Fusion& fusion = *fusion_ptr.get();
+    FusionGuard fg(&fusion);
 
+    TensorView* tv1 = makeContigTensor(rank);
+    TensorView* tv_idx = makeContigTensor(rank, DataType::Int);
+
+    fusion.addInput(tv1);
+    fusion.addInput(tv_idx);
+    auto tv_gather = torch_gather(tv1, dim, tv_idx);
+    auto tv_out = add(tv_gather, tv_gather);
+    fusion.addOutput(tv_out);
+
+    at::Tensor input = at::randn(input_dims, options); 
+    at::Tensor input_idx = at::randint(0, input_dims[dim], index_dims, options_i);
+    at::Tensor output = at::zeros(index_dims, options);
+
+    auto t_gather = at::gather(input, dim, input_idx);
+    auto tv_out_ref = at::add(t_gather, t_gather);
+    
+    std::vector<IValue> aten_inputs = {input, input_idx};
+
+    FusionExecutorCache executor_cache(std::move(fusion_ptr));
+    auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
+    testValidate(
+        &fusion, cg_outputs, aten_inputs, {tv_out_ref}, __LINE__, __FILE__);
+  }
+}
 } // namespace jit
 } // namespace torch
 #endif // #if defined(USE_CUDA)

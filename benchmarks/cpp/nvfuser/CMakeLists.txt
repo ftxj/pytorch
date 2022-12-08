@@ -24,6 +24,7 @@ if(USE_CUDA)
     matmul.cpp
     timm.cpp
     indexselect.cpp
+    gather.cpp
     utils.cpp
     main.cpp)
 
