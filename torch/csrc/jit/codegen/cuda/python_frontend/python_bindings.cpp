@@ -1366,6 +1366,28 @@ void initNvFuserPythonBindings(PyObject* module) {
       py::arg("index"),
       py::return_value_policy::reference);
   nvf_ops.def(
+      "gather",
+      [](nvfuser::FusionDefinition::Operators& self,
+         nvfuser::Tensor arg1,
+         int64_t dim,
+         nvfuser::Tensor arg3) -> nvfuser::Tensor {
+        FUSER_PERF_SCOPE("Operators.gather");
+        nvfuser::FusionDefinition* fd = self.fusion_definition;
+        nvfuser::Tensor output = fd->defineTensor(arg1.dims);
+        fd->defineRecord(new nvfuser::TorchGatherOpRecord(
+            {
+                fd->recordingState(arg1()),
+                fd->recordingState(arg3()),
+            },
+            {fd->recordingState(output())},
+            dim));
+        return output;
+      },
+      py::arg("arg1"),
+      py::arg("dim"),
+      py::arg("arg3"),
+      py::return_value_policy::reference);
+  nvf_ops.def(
       "permute",
       [](nvfuser::FusionDefinition::Operators& self,
          nvfuser::Tensor arg,

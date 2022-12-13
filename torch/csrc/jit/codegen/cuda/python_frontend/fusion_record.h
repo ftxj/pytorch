@@ -35,6 +35,7 @@ enum class RecordType {
   ViewOp,
   PermuteOp,
   IndexSelectOp,
+  TorchGatherOp
 };
 
 //! RecordFunctor is the base class record for operations recorded by
@@ -1338,6 +1339,37 @@ struct IndexSelectOpRecord : RecordFunctor {
         fd.getFusionState(args_.at(1).index)->template as<Nvf::TensorView>();
 
     Nvf::Val* output = Nvf::index_select(arg1, dim_, arg3);
+    fd.setFusionState(outputs_.at(0).index, output);
+  }
+
+ private:
+  //! Dimension to select.
+  int64_t dim_;
+};
+
+struct TorchGatherOpRecord : RecordFunctor {
+  TorchGatherOpRecord(
+      std::vector<State> _args,
+      std::vector<State> _outputs,
+      int64_t dim)
+      : RecordFunctor(
+            std::move(_args),
+            std::move(_outputs),
+            "gather",
+            RecordType::TorchGatherOp),
+        dim_(dim) {}
+  virtual ~TorchGatherOpRecord() = default;
+  virtual RecordFunctor* clone() final {
+    return new TorchGatherOpRecord(*this);
+  }
+
+  void operator()(FusionDefinition& fd) final {
+    auto arg1 =
+        fd.getFusionState(args_.at(0).index)->template as<Nvf::TensorView>();
+    auto arg3 =
+        fd.getFusionState(args_.at(1).index)->template as<Nvf::TensorView>();
+
+    Nvf::Val* output = Nvf::torch_gather(arg1, dim_, arg3);
     fd.setFusionState(outputs_.at(0).index, output);
   }
 
