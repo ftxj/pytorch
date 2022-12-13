@@ -130,10 +130,6 @@ void Expr::dispatch(T handler, Expr* expr) {
     ptr(handler)->handle(expr->as<IndexSelectOp>());
     return;
   }
-  if (expr->isStrictlyA<TorchGatherOp>()) {
-    ptr(handler)->handle(expr->as<TorchGatherOp>());
-    return;
-  }
   if (expr->isStrictlyA<ScatterAddOp>()) {
     ptr(handler)->handle(expr->as<ScatterAddOp>());
     return;
@@ -379,10 +375,6 @@ void Expr::constDispatch(T handler, const Expr* expr) {
   }
   if (expr->isStrictlyA<IndexSelectOp>()) {
     ptr(handler)->handle(expr->as<IndexSelectOp>());
-    return;
-  }
-  if (expr->isStrictlyA<TorchGatherOp>()) {
-    ptr(handler)->handle(expr->as<TorchGatherOp>());
     return;
   }
   if (expr->isStrictlyA<ScatterAddOp>()) {
@@ -760,9 +752,6 @@ void OptOutConstDispatch::handle(const SelectOp* stmt) {
 void OptOutConstDispatch::handle(const IndexSelectOp* stmt) {
   unhandled(stmt);
 }
-void OptOutConstDispatch::handle(const TorchGatherOp* stmt) {
-  unhandled(stmt);
-}
 void OptOutConstDispatch::handle(const ScatterAddOp* stmt) {
   unhandled(stmt);
 }
@@ -929,9 +918,6 @@ void OptOutDispatch::handle(SelectOp* stmt) {
   unhandled(stmt);
 }
 void OptOutDispatch::handle(IndexSelectOp* stmt) {
-  unhandled(stmt);
-}
-void OptOutDispatch::handle(TorchGatherOp* stmt) {
   unhandled(stmt);
 }
 void OptOutDispatch::handle(ScatterAddOp* stmt) {

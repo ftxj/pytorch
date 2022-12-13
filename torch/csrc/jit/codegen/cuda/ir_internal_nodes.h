@@ -103,40 +103,6 @@ class TORCH_CUDA_CU_API IndexSelectOp : public Expr {
   }
 };
 
-class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
- public:
-  using Expr::Expr;
-  TorchGatherOp(
-      IrBuilderPasskey,
-      Val* out,
-      Val* in,
-      int dim,
-      IterDomain* select_id,
-      Val* index);
-
-  NVFUSER_DECLARE_CLONE_AND_CREATE
-
-  virtual const char* getOpString() const override {
-    return "TorchGatherOp";
-  }
-
-  TensorView* lookupTv() const {
-    return input(0)->as<TensorView>();
-  }
-
-  TensorView* indexTv() const {
-    return input(1)->as<TensorView>();
-  }
-
-  int dim() const {
-    return attribute(1)->as<Attribute<int>>()->value;
-  }
-
-  IterDomain* getSelectAxis() const {
-    return attribute(0)->as<IterDomain>();
-  }
-};
-
 class TORCH_CUDA_CU_API ScatterAddOp : public Expr {
  public:
   using Expr::Expr;
