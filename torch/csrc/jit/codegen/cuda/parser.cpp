@@ -1562,7 +1562,7 @@ class IrParser {
     {
       if (isOptionEnabled(EnableOption::GraphOp)) {
         auto ptr_op = getOperatorForLiteral(
-            "aten::gather(Tensor self, int dim, Tensor index) -> Tensor");
+            "aten::gather(Tensor self, int dim, Tensor index, *, bool sparse_grad=False) -> Tensor");
         REGISTER_PARSE_RULE(
             ptr_op,
             {
