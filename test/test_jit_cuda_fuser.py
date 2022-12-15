@@ -4216,7 +4216,7 @@ class TestCudaFuser(JitTestCase):
         sbf = torch.rand(lookup_size, select_dim, dtype=torch.float, device="cuda")
 
         def t(x_kj, idx_kj, inp):
-            gather_res = torch.gather(x_kj, 0, idx_kj) * inp
+            gather_res = torch.gather(x_kj, 1, idx_kj) * inp
             res = gather_res + 17
             return res
         t_jit = torch.jit.script(t)
