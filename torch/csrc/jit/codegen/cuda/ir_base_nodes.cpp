@@ -60,18 +60,17 @@ bool Statement::lessThan(const Statement* stmt1, const Statement* stmt2) {
   return stmt1->name() < stmt2->name();
 }
 
-std::string Statement::toString() const {
-  std::stringstream ss;
-  IrPrinter ir_printer(ss);
-  ir_printer.handle(this);
-  return ss.str();
+std::string Statement::toString(int indent_size) const {
+  TORCH_INTERNAL_ASSERT(
+      false, "toString for IR node ", typeid(*this).name(), " is not defined");
 }
 
-std::string Statement::toInlineString() const {
-  std::stringstream ss;
-  IrPrinter ir_printer(ss);
-  ir_printer.print_inline(this);
-  return ss.str();
+std::string Statement::toInlineString(int indent_size) const {
+  TORCH_INTERNAL_ASSERT(
+      false,
+      "toInlineString for IR node ",
+      typeid(*this).name(),
+      " is not defined");
 }
 
 Fusion* Statement::fusion() const {
@@ -117,12 +116,13 @@ const std::vector<Expr*>& Val::uses() const {
 // for index expressions.
 void Val::resolveIndexDtype() {
   TORCH_INTERNAL_ASSERT(
-      vtype_ == ValType::TensorView || vtype_ == ValType::Scalar,
+      vtype_ == ValType::TensorView || vtype_ == ValType::Scalar ||
+          vtype_ == ValType::NamedScalar,
       "Resolving index type is currently only supported on tensor view or scalar values. "
       "Value type: ",
       vtype_);
   TORCH_INTERNAL_ASSERT(
-      dtype_ == DataType::Index || dtype_ == DataType::Int,
+      isIntegralType(dtype_),
       "Can only resolve index type if a Val has an Index or Int DataType. ",
       "Data type: ",
       dtype_);
@@ -360,9 +360,9 @@ Expr::Expr(IrBuilderPasskey passkey) : Statement(passkey) {}
 
 Expr::Expr(const Expr* src, IrCloner* ir_cloner)
     : Statement(src, ir_cloner),
+      attributes_(ir_cloner->clone(src->attributes_)),
       inputs_(ir_cloner->clone(src->inputs_)),
-      outputs_(ir_cloner->clone(src->outputs_)),
-      attributes_(ir_cloner->clone(src->attributes_)) {}
+      outputs_(ir_cloner->clone(src->outputs_)) {}
 
 Expr::Expr(
     IrBuilderPasskey passkey,
@@ -370,9 +370,9 @@ Expr::Expr(
     std::vector<Val*> outputs,
     std::vector<Statement*> attributes)
     : Statement(passkey),
+      attributes_(std::move(attributes)),
       inputs_(std::move(inputs)),
-      outputs_(std::move(outputs)),
-      attributes_(std::move(attributes)) {}
+      outputs_(std::move(outputs)) {}
 
 Expr* Expr::shallowCopy() const {
   auto result =
@@ -462,6 +462,16 @@ Expr* Expr::withWritePredicate(kir::Predicate* predicate) {
   auto result = shallowCopy();
   result->setWritePredicate(predicate);
   return result;
+}
+
+std::vector<EvaluatorValue> Expr::evaluate(
+    const std::vector<EvaluatorValue>& inputs) const {
+  TORCH_INTERNAL_ASSERT(
+      false,
+      "`evaluate` method for expression ",
+      getOpString(),
+      " is not defined. ",
+      "Please override the evaluate method");
 }
 
 } // namespace cuda

@@ -769,7 +769,7 @@ bool isTorchGatherLookupTv(const Val* tv) {
   for (auto expr : tv->uses()) {
     if (expr->isA<TorchGatherOp>()) {
       auto idx_sel = expr->as<TorchGatherOp>();
-      if (idx_sel->input(0) == tv) {
+      if (idx_sel->lookupTv() == tv) {
         return true;
       }
     }
@@ -781,12 +781,22 @@ bool isTorchGatherIndicesTv(const Val* tv) {
   for (auto expr : tv->uses()) {
     if (expr->isA<TorchGatherOp>()) {
       auto idx_sel = expr->as<TorchGatherOp>();
-      if (idx_sel->input(1) == tv) {
+      if (idx_sel->indexTv() == tv) {
         return true;
       }
     }
   }
   return false;
+}
+
+std::string varName(const Val* val) {
+  std::stringstream value_name;
+  if (val == nullptr) {
+    value_name << "$nullptr";
+  } else {
+    value_name << val->name();
+  }
+  return value_name.str();
 }
 
 } // namespace ir_utils

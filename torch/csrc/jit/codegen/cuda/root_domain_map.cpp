@@ -1124,6 +1124,28 @@ void ComputeAtRootDomainMapBuilder::handle(GatherOp* op) {
   }
 }
 
+void ComputeAtRootDomainMapBuilder::handle(TorchGatherOp* op) {
+  const TensorDomain* idx_td = op->indexTv()->as<TensorView>()->domain();
+  const TensorDomain* out_td = op->output(0)->as<TensorView>()->domain();
+  const auto idx_root =
+      TensorDomain::noReductions(idx_td->getMaybeRFactorDomain());
+  const auto& out_root = out_td->getRootDomain();
+  TORCH_INTERNAL_ASSERT(
+      idx_root.size() == out_root.size(),
+      "\nExpression: ",
+      op,
+      "\nInput root domain: ",
+      idx_root,
+      "\nOutput root domain: ",
+      out_root);
+
+  // Only maps the index root axes. Do not map the input axes due to non-equal
+  // size problem.
+  for (const auto it : c10::irange(idx_root.size())) {
+    setMaybeMapped(idx_td, idx_root[it], out_td, out_root[it]);
+  }
+}
+
 void ComputeAtRootDomainMapBuilder::mapAllPendingMappings(
     const DomainKey& key) {
   auto it = pending_map_.find(key);
