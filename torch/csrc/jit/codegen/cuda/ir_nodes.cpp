@@ -1922,7 +1922,7 @@ IterDomain* IterDomain::merge(IterDomain* outer, IterDomain* inner) {
        inner->getIterType() == IterType::Iteration)) {
     itype = IterType::Iteration;
   }
-  
+
   if ((outer->isBroadcast() || inner->isBroadcast()) &&
       (outer->getIterType() == IterType::GatherScatter ||
        inner->getIterType() == IterType::GatherScatter)) {

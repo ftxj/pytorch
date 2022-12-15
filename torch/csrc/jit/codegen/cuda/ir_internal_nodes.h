@@ -124,7 +124,7 @@ class TORCH_CUDA_CU_API TorchGatherOp : public Expr {
   virtual const char* getOpString() const override {
     return "TorchGatherOp";
   }
-  
+
   std::string toString(int indent_size = 0) const override;
   std::string toInlineString(int indent_size = 0) const override;
 
