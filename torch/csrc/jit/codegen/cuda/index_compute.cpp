@@ -1509,8 +1509,6 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
       } else {
         strided_inds[i] = strided_ind;
       }
-      strided_inds[i] = GpuLower::current()->commonIndexMap().hoistIndex(
-          strided_inds[i], loops);
     }
   }
 
@@ -1767,8 +1765,6 @@ std::vector<Val*> Index::getNonGlobalProducerStridedIndices(
     } else {
       strided_inds[i] = root_ind_i;
     }
-    strided_inds[i] = GpuLower::current()->commonIndexMap().hoistIndex(
-        strided_inds[i], loops);
   }
 
   if (producer_tv->isDoubleBuffered() || producer_tv->isCircularBuffered()) {
@@ -1886,9 +1882,6 @@ std::vector<Val*> Index::getRootIndices(
     root_ind = SimplifyingIrBuilder::addExpr(
         root_ind, getGlobalConsumerOffsetWithPartialSplit(root_dom[i]));
     root_inds[i] = root_ind;
-
-    root_inds[i] =
-        GpuLower::current()->commonIndexMap().hoistIndex(root_inds[i], loops);
   }
   return root_inds;
 }
@@ -2029,8 +2022,6 @@ std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
     } else {
       strided_inds[i] = root_ind_i;
     }
-    strided_inds[i] = GpuLower::current()->commonIndexMap().hoistIndex(
-        strided_inds[i], loops);
   }
 
   // This check was originally done in getConsumerStridedIndices, but
@@ -2108,10 +2099,10 @@ kir::TensorIndex* Index::getProducerIndex(
     const TensorView* consumer,
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
-  auto strided_indices =
+  auto index =
       getProducerStridedIndices(producer, consumer, loops, override_index);
-  return SimplifyingIrBuilder::create<kir::TensorIndex>(
-      producer, strided_indices);
+  index = GpuLower::current()->commonScalarMap().hoistScalar(index, loops);
+  return SimplifyingIrBuilder::create<kir::TensorIndex>(producer, index);
 }
 
 Val* Index::getConsumerStridedIndices(
@@ -2133,9 +2124,9 @@ Val* Index::getConsumerStridedIndices(
 kir::TensorIndex* Index::getConsumerIndex(
     const TensorView* consumer,
     const std::vector<kir::ForLoop*>& loops) {
-  auto strided_indices = getConsumerStridedIndices(consumer, loops);
-  return SimplifyingIrBuilder::create<kir::TensorIndex>(
-      consumer, strided_indices);
+  auto index = getConsumerStridedIndices(consumer, loops);
+  index = GpuLower::current()->commonScalarMap().hoistScalar(index, loops);
+  return SimplifyingIrBuilder::create<kir::TensorIndex>(consumer, index);
 }
 
 namespace {
@@ -2807,10 +2798,8 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
       start_magic_zero_info = stop_magic_zero_info;
     }
 
-    start_index = GpuLower::current()->commonIndexMap().hoistIndex(
-        start_magic_zero_info.index, loops);
-    stop_index = GpuLower::current()->commonIndexMap().hoistIndex(
-        stop_magic_zero_info.index, loops);
+    start_index = start_magic_zero_info.index;
+    stop_index = stop_magic_zero_info.index;
 
     // Build predicates for start positions as:
     //   start_index + start_offset >= 0
@@ -2865,10 +2854,14 @@ Val* Index::arange(
     Val* step,
     DataType dtype) {
   auto linear_index = Index::getLinearLogicalIndex(consumer_tv, loops);
-  start = castOp(dtype, start);
-  step = castOp(dtype, step);
+  if (start->getDataType() != dtype) {
+    start = castOp(dtype, start);
+  }
+  if (step->getDataType() != dtype) {
+    step = castOp(dtype, step);
+  }
   auto result = add(start, mul(step, linear_index));
-  GpuLower::current()->commonIndexMap().hoistIndex(result, loops);
+  GpuLower::current()->commonScalarMap().hoistScalar(result, loops);
   return result;
 }
 
@@ -2879,7 +2872,7 @@ Val* Index::eye(
   auto indices = Index::getPerDimLogicalIndex(consumer_tv, loops);
   TORCH_INTERNAL_ASSERT(indices.size() == 2);
   auto result = castOp(dtype, eq(indices[0], indices[1]));
-  GpuLower::current()->commonIndexMap().hoistIndex(result, loops);
+  GpuLower::current()->commonScalarMap().hoistScalar(result, loops);
   return result;
 }
 

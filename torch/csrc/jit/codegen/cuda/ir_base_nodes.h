@@ -5,6 +5,7 @@
 #include <c10/util/Exception.h>
 #include <c10/util/Optional.h>
 
+#include <torch/csrc/jit/codegen/cuda/dynamic_type.h>
 #include <torch/csrc/jit/codegen/cuda/ir_builder_passkey.h>
 #include <torch/csrc/jit/codegen/cuda/type.h>
 #include <torch/csrc/jit/codegen/cuda/utils.h>
@@ -165,8 +166,9 @@ class TORCH_CUDA_CU_API Statement : public NonCopyable, public PolymorphicBase {
 
   static bool lessThan(const Statement* stmt1, const Statement* stmt2);
 
-  virtual std::string toString() const;
-  virtual std::string toInlineString() const;
+  virtual std::string toString(int indent_size = 0) const;
+
+  virtual std::string toInlineString(int indent_size = 0) const;
 
   virtual Statement* clone(IrCloner* ir_cloner) const;
 
@@ -423,7 +425,11 @@ class TORCH_CUDA_CU_API Attribute : public Val {
     return false;
   }
 
-  virtual std::string toString() const override {
+  virtual std::string toString(int) const override {
+    return Printer<T>::toString(value);
+  }
+
+  virtual std::string toInlineString(int) const override {
     return Printer<T>::toString(value);
   }
 };
@@ -492,6 +498,9 @@ class TORCH_CUDA_CU_API Expr : public Statement {
   Expr* shallowCopy() const;
 
   bool sameAs(const Statement* other) const override;
+
+  virtual std::vector<EvaluatorValue> evaluate(
+      const std::vector<EvaluatorValue>& inputs) const;
 
   // Input/output accessors
   const auto& inputs() const {
@@ -578,11 +587,11 @@ class TORCH_CUDA_CU_API Expr : public Statement {
     return ExprPasskey();
   }
 
+  std::vector<Statement*> attributes_;
+
  private:
   std::vector<Val*> inputs_;
   std::vector<Val*> outputs_;
-  std::vector<Statement*> attributes_;
-
   kir::Predicate* predicate_ = nullptr;
 
   // Only used for reduction-related expressions

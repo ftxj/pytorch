@@ -4210,15 +4210,15 @@ class TestCudaFuser(JitTestCase):
     def test_gather_fusion(self):
         lookup_size = 68
         feat_dim = 128
-        num_elements = 32
+        select_dim = 1
         lookup_tv = torch.rand(lookup_size, feat_dim, dtype=torch.float, device="cuda")
-        indies_tv = torch.randint(0, lookup_size, (num_elements, num_elements), device="cuda").to(dtype=torch.int)
-        sbf = torch.rand(num_elements, feat_dim, dtype=torch.float, device="cuda")
+        indies_tv = torch.randint(0, lookup_size, (lookup_size, select_dim), device="cuda").to(dtype=torch.long)
+        sbf = torch.rand(lookup_size, select_dim, dtype=torch.float, device="cuda")
 
-        def t(x_kj, idx_kj, sbf):
-            sbf_res = torch.gather(x_kj, 0, idx_kj) * sbf
-            sbf_res = sbf_res + 17
-            return sbf_res
+        def t(x_kj, idx_kj, inp):
+            gather_res = torch.gather(x_kj, 0, idx_kj) * inp
+            res = gather_res + 17
+            return res
         t_jit = torch.jit.script(t)
         self._run_helper(t_jit, t, lookup_tv, indies_tv, sbf)
 

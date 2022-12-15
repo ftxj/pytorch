@@ -549,14 +549,18 @@ void Val::mutatorDispatch(T mutator, Val* val) {
         case DataType::Bool:
           ptr(mutator)->mutate(val->as<Bool>());
           return;
+        case DataType::Half:
+        case DataType::BFloat16:
         case DataType::Float:
         case DataType::Double:
           ptr(mutator)->mutate(val->as<Double>());
           return;
         case DataType::Int:
         case DataType::Int32:
+        case DataType::Index:
           ptr(mutator)->mutate(val->as<Int>());
           return;
+        case DataType::ComplexFloat:
         case DataType::ComplexDouble:
           ptr(mutator)->mutate(val->as<ComplexDouble>());
           return;
@@ -583,6 +587,10 @@ void Val::mutatorDispatch(T mutator, Val* val) {
     case ValType::TensorIndex:
       ptr(mutator)->mutate(val->as<kir::TensorIndex>());
       return;
+    case ValType::Attribute:
+      TORCH_INTERNAL_ASSERT(
+          false,
+          "ValType::Attribute can not be dispatched. Template type is needed.");
     default:
       break;
   }

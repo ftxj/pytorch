@@ -559,7 +559,8 @@ TensorView* index_select(TensorView* lookup_tv, int dim, TensorView* index_tv) {
 TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
   auto inp_domain = TensorDomain::noReductions(inp->getMaybeRFactorDomain());
   auto idx_domain = TensorDomain::noReductions(index->getMaybeRFactorDomain());
-  TORCH_CHECK(idx_domain.size() > 0, "gather can not be applied to 0d tensor.");
+  TORCH_CHECK(
+      inp_domain.size() > 0, "torch.gather can not be applied to 0d tensor.");
   TORCH_CHECK(
       idx_domain.size() == inp_domain.size(),
       "the input and index tensor must have the same dimensions for torch.gather");
@@ -572,13 +573,17 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
       "torch.gather on invalid axis, received: ",
       dim,
       " however tensor view only has ",
-      idx_domain.size(),
+      inp_domain.size(),
       " non-reduction dims.");
   std::vector<IterDomain*> out_domain;
   for (int i = 0; i < idx_domain.size(); ++i) {
-    out_domain.push_back(IterDomainBuilder(idx_domain[i])
-                             .iter_type(IterType::GatherScatter)
-                             .build());
+    out_domain.push_back(
+        IterDomainBuilder(idx_domain[i])
+            .iter_type(
+                idx_domain[i]->getIterType() == IterType::Iteration
+                    ? IterType::GatherScatter
+                    : idx_domain[i]->getIterType())
+            .build());
   }
 
   TensorView* out_tensor = IrBuilder::create<TensorView>(
@@ -661,6 +666,9 @@ TensorView* full(
     const std::vector<Val*>& shape,
     Val* fill_value,
     DataType dtype) {
+  if (fill_value->getDataType() != dtype) {
+    fill_value = castOp(dtype, fill_value);
+  }
   auto n = shape.size();
   auto out = TensorViewBuilder()
                  .ndims(n)
@@ -668,7 +676,7 @@ TensorView* full(
                  .contiguity(std::vector<bool>(n, true))
                  .shape(shape)
                  .build();
-  IrBuilder::create<FullOp>(out, fill_value, dtype);
+  IrBuilder::create<FullOp>(out, fill_value);
   return out;
 }
 
@@ -724,17 +732,34 @@ TensorView* arange(Val* start, Val* end, DataType dtype) {
 
 TensorView* arange(Val* start, Val* end, Val* step, DataType dtype) {
   if (isIntegralType(dtype)) {
-    start = castOp(DataType::Int, start);
-    end = castOp(DataType::Int, end);
-    step = castOp(DataType::Int, step);
+    if (start->getDataType() != DataType::Int) {
+      start = castOp(DataType::Int, start);
+    }
+    if (end->getDataType() != DataType::Int) {
+      end = castOp(DataType::Int, end);
+    }
+    if (step->getDataType() != DataType::Int) {
+      step = castOp(DataType::Int, step);
+    }
   } else if (isFloatingPointType(dtype)) {
-    start = castOp(DataType::Double, start);
-    end = castOp(DataType::Double, end);
-    step = castOp(DataType::Double, step);
+    if (start->getDataType() != DataType::Double) {
+      start = castOp(DataType::Double, start);
+    }
+    if (end->getDataType() != DataType::Double) {
+      end = castOp(DataType::Double, end);
+    }
+    if (step->getDataType() != DataType::Double) {
+      step = castOp(DataType::Double, step);
+    }
   }
   // Make sure no negative value is passed to ceilDiv as the device
   // implementation of ceilDiv assumes positive inputs
-  auto size = castOp(DataType::Int, ceilDiv(abs(sub(end, start)), abs(step)));
+  auto distance = abs(sub(end, start));
+  auto abs_step = abs(step);
+  auto size = ceilDiv(distance, abs_step);
+  if (size->getDataType() != DataType::Int) {
+    size = castOp(DataType::Int, size);
+  }
   auto out = TensorViewBuilder()
                  .ndims(1)
                  .dtype(dtype)
@@ -1435,9 +1460,12 @@ TensorView* maybeFullInsteadOfReduction(
       TensorDomain* td = IrBuilder::create<TensorDomain>(
           new_root, TensorDomain::getContiguousContiguity(new_root));
 
-      dtype = dtype == DataType::Null ? tv->getDataType().value() : dtype;
+      dtype = (dtype == DataType::Null ? tv->getDataType().value() : dtype);
       auto output = IrBuilder::create<TensorView>(td, dtype);
-      IrBuilder::create<FullOp>(output, init, dtype);
+      if (init->getDataType() != dtype) {
+        init = castOp(dtype, init);
+      }
+      IrBuilder::create<FullOp>(output, init);
       return output;
     }
   }
@@ -1554,7 +1582,7 @@ TensorView* sum(
   if (isFloatingPointType(v1_dtype)) {
     init = IrBuilder::create<Double>(0.0);
   } else if (isComplexType(v1_dtype)) {
-    init = IrBuilder::create<ComplexDouble>(c10::complex<double>(0.0, 0.0));
+    init = IrBuilder::create<ComplexDouble>(std::complex<double>(0.0, 0.0));
   } else if (isIntegralType(v1_dtype)) {
     init = FusionGuard::getCurFusion()->zeroVal();
   } else if (isBooleanType(v1_dtype)) {
