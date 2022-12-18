@@ -199,7 +199,7 @@ std::string TorchGatherOp::toString(int indent_size) const {
   std::stringstream ss;
   indent(ss, indent_size) << output(0)->toString() << "\n";
   indent_size++;
-  indent(ss, indent_size) << " = gather( ";
+  indent(ss, indent_size) << " = torch_gather( ";
   if (lookupTv()->isA<kir::TensorIndex>()) {
     ss << lookupTv()->as<kir::TensorIndex>()->view()->toString();
   } else {
@@ -1921,6 +1921,12 @@ IterDomain* IterDomain::merge(IterDomain* outer, IterDomain* inner) {
       (outer->getIterType() == IterType::Iteration ||
        inner->getIterType() == IterType::Iteration)) {
     itype = IterType::Iteration;
+  }
+
+  if ((outer->isBroadcast() || inner->isBroadcast()) &&
+      (outer->getIterType() == IterType::GatherScatter ||
+       inner->getIterType() == IterType::GatherScatter)) {
+    itype = IterType::GatherScatter;
   }
 
   Val* expanded_extent = nullptr;
