@@ -1577,7 +1577,7 @@ class IrParser {
               list_val.pop_front();
               auto dim_value = constant_as<int>(node->input(1));
               TORCH_INTERNAL_ASSERT(
-                  dim_value.has_value(), "dim in index_select is not valid");
+                  dim_value.has_value(), "dim in torch.gather is not valid");
               auto index = list_val.front();
               list_val.pop_front();
               Val* out = torch_gather(
@@ -1587,22 +1587,7 @@ class IrParser {
               value_map.emplace(
                   node->output()->unique(), ValueHolder(out, format));
             },
-            [](const Node* node) -> bool {
-              if (auto tensor_type =
-                      node->inputs()[0]->type()->cast<TensorType>()) {
-                // index_select doesn't support 0-dim tensors
-                if (tensor_type->dim() == 0) {
-                  return false;
-                }
-              }
-              for (const auto& val : node->inputs()) {
-                auto tensor_type = val->type()->cast<TensorType>();
-                if (tensor_type && is_zero_sized_tensor(tensor_type)) {
-                  return false;
-                }
-              }
-              return true;
-            },
+            isInputNonSizeZeroTensor,
             nullptr);
       }
     }
@@ -3777,7 +3762,7 @@ class IrParser {
 
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static c10::once_flag once_flag_;
-};
+}; // namespace
 std::unordered_set<Symbol> IrParser::parser_symbol_set_; // NOLINT
 std::unordered_set<Symbol> IrParser::parser_skip_set_; // NOLINT
 std::mutex IrParser::parser_mutex_;
