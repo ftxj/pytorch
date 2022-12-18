@@ -4395,6 +4395,22 @@ bool insertProfileIValue(ProfilingRecord* pr, Node* node, size_t offset) {
     return true;
   }
 
+  static auto torch_gather_schema =
+      getOperatorForLiteral(
+          "aten::gather(Tensor self, int dim, Tensor index, *, bool sparse_grad=False) -> Tensor")
+          ->schema();
+  if (node->matches(torch_gather_schema)) {
+    switch (offset) {
+      // argument 1: unsqueeze dim;
+      case 1:
+        profileInt(pr, node, offset);
+        break;
+      default:
+        return false;
+    }
+    return true;
+  }
+
   static auto batch_norm_impl_index_schema =
       getOperatorForLiteral(
           "aten::_batch_norm_impl_index(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, bool cudnn_enabled) -> (Tensor, Tensor, Tensor, Tensor, int)")

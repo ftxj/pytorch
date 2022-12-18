@@ -1366,7 +1366,7 @@ void initNvFuserPythonBindings(PyObject* module) {
       py::arg("index"),
       py::return_value_policy::reference);
   nvf_ops.def(
-      "torch_gather",
+      "gather",
       [](nvfuser::FusionDefinition::Operators& self,
          nvfuser::Tensor arg1,
          int64_t dim,
