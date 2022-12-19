@@ -167,11 +167,11 @@ IterType promoteIterType(IterType type1, IterType type2) {
 
   // Do not propagate Gather and VectorComponent
   if (type1 == IterType::Gather || type1 == IterType::VectorComponent ||
-       type1 == IterType::GatherScatter) {
+      type1 == IterType::GatherScatter) {
     type1 = IterType::Iteration;
   }
   if (type2 == IterType::Gather || type2 == IterType::VectorComponent ||
-       type2 == IterType::GatherScatter) {
+      type2 == IterType::GatherScatter) {
     type2 = IterType::Iteration;
   }
 
@@ -593,6 +593,52 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
 
   IrBuilder::create<TorchGatherOp>(
       out_tensor, inp, dim, inp_domain[dim], index);
+  return out_tensor->as<TensorView>();
+}
+
+// torch.scatter_add_
+TensorView* scatter(
+    TensorView* input,
+    int dim,
+    TensorView* index,
+    TensorView* src) {
+  auto inp_dom = TensorDomain::noReductions(input->getMaybeRFactorDomain());
+  auto idx_dom = TensorDomain::noReductions(index->getMaybeRFactorDomain());
+  auto src_dom = TensorDomain::noReductions(src->getMaybeRFactorDomain());
+
+  TORCH_CHECK(inp_dom.size() > 0, "scatter can not be applied to 0d tensor.");
+  TORCH_CHECK(
+      inp_dom.size() == idx_dom.size() && src_dom.size() == inp_dom.size(),
+      "input, index and src (if it is a Tensor) should all have the same number of dimensions in scatter op.");
+  if (dim < 0) {
+    dim += inp_dom.size();
+  }
+  TORCH_CHECK(
+      dim >= 0 && dim < inp_dom.size(),
+      "Gather on invalid axis, received: ",
+      dim,
+      " however tensor view only has ",
+      inp_dom.size(),
+      " non-reduction dims.");
+
+  std::vector<IterDomain*> out_domain;
+  for (int i = 0; i < inp_dom.size(); ++i) {
+    out_domain.push_back(
+        IterDomainBuilder(inp_dom[i])
+            .iter_type(
+                inp_dom[i]->getIterType() == IterType::Iteration
+                    ? IterType::GatherScatter
+                    : inp_dom[i]->getIterType())
+            .build());
+  }
+
+  TensorView* out_tensor = IrBuilder::create<TensorView>(
+      IrBuilder::create<TensorDomain>(
+          out_domain, TensorDomain::getContiguousContiguity(out_domain)),
+      input->getDataType().value());
+
+  IrBuilder::create<ScatterOp>(
+      out_tensor, input, dim, index, src, out_domain[dim], inp_dom[dim]);
   return out_tensor->as<TensorView>();
 }
 

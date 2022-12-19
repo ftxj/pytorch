@@ -26,9 +26,11 @@ Val* IndexLowering::lowerSrcIndex(
   }
 }
 
-Val* IndexLowering::lowerDstIndex(Val* dst) const {
+Val* IndexLowering::lowerDstIndex(
+    Val* dst,
+    const std::unordered_map<IterDomain*, Val*>& override_index) const {
   if (auto tv = dynamic_cast<TensorView*>(dst)) {
-    return Index::getConsumerIndex(tv, for_loops_);
+    return Index::getConsumerIndex(tv, for_loops_, override_index);
   } else {
     return dst;
   }
@@ -234,6 +236,39 @@ void IndexLowering::handle(const TorchGatherOp* top) {
   const auto out = lowerDstIndex(top->output(0));
   pushBack(IrBuilder::create<UnaryOp>(UnaryOpType::Set, out, input));
   GpuLower::current()->propagateExprInfo(top, back());
+}
+
+void IndexLowering::handle(const ScatterOp* sop) {
+  auto lowered_index = lowerSrcIndex(sop->indexTv(), sop->output(0));
+  auto lowered_src = lowerSrcIndex(sop->srcTv(), sop->output(0));
+
+  auto lowered_index_cast = lowered_index;
+  if (GpuLower::current()->kernel()->indexType() !=
+      sop->indexTv()->getDataType().value()) {
+    lowered_index_cast =
+        IrBuilder::newScalar(GpuLower::current()->kernel()->indexType());
+    IrBuilder::create<UnaryOp>(
+        UnaryOpType::Cast, lowered_index_cast, lowered_index);
+  }
+
+  const std::unordered_map<IterDomain*, Val*> override_index_inp = {
+      {sop->getInputSelectAxis(), lowered_index}};
+  auto lowered_input =
+      lowerSrcIndex(sop->lookupTv(), sop->output(0), override_index_inp);
+
+  const std::unordered_map<IterDomain*, Val*> override_index_out = {
+      {sop->getOutputSelectAxis(), lowered_index}};
+  auto lowered_out = lowerDstIndex(sop->output(0), override_index_out);
+
+  pushBack(IrBuilder::create<ScatterOp>(
+      lowered_out,
+      lowered_input,
+      sop->dim(),
+      lowered_index,
+      lowered_src,
+      sop->getOutputSelectAxis(),
+      sop->getInputSelectAxis()));
+  GpuLower::current()->propagateExprInfo(sop, back());
 }
 
 void IndexLowering::handle(const SelectOp* sop) {

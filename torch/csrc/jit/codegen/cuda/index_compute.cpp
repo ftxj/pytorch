@@ -1888,14 +1888,28 @@ std::vector<Val*> Index::getRootIndices(
 
 std::vector<Val*> Index::getGlobalConsumerStridedIndices(
     const TensorView* consumer_tv,
-    const std::vector<kir::ForLoop*>& loops) {
+    const std::vector<kir::ForLoop*>& loops,
+    const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::getGlobalConsumerIndex");
-
+  if (override_index.size() > 0) {
+    std::cout << "override_index : = " << std::endl;
+    for (auto item : override_index) {
+      std::cout << "  iter domain = " << item.first->toString() << std::endl;
+      std::cout << "  val = " << item.second->toString() << std::endl;
+    }
+  }
   auto index_from_id_graph = getTensorIndexFromIdGraph(loops, consumer_tv);
   auto consumer_indexing = index_from_id_graph.index;
   auto strides = getStrides(consumer_tv);
   auto root_inds = getRootIndices(consumer_tv, loops, index_from_id_graph);
-
+  auto root_dom = consumer_tv->getMaybeRFactorDomain();
+  int i = 0;
+  for (auto idx : root_inds) {
+    std::cout << consumer_tv->toString() << std::endl;
+    std::cout << "root domain = " << root_dom[i] << std::endl;
+    std::cout << "index = " << idx->toString() << std::endl;
+    i++;
+  }
   // Global striding
   auto vectorize_shift =
       loops.empty() ? nullptr : loops.back()->vectorize_shift();
@@ -1925,9 +1939,17 @@ std::vector<Val*> Index::getGlobalConsumerStridedIndices(
 // Consumer index for either shared or local memory
 std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
     const TensorView* consumer_tv,
-    const std::vector<kir::ForLoop*>& loops) {
+    const std::vector<kir::ForLoop*>& loops,
+    const std::unordered_map<IterDomain*, Val*>& override_index) {
   const auto gpu_lower = GpuLower::current();
 
+  if (override_index.size() > 0) {
+    std::cout << "override_index : = " << std::endl;
+    for (auto item : override_index) {
+      std::cout << "  iter domain = " << item.first->toString() << std::endl;
+      std::cout << "  val = " << item.second->toString() << std::endl;
+    }
+  }
   auto consumer_indexing_from_idgraph = getTensorIndexFromIdGraph(
       loops,
       consumer_tv,
@@ -1981,6 +2003,9 @@ std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
         error_msg_loops.str());
 
     auto root_ind_i = index_map.at(root_dom[i]);
+    std::cout << consumer_tv->toString() << std::endl;
+    std::cout << "root domain = " << root_dom[i] << std::endl;
+    std::cout << "index = " << root_ind_i << std::endl;
     if (root_ind_i->isZeroInt()) {
       continue;
     }
@@ -2107,24 +2132,28 @@ kir::TensorIndex* Index::getProducerIndex(
 
 Val* Index::getConsumerStridedIndices(
     const TensorView* consumer,
-    const std::vector<kir::ForLoop*>& loops) {
+    const std::vector<kir::ForLoop*>& loops,
+    const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getConsumerStridedIndices");
   if (consumer->domain()->noReductions().size() == 0) {
     return GpuLower::current()->kernel()->zeroVal();
   }
 
   if (consumer->getMemoryType() == MemoryType::Global) {
-    return sumVals(getGlobalConsumerStridedIndices(consumer, loops));
+    return sumVals(
+        getGlobalConsumerStridedIndices(consumer, loops, override_index));
   } else {
-    return sumVals(getNonGlobalConsumerStridedIndices(consumer, loops));
+    return sumVals(
+        getNonGlobalConsumerStridedIndices(consumer, loops, override_index));
   }
 }
 
 // Consumer is the output of an expression
 kir::TensorIndex* Index::getConsumerIndex(
     const TensorView* consumer,
-    const std::vector<kir::ForLoop*>& loops) {
-  auto index = getConsumerStridedIndices(consumer, loops);
+    const std::vector<kir::ForLoop*>& loops,
+    const std::unordered_map<IterDomain*, Val*>& override_index) {
+  auto index = getConsumerStridedIndices(consumer, loops, override_index);
   index = GpuLower::current()->commonScalarMap().hoistScalar(index, loops);
   return SimplifyingIrBuilder::create<kir::TensorIndex>(consumer, index);
 }
