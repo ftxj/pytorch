@@ -3782,7 +3782,7 @@ class IrParser {
 
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static c10::once_flag once_flag_;
-}; // namespace
+};
 std::unordered_set<Symbol> IrParser::parser_symbol_set_; // NOLINT
 std::unordered_set<Symbol> IrParser::parser_skip_set_; // NOLINT
 std::mutex IrParser::parser_mutex_;
