@@ -233,6 +233,17 @@ const std::vector<std::string> functions = {
                 return grad_self, None, None, None
             return output, backward
 
+        def index_select(self,
+                         dim: int,
+                         index):
+            output = torch.index_select(self, dim, index)
+            self_size = self.size()
+
+            def backward(grad_output):
+                grad_self = torch.zeros_like(self, memory_format=1).index_add(dim, index, grad_output)
+                return grad_self, None, None
+
+            return output, backward
         # def topk(self,
         #          k: int,
         #          dim: int = -1,
