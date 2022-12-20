@@ -1524,7 +1524,7 @@ class IrParser {
               MemoryFormat format;
               std::list<Val*> list_val;
               std::tie(format, list_val) = getPWFormatValues(
-                  c10::nullopt,
+                  MemoryFormat::Contiguous(),
                   value_map[node->inputs()[0]->unique()],
                   value_map[node->inputs()[2]->unique()]);
               auto input = list_val.front();
@@ -1570,7 +1570,7 @@ class IrParser {
               MemoryFormat format;
               std::list<Val*> list_val;
               std::tie(format, list_val) = getPWFormatValues(
-                  c10::nullopt,
+                  MemoryFormat::Contiguous(),
                   value_map[node->inputs()[0]->unique()],
                   value_map[node->inputs()[2]->unique()]);
               auto input = list_val.front();
@@ -1578,10 +1578,6 @@ class IrParser {
               auto dim_value = constant_as<int>(node->input(1));
               TORCH_INTERNAL_ASSERT(
                   dim_value.has_value(), "dim parameter is required.");
-              auto sparse_grad = constant_as<bool>(node->input(3));
-              TORCH_INTERNAL_ASSERT(
-                  sparse_grad.value() == false,
-                  "We don't support sparse_grad parameter.");
 
               auto index = list_val.front();
               list_val.pop_front();
@@ -4421,7 +4417,7 @@ bool insertProfileIValue(ProfilingRecord* pr, Node* node, size_t offset) {
           ->schema();
   if (node->matches(torch_gather_schema)) {
     switch (offset) {
-      // argument 1: unsqueeze dim;
+      // argument 1: gather dim;
       case 1:
         profileInt(pr, node, offset);
         break;

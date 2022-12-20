@@ -4236,20 +4236,55 @@ class TestCudaFuser(JitTestCase):
     @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
     @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
                      "Requires fusion optimization pass to be effective")
+    def test_gather_backward(self):
+        lookup_size = 68
+        feat_dim = 128
+        select_dim = 1
+
+        x = torch.randn(lookup_size, feat_dim, dtype=torch.float, device="cuda") .requires_grad_()
+        y = torch.randint(0, lookup_size, (lookup_size, select_dim), device="cuda").to(dtype=torch.long)
+        z = torch.rand(lookup_size, select_dim, dtype=torch.float, device="cuda").requires_grad_()
+        grad = torch.randn(lookup_size, select_dim, dtype=torch.float, device="cuda")
+
+        def t(x, y, z):
+            o = torch.mul(x, z)
+            o = torch.gather(o, 1, y)
+            return o
+        t_jit = torch.jit.script(t)
+        self._run_training_helper(t_jit, t, grad, x, y, z)
+
+    @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
+    @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
+                     "Requires fusion optimization pass to be effective")
     def test_gather_fusion(self):
         lookup_size = 68
         feat_dim = 128
         select_dim = 1
-        lookup_tv = torch.rand(lookup_size, feat_dim, dtype=torch.float, device="cuda")
-        indies_tv = torch.randint(0, lookup_size, (lookup_size, select_dim), device="cuda").to(dtype=torch.long)
-        sbf = torch.rand(lookup_size, select_dim, dtype=torch.float, device="cuda")
 
-        def t(x_kj, idx_kj, inp):
-            gather_res = torch.gather(x_kj, 1, idx_kj) * inp
-            res = gather_res + 17
-            return res
+        x = torch.randn(lookup_size, feat_dim, dtype=torch.float, device="cuda") 
+        y = torch.randint(0, lookup_size, (lookup_size, select_dim), device="cuda").to(dtype=torch.long)
+        z = torch.rand(lookup_size, select_dim, dtype=torch.float, device="cuda")
+
+        def t(x, y, z):
+            o = torch.gather(x, 1, y) * z + 176
+            return o
         t_jit = torch.jit.script(t)
-        self._run_helper(t_jit, t, lookup_tv, indies_tv, sbf)
+        self._run_helper(t_jit, t, x, y, z)
+
+    @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
+    @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
+                     "Requires fusion optimization pass to be effective")
+    def test_gather_sparse_grad(self):
+        x = torch.randn(2, 2, dtype=torch.float, device="cuda").requires_grad_()
+        y = torch.randint(0, 1, (2, 2), device="cuda").to(dtype=torch.long)
+        z = torch.rand(2, 2, dtype=torch.float, device="cuda").requires_grad_()
+        grad = torch.randn(2, 2, dtype=torch.float, device="cuda")
+        def t(x, y, z):
+            o = torch.gather(x + z, 1, y + y, sparse_grad=True)
+            return o
+
+        t_jit = torch.jit.script(t)
+        self._run_training_helper(t_jit, t, grad, x, y, z)
 
     @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
     @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
