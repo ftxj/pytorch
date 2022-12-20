@@ -4261,7 +4261,7 @@ class TestCudaFuser(JitTestCase):
         feat_dim = 128
         select_dim = 1
 
-        x = torch.randn(lookup_size, feat_dim, dtype=torch.float, device="cuda") 
+        x = torch.randn(lookup_size, feat_dim, dtype=torch.float, device="cuda")
         y = torch.randint(0, lookup_size, (lookup_size, select_dim), device="cuda").to(dtype=torch.long)
         z = torch.rand(lookup_size, select_dim, dtype=torch.float, device="cuda")
 
@@ -4279,6 +4279,7 @@ class TestCudaFuser(JitTestCase):
         y = torch.randint(0, 1, (2, 2), device="cuda").to(dtype=torch.long)
         z = torch.rand(2, 2, dtype=torch.float, device="cuda").requires_grad_()
         grad = torch.randn(2, 2, dtype=torch.float, device="cuda")
+
         def t(x, y, z):
             o = torch.gather(x + z, 1, y + y, sparse_grad=True)
             return o
