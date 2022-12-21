@@ -376,6 +376,7 @@ void IndexCompute::handle(Merge* merge) {
   auto outer_id = maybeGetExactMapConcreteID(merge->outer());
   auto inner_id = maybeGetExactMapConcreteID(merge->inner());
   auto out_it = index_map_.find(out_id);
+
   if (out_it == index_map_.end()) {
     return;
   }
@@ -392,7 +393,6 @@ void IndexCompute::handle(Merge* merge) {
     extent_map_[inner_id] = zero;
     zero_domains_.emplace(outer_id);
     zero_domains_.emplace(inner_id);
-
     return;
   }
 
@@ -433,6 +433,7 @@ void IndexCompute::handle(Merge* merge) {
         }
       }
     }
+
     return;
   }
 
@@ -821,7 +822,9 @@ IndexCompute IndexCompute::updateIndexCompute(
       contig_finder,
       {},
       updated_halo_extent_map);
+
   updated_index_compute.run();
+
   return updated_index_compute;
 }
 

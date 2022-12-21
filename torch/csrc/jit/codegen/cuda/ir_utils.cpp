@@ -5,8 +5,8 @@
 #include <torch/csrc/jit/codegen/cuda/ir_utils.h>
 #include <torch/csrc/jit/codegen/cuda/lower_utils.h>
 
-#include <iostream>
 #include <set>
+
 namespace torch {
 namespace jit {
 namespace fuser {

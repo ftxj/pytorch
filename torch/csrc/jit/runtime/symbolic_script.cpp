@@ -222,17 +222,6 @@ const std::vector<std::string> functions = {
             # FIXME: torchscript: torch.zeros(sizes, grad.options())
             return torch.zeros(sizes).to(grad).scatter_(dim, indices, grad)
 
-        def gather(self,
-                    dim: int,
-                    index,
-                    *,
-                    sparse_grad: bool = False):
-            output = torch.gather(self, dim, index)
-            def backward(grad_output):
-                grad_self = torch.zeros_like(self).scatter_add_(dim, index, grad_output)
-                return grad_self, None, None, None
-            return output, backward
-
         def index_select(self,
                          dim: int,
                          index):
