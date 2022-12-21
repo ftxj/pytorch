@@ -164,9 +164,11 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
       concrete_id_dependencies;
   for (auto tv : ir_utils::allTvs(FusionGuard::getCurFusion())) {
     std::unordered_set<IterDomain*> dependencies;
+
     for (auto tv_id : tv->domain()->domain()) {
       auto concrete_id =
           ca_map->getConcreteMappedID(tv_id, IdMappingMode::LOOP);
+
       if (concrete_id_dependencies.find(concrete_id) ==
           concrete_id_dependencies.end()) {
         concrete_id_dependencies[concrete_id] = dependencies;

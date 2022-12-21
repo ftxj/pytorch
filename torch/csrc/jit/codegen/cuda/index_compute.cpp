@@ -375,8 +375,8 @@ void IndexCompute::handle(Merge* merge) {
   auto out_id = maybeGetExactMapConcreteID(merge->out());
   auto outer_id = maybeGetExactMapConcreteID(merge->outer());
   auto inner_id = maybeGetExactMapConcreteID(merge->inner());
-  auto out_it = index_map_.find(out_id);
 
+  auto out_it = index_map_.find(out_id);
   if (out_it == index_map_.end()) {
     return;
   }
