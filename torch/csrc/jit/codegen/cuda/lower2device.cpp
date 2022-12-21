@@ -436,7 +436,7 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
   std::vector<Expr*> exprs_welford_vectorized;
   if (!isOptionDisabled(DisableOption::WelfordVectorization)) {
     exprs_welford_vectorized = vectorizeWelford(exprs_common_index_allocated);
-    dumpExprsIfEnabled(exprs_common_index_allocated, "vectorizeWelford");
+    dumpExprsIfEnabled(exprs_welford_vectorized, "vectorizeWelford");
   } else {
     exprs_welford_vectorized = exprs_common_index_allocated;
   }
@@ -445,14 +445,14 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
   // on index and predicate reuse
   const auto exprs_register_adjusted =
       insertMagicZero(exprs_welford_vectorized);
-  dumpExprsIfEnabled(exprs_common_index_allocated, "insertMagicZero");
+  dumpExprsIfEnabled(exprs_register_adjusted, "insertMagicZero");
 
   const auto exprs_cleaned_up_loops =
       KIRCleaner::cleanUp(exprs_register_adjusted);
-  dumpExprsIfEnabled(exprs_register_adjusted, "KIRCleaner");
+  dumpExprsIfEnabled(exprs_cleaned_up_loops, "KIRCleaner");
 
   const auto exprs_instrumented = instrumentKernel(exprs_cleaned_up_loops);
-  dumpExprsIfEnabled(exprs_cleaned_up_loops, "instrumentKernel");
+  dumpExprsIfEnabled(exprs_instrumented, "instrumentKernel");
 
   // We now have the lowered expressions, finalize the kernel IR. This function
   // will also copy over some relevant information for code generation from
