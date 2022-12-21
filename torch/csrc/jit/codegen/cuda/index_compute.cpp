@@ -1857,6 +1857,8 @@ std::vector<Val*> Index::getStrides(const TensorView* tv) {
   return strides;
 }
 
+// if from_concrete is true, we select index from
+// IndexFromIdGraph.concrete_index.
 std::vector<Val*> Index::getRootIndices(
     const TensorView* tv,
     const std::vector<kir::ForLoop*>& loops,
@@ -1900,6 +1902,10 @@ std::vector<Val*> Index::getGlobalConsumerStridedIndices(
   auto index_from_id_graph = getTensorIndexFromIdGraph(loops, consumer_tv);
   auto consumer_indexing = index_from_id_graph.index;
   auto strides = getStrides(consumer_tv);
+
+  // When override_index set has something, this means we want to override
+  // selected index for the original domain, so we need to get indices for
+  // orginal domain.
   auto root_inds = getRootIndices(
       consumer_tv, loops, index_from_id_graph, override_index.size() > 0);
   auto root_dom = consumer_tv->getMaybeRFactorDomain();
@@ -1940,7 +1946,10 @@ std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   const auto gpu_lower = GpuLower::current();
-
+  // At present, only ScatterOp set override_index, and the output of ScatterOp
+  // is on global memory, so this case never happen. Maybe need extend in the
+  // next.
+  TORCH_INTERNAL_ASSERT(override_index.size() == 0);
   auto consumer_indexing_from_idgraph = getTensorIndexFromIdGraph(
       loops,
       consumer_tv,
@@ -1994,10 +2003,7 @@ std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
         error_msg_loops.str());
 
     auto root_ind_i = index_map.at(root_dom[i]);
-    auto override_it = override_index.find(root_dom[i]);
-    if (override_it != override_index.end()) {
-      root_ind_i = override_it->second;
-    } else if (root_ind_i->isZeroInt()) {
+    if (root_ind_i->isZeroInt()) {
       continue;
     }
 

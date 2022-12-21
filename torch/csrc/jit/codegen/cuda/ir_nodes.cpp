@@ -229,6 +229,8 @@ ScatterOp::ScatterOp(
   addInput(index);
   addInput(src);
   addOutput(out);
+  // we need to generate code like T_out[T_index[...]] = T_src[...], so we need
+  // select_out_id as an attribute.
   addAttribute(select_out_id);
   addAttribute(select_inp_id);
   addAttribute(IrBuilder::create<Attribute<int>>(passkey.ir_container_, dim));
@@ -239,10 +241,10 @@ std::string ScatterOp::toString(int indent_size) const {
   indent(ss, indent_size) << output(0)->toString() << "\n";
   indent_size++;
   indent(ss, indent_size) << " = scatter( ";
-  if (lookupTv()->isA<kir::TensorIndex>()) {
-    ss << lookupTv()->as<kir::TensorIndex>()->view()->toString();
+  if (inputTv()->isA<kir::TensorIndex>()) {
+    ss << inputTv()->as<kir::TensorIndex>()->view()->toString();
   } else {
-    ss << lookupTv()->toString();
+    ss << inputTv()->toString();
   }
   ss << ", dim = " << dim() << ", src = " << srcTv()->toString()
      << ", idx = " << indexTv()->toString() << " )\n";

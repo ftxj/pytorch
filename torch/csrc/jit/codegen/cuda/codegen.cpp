@@ -998,7 +998,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const ScatterOp* sop) final {
-    // generate code
+    // generate code like T_output[... + T_index[...]] = T_src[...];
     indent() << gen(sop->output(0)) << " = " << gen(sop->srcTv()) << ";\n";
   }
 

@@ -167,7 +167,7 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
   std::string toString(int indent_size = 0) const override;
   std::string toInlineString(int indent_size = 0) const override;
 
-  TensorView* lookupTv() const {
+  TensorView* inputTv() const {
     return input(0)->as<TensorView>();
   }
 

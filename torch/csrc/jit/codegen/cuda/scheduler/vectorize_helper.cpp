@@ -767,6 +767,8 @@ ContiguousInnerDimensionsMapper::computeInfoC2P(
   // T5[i0, i1, i2] = transpose(T4)
   // Then i1 and i2 are contiguous in both T0 and T5, but due to the realization
   // of the broadcast on T4 we will have removed i1 from the mapped set.
+
+  // We want vectorize size only generated from same extent tensor.
   PairwiseRootDomainMap root_map(to, from, false, true);
   auto c2p_map = root_map.mapConsumerToProducer(from->domain(), to->domain());
 

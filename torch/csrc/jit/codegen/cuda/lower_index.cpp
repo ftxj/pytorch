@@ -254,7 +254,7 @@ void IndexLowering::handle(const ScatterOp* sop) {
   const std::unordered_map<IterDomain*, Val*> override_index_inp = {
       {sop->getInputSelectAxis(), lowered_index}};
   auto lowered_input =
-      lowerSrcIndex(sop->lookupTv(), sop->output(0), override_index_inp);
+      lowerSrcIndex(sop->inputTv(), sop->output(0), override_index_inp);
 
   const std::unordered_map<IterDomain*, Val*> override_index_out = {
       {sop->getOutputSelectAxis(), lowered_index}};

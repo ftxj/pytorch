@@ -596,7 +596,7 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
   return out_tensor->as<TensorView>();
 }
 
-// torch.scatter_add_
+// torch.scatter, out-of-place version of Tensor.scatter_(dim, index, src)
 TensorView* scatter(
     TensorView* input,
     int dim,
@@ -621,6 +621,7 @@ TensorView* scatter(
       inp_dom.size(),
       " non-reduction dims.");
 
+  // The shape of output tensor is same as input tensor.
   std::vector<IterDomain*> out_domain;
   for (int i = 0; i < inp_dom.size(); ++i) {
     out_domain.push_back(

@@ -93,7 +93,8 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
        consumer_tv_->definition()->as<ScatterOp>()->indexTv() ==
            producerTv()) &&
       require_same_extent_) {
-    // Nothing to map when having same extent is required
+    // In ScatterOp, the extent constraint is output == input, index <= src and
+    // index <= input.
     return {};
   }
 
