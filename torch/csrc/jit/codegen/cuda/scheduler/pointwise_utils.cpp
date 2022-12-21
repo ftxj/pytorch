@@ -23,6 +23,18 @@ DomainMap::DomainMap(Fusion* fusion) : fusion_(fusion), ca_map_(fusion) {
       select_ids_.emplace(id);
     }
   }
+  for (auto select : ir_utils::getScatterOps(fusion)) {
+    auto src = select->srcTv()->as<TensorView>();
+    auto src_domain = TensorDomain::noReductions(src->getMaybeRFactorDomain());
+    for (auto id : src_domain) {
+      select_ids_.emplace(id);
+    }
+    auto idx = select->indexTv()->as<TensorView>();
+    auto idx_domain = TensorDomain::noReductions(idx->getMaybeRFactorDomain());
+    for (auto id : idx_domain) {
+      select_ids_.emplace(id);
+    }
+  }
 }
 
 // Determine if all IterDomains in input are mapped to the given tensor

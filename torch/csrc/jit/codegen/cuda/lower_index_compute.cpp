@@ -821,7 +821,6 @@ IndexFromIdGraph getTensorIndexFromIdGraph(
   // Run first backward traversal to generate
   //  loop nest based indexing math.
   indexing.run(loop_indexing);
-
   // Populate indexing through exact map from initial indexing
   auto consumer_root = index_producer ? consumer_tv->getRootDomain()
                                       : consumer_tv->getMaybeRFactorDomain();
@@ -899,7 +898,6 @@ IndexFromIdGraph getTensorIndexFromIdGraph(
       mapped_dims.pushBack(consumer_id);
     }
   }
-
   // No contig indexing was done in reference indexing
   ContigIDs contig_finder(
       target_tv->domain()->domain(),
@@ -915,7 +913,6 @@ IndexFromIdGraph getTensorIndexFromIdGraph(
 
   auto target_indexing = indexing.updateIndexCompute(
       target_tv->domain(), index_update_map, contig_finder);
-
   // Fill validation info.
   // TODO: cleanup seems possible.
   if (index_producer) {

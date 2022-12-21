@@ -87,6 +87,14 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
       require_same_extent_) {
     // Nothing to map when having same extent is required
     return {};
+  } else if (
+      consumer_tv_->definition()->isA<ScatterOp>() &&
+      (consumer_tv_->definition()->as<ScatterOp>()->srcTv() == producerTv() ||
+       consumer_tv_->definition()->as<ScatterOp>()->indexTv() ==
+           producerTv()) &&
+      require_same_extent_) {
+    // Nothing to map when having same extent is required
+    return {};
   }
 
   std::vector<bool> broadcast_flags;

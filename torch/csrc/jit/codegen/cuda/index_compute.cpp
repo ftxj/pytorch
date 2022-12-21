@@ -375,7 +375,6 @@ void IndexCompute::handle(Merge* merge) {
   auto out_id = maybeGetExactMapConcreteID(merge->out());
   auto outer_id = maybeGetExactMapConcreteID(merge->outer());
   auto inner_id = maybeGetExactMapConcreteID(merge->inner());
-
   auto out_it = index_map_.find(out_id);
   if (out_it == index_map_.end()) {
     return;
@@ -393,6 +392,7 @@ void IndexCompute::handle(Merge* merge) {
     extent_map_[inner_id] = zero;
     zero_domains_.emplace(outer_id);
     zero_domains_.emplace(inner_id);
+
     return;
   }
 
@@ -433,7 +433,6 @@ void IndexCompute::handle(Merge* merge) {
         }
       }
     }
-
     return;
   }
 
@@ -822,9 +821,7 @@ IndexCompute IndexCompute::updateIndexCompute(
       contig_finder,
       {},
       updated_halo_extent_map);
-
   updated_index_compute.run();
-
   return updated_index_compute;
 }
 
@@ -1855,10 +1852,11 @@ std::vector<Val*> Index::getStrides(const TensorView* tv) {
 std::vector<Val*> Index::getRootIndices(
     const TensorView* tv,
     const std::vector<kir::ForLoop*>& loops,
-    const IndexFromIdGraph& index_from_id_graph) {
+    const IndexFromIdGraph& index_from_id_graph,
+    bool from_concrete) {
   auto root_dom = tv->getMaybeRFactorDomain();
-  auto indexing = index_from_id_graph.index;
-
+  auto indexing = from_concrete ? index_from_id_graph.concrete_index
+                                : index_from_id_graph.index;
   std::vector<Val*> root_inds(
       root_dom.size(), GpuLower::current()->kernel()->zeroVal());
   for (const auto i : c10::irange(root_dom.size())) {
@@ -1891,31 +1889,23 @@ std::vector<Val*> Index::getGlobalConsumerStridedIndices(
     const std::vector<kir::ForLoop*>& loops,
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::getGlobalConsumerIndex");
-  if (override_index.size() > 0) {
-    std::cout << "override_index : = " << std::endl;
-    for (auto item : override_index) {
-      std::cout << "  iter domain = " << item.first->toString() << std::endl;
-      std::cout << "  val = " << item.second->toString() << std::endl;
-    }
-  }
   auto index_from_id_graph = getTensorIndexFromIdGraph(loops, consumer_tv);
   auto consumer_indexing = index_from_id_graph.index;
   auto strides = getStrides(consumer_tv);
-  auto root_inds = getRootIndices(consumer_tv, loops, index_from_id_graph);
+  auto root_inds = getRootIndices(
+      consumer_tv, loops, index_from_id_graph, override_index.size() > 0);
   auto root_dom = consumer_tv->getMaybeRFactorDomain();
-  int i = 0;
-  for (auto idx : root_inds) {
-    std::cout << consumer_tv->toString() << std::endl;
-    std::cout << "root domain = " << root_dom[i] << std::endl;
-    std::cout << "index = " << idx->toString() << std::endl;
-    i++;
-  }
+
   // Global striding
   auto vectorize_shift =
       loops.empty() ? nullptr : loops.back()->vectorize_shift();
   std::vector<Val*> strided_inds(
       root_inds.size(), GpuLower::current()->kernel()->zeroVal());
   for (const auto i : c10::irange(root_inds.size())) {
+    auto override_it = override_index.find(root_dom[i]);
+    if (override_it != override_index.end()) {
+      root_inds[i] = override_it->second;
+    }
     if (root_inds[i]->isZeroInt()) {
       continue;
     } else {
@@ -1943,13 +1933,6 @@ std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
     const std::unordered_map<IterDomain*, Val*>& override_index) {
   const auto gpu_lower = GpuLower::current();
 
-  if (override_index.size() > 0) {
-    std::cout << "override_index : = " << std::endl;
-    for (auto item : override_index) {
-      std::cout << "  iter domain = " << item.first->toString() << std::endl;
-      std::cout << "  val = " << item.second->toString() << std::endl;
-    }
-  }
   auto consumer_indexing_from_idgraph = getTensorIndexFromIdGraph(
       loops,
       consumer_tv,
@@ -2003,10 +1986,10 @@ std::vector<Val*> Index::getNonGlobalConsumerStridedIndices(
         error_msg_loops.str());
 
     auto root_ind_i = index_map.at(root_dom[i]);
-    std::cout << consumer_tv->toString() << std::endl;
-    std::cout << "root domain = " << root_dom[i] << std::endl;
-    std::cout << "index = " << root_ind_i << std::endl;
-    if (root_ind_i->isZeroInt()) {
+    auto override_it = override_index.find(root_dom[i]);
+    if (override_it != override_index.end()) {
+      root_ind_i = override_it->second;
+    } else if (root_ind_i->isZeroInt()) {
       continue;
     }
 

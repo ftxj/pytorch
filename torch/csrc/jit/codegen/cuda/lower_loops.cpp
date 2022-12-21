@@ -90,6 +90,7 @@ void LoopNestGenerator::pushFront(Expr* expr) {
 void LoopNestGenerator::handle(Expr* expr) {
   // Check if it's a tensor view expression we need to place in the loop nest
   // structure
+  std::cout << "generate expr = " << expr->toString() << std::endl;
   if (!ir_utils::isTvOp(expr)) {
     // Close all the loops, scalar operations cannot be inside for loops based
     // on expr sorting.
@@ -113,6 +114,10 @@ void LoopNestGenerator::handle(Expr* expr) {
   }
 
   TensorView* out_tv = expr->output(0)->as<TensorView>();
+  if (expr->isA<ScatterOp>()) {
+    out_tv = dynamic_cast<ScatterOp*>(expr)->indexTv();
+    std::cout << "replace = " << out_tv->toString() << std::endl;
+  }
 
   // Grab the loop structure
   TORCH_INTERNAL_ASSERT(
@@ -135,6 +140,7 @@ void LoopNestGenerator::handle(Expr* expr) {
   }
 
   for (auto loop : loop_structure) {
+    std::cout << "generate loop = " << loop->toString() << std::endl;
     auto find_it = std::find_if(
         for_loops_.begin(), for_loops_.end(), [loop](kir::ForLoop* fl) {
           return fl->iter_domain() == loop;
@@ -159,16 +165,20 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
   // inner loops are dependant on outer loops.
 
   const auto& ca_map = GpuLower::current()->caMap();
+  std::cout << ca_map->toString() << std::endl;
 
   std::unordered_map<IterDomain*, std::unordered_set<IterDomain*>>
       concrete_id_dependencies;
   for (auto tv : ir_utils::allTvs(FusionGuard::getCurFusion())) {
     std::unordered_set<IterDomain*> dependencies;
-
-    for (auto tv_id : tv->domain()->domain()) {
+    std::cout << "check tv = " << tv->toString() << std::endl;
+    for (int i = 0; i < tv->domain()->domain().size(); ++i) {
+      auto tv_id = tv->domain()->domain()[i];
+      std::cout << " check tv_id = " << tv_id->toString() << std::endl;
       auto concrete_id =
           ca_map->getConcreteMappedID(tv_id, IdMappingMode::LOOP);
-
+      std::cout << " check concrete_id = " << concrete_id->toString()
+                << std::endl;
       if (concrete_id_dependencies.find(concrete_id) ==
           concrete_id_dependencies.end()) {
         concrete_id_dependencies[concrete_id] = dependencies;
@@ -239,6 +249,12 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
     auto last_id_concrete = ca_map->getConcreteMappedID(
         tv->axis((int)(tv->nDims() - 1)), IdMappingMode::LOOP);
     auto all_loops_it = concrete_id_dependencies.find(last_id_concrete);
+    for (auto item : concrete_id_dependencies) {
+      std::cout << "key = " << item.first->toString() << std::endl;
+      for (auto v : item.second) {
+        std::cout << " val = " << v->toString() << std::endl;
+      }
+    }
     TORCH_INTERNAL_ASSERT(
         all_loops_it != concrete_id_dependencies.end(),
         "Should have processed all id's in all tvs.");
@@ -246,6 +262,10 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
         all_loops_it->second.begin(), all_loops_it->second.end());
     // Dependencies of last domain doesn't include last domain, include it
     // manually
+    std::cout << "tv = " << tv->toString() << std::endl;
+    for (auto l : loop_structure) {
+      std::cout << " l init = " << l->toString() << std::endl;
+    }
     loop_structure.emplace_back(last_id_concrete);
     // reverse sort (rbegin & rend) since we want the reverse of the order
     // given by IterDomainDependencySorter
@@ -255,6 +275,9 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
         ir_utils::IterDomainDependencySorter(
             concrete_id_dependencies, GpuLower::current()->caMap()));
     loop_structures_[tv] = loop_structure;
+    for (auto l : loop_structure) {
+      std::cout << " l = " << l->toString() << std::endl;
+    }
   }
 
   // Process the carefully ordered expressions

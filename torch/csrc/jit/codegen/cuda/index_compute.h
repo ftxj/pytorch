@@ -325,7 +325,8 @@ class Index {
   static std::vector<Val*> getRootIndices(
       const TensorView* tv,
       const std::vector<kir::ForLoop*>& loops,
-      const IndexFromIdGraph& index_from_id_graph);
+      const IndexFromIdGraph& index_from_id_graph,
+      bool from_concrete = false);
 
  public:
   // Producer if it's in global memory

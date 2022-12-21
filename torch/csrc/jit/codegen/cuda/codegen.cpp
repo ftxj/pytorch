@@ -997,6 +997,11 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     code_ << gen(sop->input(0)) << ";\n";
   }
 
+  void handle(const ScatterOp* sop) final {
+    // generate code
+    indent() << gen(sop->output(0)) << " = " << gen(sop->srcTv()) << ";\n";
+  }
+
   std::string genArchString(MmaOptions::MacroType macro) {
     std::stringstream ss;
     if (isVolta(macro)) {

@@ -187,6 +187,10 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
     return attribute(0)->as<IterDomain>();
   }
 
+  void updateOutputSelectAxis(Val* mutated) {
+    attributes_[0] = mutated;
+  }
+
   IterDomain* getInputSelectAxis() const {
     return attribute(1)->as<IterDomain>();
   }
