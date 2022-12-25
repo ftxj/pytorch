@@ -373,9 +373,13 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
 
   // Generate loop-nests and place each expression at its
   // corresponding loop
+
+  for (auto e : ir_utils::getScatterOps(FusionGuard::getCurFusion())) {
+    compute_at_map_->updateScatterOp(e, false);
+  }
   const auto exprs_lowered = LoopNestGenerator::loweredExprs(exprs_sorted);
   dumpExprsIfEnabled(exprs_lowered, "LoopNestGenerator");
-
+  compute_at_map_->leaveOutScatterOp();
   // Replace squeezes, Transpose, Shift, Gather, and View ops with
   // unary ops since they're not separately processed in lowering.
   const auto exprs_unary_replaced = unarySetOpInserter(exprs_lowered);
@@ -404,9 +408,13 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
   // the code is explicitly single shot for loop based. Need to be careful in
   // later passes when doing any kind of insertions in loop nest structure as
   // insertions could be on if then or else instead of directly on a for loop.
+  for (auto e : ir_utils::getScatterOps(FusionGuard::getCurFusion())) {
+    compute_at_map_->updateScatterOp(e, true);
+  }
   const auto exprs_unrolled_loops =
       UnrollPass::runPass(fusion_, exprs_double_buffered);
   dumpExprsIfEnabled(exprs_unrolled_loops, "UnrollPass");
+  compute_at_map_->leaveOutScatterOp();
 
   commonScalarMap().initialize(exprs_unrolled_loops);
 
@@ -424,10 +432,14 @@ void GpuLower::lower(Fusion* fusion, DataType index_type) {
   const auto exprs_with_fused_broadcast = fuseWarpReduce(exprs_indexed_loops);
   dumpExprsIfEnabled(exprs_with_fused_broadcast, "fuseWarpReduce");
 
+  for (auto e : ir_utils::getScatterOps(FusionGuard::getCurFusion())) {
+    compute_at_map_->updateScatterOp(e, true);
+  }
   const auto exprs_conditional_loops =
       generateConditionalFromPredicate(exprs_with_fused_broadcast);
   dumpExprsIfEnabled(
       exprs_conditional_loops, "generateConditionalFromPredicate");
+  compute_at_map_->leaveOutScatterOp();
 
   const auto exprs_common_index_allocated =
       allocateCommonScalars(exprs_conditional_loops);

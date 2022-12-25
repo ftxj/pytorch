@@ -205,6 +205,15 @@ class DisjointSets {
     return *(set_it->second);
   }
 
+  std::shared_ptr<VectorOfUniqueEntries<T, Hash>> getDisjointSetPtrOf(
+      T entry) const {
+    auto set_it = disjoint_set_maps_.find(entry);
+    TORCH_INTERNAL_ASSERT(
+        set_it != disjoint_set_maps_.end(),
+        "Could not find entry for ",
+        entry->toString());
+    return set_it->second;
+  }
   // Initializes a new set for provided entry
   //
   // TODO: Return iterator

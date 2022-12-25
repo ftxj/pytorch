@@ -46,6 +46,8 @@ class TORCH_CUDA_CU_API LoopNestGenerator {
 
   void handle(Expr* expr);
 
+  void handle(ScatterOp* expr);
+
   // Run the pass and accumulate output in lowered_exprs_
   void generate(const std::vector<Expr*>& exprs);
 

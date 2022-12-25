@@ -717,6 +717,9 @@ void ComputeAtMap::build(Fusion* fusion) {
   buildUniqueExactExprMaps();
   buildConcreteIds();
   buildUniqueExactExprMaps();
+  // for (auto e : ir_utils::getScatterOps(FusionGuard::getCurFusion())) {
+  //   updateScatterOp(e);
+  // }
 }
 
 void ComputeAtMap::validateAndPropagatePType() {
@@ -1631,6 +1634,67 @@ void ComputeAtMap::updateComputeWith(TensorView* compute_with_tv) {
     auto concrete_id = computeConcreteId(first_id, IdMappingMode::LOOP);
     concrete_id_cache_[disjoint_set_shared_ptr] = concrete_id;
   }
+}
+
+void ComputeAtMap::updateScatterOp(ScatterOp* expr, bool update_all) {
+  // Update the LOOP concrete IDs
+  auto output_ids = ir_utils::allIDsOf(expr->output(0)->as<TensorView>());
+  auto index_ids = ir_utils::allIDsOf(expr->indexTv());
+
+  for (int i = 0; i < output_ids.size(); ++i) {
+    auto out_id = output_ids[i];
+    auto idx_id = index_ids[i];
+    if (id_graph_.loopNodes().mappingExists(out_id) &&
+        id_graph_.loopNodes().mappingExists(idx_id)) {
+      auto entry = id_graph_.loopNodes().getDisjointSetPtrOf(out_id);
+      // std::cout << "original id = " << concrete_id_cache_[entry]->toString()
+      //           << std::endl;
+      concrete_id_cache_backup_[entry] = concrete_id_cache_[entry];
+      concrete_id_cache_[entry] = idx_id;
+      // std::cout << "new id = " << idx_id->toString() << std::endl;
+    }
+    if (update_all) {
+      if (id_graph_.permissiveNodes().mappingExists(out_id) &&
+          id_graph_.permissiveNodes().mappingExists(idx_id)) {
+        auto entry = id_graph_.permissiveNodes().getDisjointSetPtrOf(out_id);
+        // std::cout << "original id = " <<
+        // concrete_id_cache_[entry]->toString()
+        //           << std::endl;
+        concrete_id_cache_backup_[entry] = concrete_id_cache_[entry];
+        concrete_id_cache_[entry] = idx_id;
+        // std::cout << "new id = " << idx_id->toString() << std::endl;
+      }
+
+      if (id_graph_.exactNodes().mappingExists(out_id) &&
+          id_graph_.exactNodes().mappingExists(idx_id)) {
+        auto entry = id_graph_.exactNodes().getDisjointSetPtrOf(out_id);
+        // std::cout << "original id = " <<
+        // concrete_id_cache_[entry]->toString()
+        //           << std::endl;
+        concrete_id_cache_backup_[entry] = concrete_id_cache_[entry];
+        concrete_id_cache_[entry] = idx_id;
+        // std::cout << "new id = " << idx_id->toString() << std::endl;
+      }
+
+      if (id_graph_.almostExactNodes().mappingExists(out_id) &&
+          id_graph_.almostExactNodes().mappingExists(idx_id)) {
+        auto entry = id_graph_.almostExactNodes().getDisjointSetPtrOf(out_id);
+        // std::cout << "original id = " <<
+        // concrete_id_cache_[entry]->toString()
+        //           << std::endl;
+        concrete_id_cache_backup_[entry] = concrete_id_cache_[entry];
+        concrete_id_cache_[entry] = idx_id;
+        // std::cout << "new id = " << idx_id->toString() << std::endl;
+      }
+    }
+  }
+}
+
+void ComputeAtMap::leaveOutScatterOp() {
+  for (auto x : concrete_id_cache_backup_) {
+    concrete_id_cache_[x.first] = x.second;
+  }
+  concrete_id_cache_backup_.clear();
 }
 
 } // namespace cuda

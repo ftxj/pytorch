@@ -37,6 +37,36 @@ bool shouldFillAllocationWithNan() {
   return fill_allocation_with_nan_;
 }
 
+TensorView* shouldFillWithAnotherTensor(Val* output) {
+  if (output->definition() && output->definition()->isA<ScatterOp>()) {
+    return output->definition()->as<ScatterOp>()->inputTv();
+  }
+  return nullptr;
+}
+
+at::Tensor selectInputTensorUsingTv(
+    TensorView* tv,
+    const KernelArgumentHolder& arg,
+    kir::Kernel* kernel) {
+  std::cout << "want to find = " << tv->toString() << std::endl;
+
+  for (const auto i : c10::irange(kernel->inputs().size())) {
+    std::cout << "actually find = " << kernel->inputs()[i]->toString()
+              << std::endl;
+    std::cout << "actually find kir = " << kernel->inputsOf(tv)[0]->toString()
+              << std::endl;
+    if (kernel->inputs()[i] == kernel->inputsOf(tv)[0]) {
+      return dynamic_cast<const TensorArgAbstract*>(arg[i])->getTensor();
+    }
+  }
+  TORCH_INTERNAL_ASSERT(
+      false, "can't select input tensor to initiallize output tensor");
+}
+
+at::Tensor allocateAndInitOutputUsingAnotherTensor(at::Tensor t) {
+  return t.clone().detach();
+}
+
 void setFillAllocationWithNan(bool value) {
   fill_allocation_with_nan_ = value;
 }
@@ -819,7 +849,10 @@ std::vector<at::Tensor> FusionExecutor::allocOutputs(
           kernel->outputs()[out_i]->isA<TensorView>(),
           "Cannot allocate outputs that are not tensors.");
       auto output = kernel->outputs()[out_i]->as<TensorView>();
-      if (alias_indices.count(out_i) != 0) {
+      if (auto filled = shouldFillWithAnotherTensor(kernel->outputs()[out_i])) {
+        outputs.push_back(allocateAndInitOutputUsingAnotherTensor(
+            selectInputTensorUsingTv(filled, args, kernel)));
+      } else if (alias_indices.count(out_i) != 0) {
         // aliasing to inputs, no need to allocate real output, just push empty
         // tensor here.
         outputs.emplace_back();
@@ -1008,26 +1041,33 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
   std::vector<at::Tensor> allocated_outputs;
   GlobalBuffers global_buffers;
   uint64_t rand_offset = 0;
-
+  std::cout << "allocate output init " << std::endl;
   if (executor_entry && executor_entry->init && !disable_parameter_cache_) {
     {
       // context manager to disable auto grad for `empty_cuda` calls later
       at::AutoDispatchBelowADInplaceOrView non_variable_type_mode;
       // take the short-cut for launch if we see a recorded input set again
       launch_params_ = executor_entry->launch_params;
+      std::cout << "allocate output " << std::endl;
       // only allocate outputs when not given
       if (outputs.empty()) {
         FUSER_PERF_SCOPE("ExecutorRunFusion::OutputAlloc");
         for (const auto i : c10::irange(executor_entry->output_sizes.size())) {
-          allocated_outputs.push_back(at::native::empty_strided_cuda(
-              executor_entry->output_sizes[i],
-              executor_entry->output_strides[i],
-              executor_entry->output_types[i],
-              c10::nullopt,
-              options_.device,
-              c10::nullopt));
-          if (shouldFillAllocationWithNan()) {
-            fillTensorWithNan(allocated_outputs.back());
+          if (auto filled = shouldFillWithAnotherTensor(
+                  lowered_->kernel()->outputs()[i])) {
+            allocated_outputs.push_back(allocateAndInitOutputUsingAnotherTensor(
+                selectInputTensorUsingTv(filled, args, lowered_->kernel())));
+          } else {
+            allocated_outputs.push_back(at::native::empty_strided_cuda(
+                executor_entry->output_sizes[i],
+                executor_entry->output_strides[i],
+                executor_entry->output_types[i],
+                c10::nullopt,
+                options_.device,
+                c10::nullopt));
+            if (shouldFillAllocationWithNan()) {
+              fillTensorWithNan(allocated_outputs.back());
+            }
           }
         }
         // Note: aliased output is not returned as output. But we still need it

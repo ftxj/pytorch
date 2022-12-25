@@ -138,10 +138,39 @@ class TORCH_CUDA_CU_API UnswitchPredicate {
       int64_t static_offset = 0;
       //! List of dynamic predicates.
       std::vector<Bool*> dynamic_preds;
+      std::string toString() const {
+        std::stringstream ss;
+        ss << "Info {\n";
+        if (static_pred->definition()) {
+          ss << " static_pred : " << static_pred->definition()->toString()
+             << "\n";
+        } else {
+          ss << " static_pred : " << static_pred->toString() << "\n";
+        }
+
+        for (auto dy : dynamic_preds) {
+          if (dy->definition()) {
+            ss << " dynamic_preds : " << dy->definition()->toString() << "\n";
+          } else {
+            ss << " dynamic_preds : " << dy->toString() << "\n";
+          }
+        }
+
+        ss << "}";
+        return ss.str();
+      }
     };
     UnswitchPredicateKey predicate_key;
     Info start;
     Info stop;
+    std::string toString() const {
+      std::stringstream ss;
+      ss << "MergedPredicates {\n";
+      ss << start.toString() << "\n";
+      ss << stop.toString() << "\n";
+      ss << "}";
+      return ss.str();
+    }
   };
 
   UnswitchPredicate(

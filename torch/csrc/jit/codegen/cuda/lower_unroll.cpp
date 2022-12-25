@@ -192,6 +192,8 @@ void UnrollPass::handle(kir::ForLoop* fl) {
   }
 
   auto unroll_pred = IrBuilder::create<kir::Predicate>(fl);
+  // std::cout << "for for loop = " << fl->toString() << std::endl;
+  // std::cout << "the predicted is = " << unroll_pred->toString() << std::endl;
 
   kir::IfThenElse* unroll_ite = IrBuilder::create<kir::IfThenElse>(unroll_pred);
 

@@ -817,11 +817,13 @@ IndexFromIdGraph getTensorIndexFromIdGraph(
       index_parameters.zero_domains,
       index_parameters.preferred_concrete_ids,
       index_parameters.concrete_id_to_halo_extent);
-
+  // std::cout << "getTensorIndexFromIdGraph " << std::endl;
+  // std::cout << indexing.toString(0) << std::endl;
   // Run first backward traversal to generate
   //  loop nest based indexing math.
   indexing.run(loop_indexing);
-
+  // std::cout << "getTensorIndexFromIdGraph 2" << std::endl;
+  // std::cout << indexing.toString(0) << std::endl;
   // Populate indexing through exact map from initial indexing
   auto consumer_root = index_producer ? consumer_tv->getRootDomain()
                                       : consumer_tv->getMaybeRFactorDomain();
@@ -915,7 +917,8 @@ IndexFromIdGraph getTensorIndexFromIdGraph(
 
   auto target_indexing = indexing.updateIndexCompute(
       target_tv->domain(), index_update_map, contig_finder);
-
+  // std::cout << "getTensorIndexFromIdGraph 3" << std::endl;
+  // std::cout << indexing.toString(0) << std::endl;
   // Fill validation info.
   // TODO: cleanup seems possible.
   if (index_producer) {

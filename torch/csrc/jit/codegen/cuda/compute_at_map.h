@@ -261,6 +261,10 @@ class TORCH_CUDA_CU_API ComputeAtMap {
   // Update the LOOP map with resolved computeWith
   void updateComputeWith(TensorView* compute_with_tv);
 
+  void updateScatterOp(ScatterOp* expr, bool update_all = false);
+
+  void leaveOutScatterOp();
+
  private:
   // Traverses through definitions of exact maps (unique_exact_definitions_) to
   // input ID's from provided ID. Returns all the exact map concrete IDs of the
@@ -313,6 +317,11 @@ class TORCH_CUDA_CU_API ComputeAtMap {
       std::shared_ptr<VectorOfUniqueEntries<IterDomain*>>,
       IterDomain*>
       concrete_id_cache_;
+
+  std::unordered_map<
+      std::shared_ptr<VectorOfUniqueEntries<IterDomain*>>,
+      IterDomain*>
+      concrete_id_cache_backup_;
 
   // Unique expressions operating on exact disjoint set. For each IterDomain in
   // each exact disjoint set will log its definition in the std::vector<Expr*>.

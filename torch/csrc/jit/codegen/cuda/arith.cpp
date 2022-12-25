@@ -630,6 +630,7 @@ TensorView* scatter(
                 inp_dom[i]->getIterType() == IterType::Iteration
                     ? IterType::GatherScatter
                     : inp_dom[i]->getIterType())
+            .index_iter(idx_dom[i])
             .build());
   }
 

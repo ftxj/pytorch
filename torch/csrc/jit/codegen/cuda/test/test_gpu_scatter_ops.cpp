@@ -21,8 +21,39 @@ namespace jit {
 using namespace torch::jit::fuser::cuda;
 using namespace at::indexing;
 
+TEST_F(NVFuserTest, FusionScatterSimpleCodeGen_CUDA) {
+  const int input_dim = 1024;
+  const int src_dim = 256;
+  const int idx_dim = 256;
+
+  auto fusion_ptr = std::make_unique<Fusion>();
+  Fusion& fusion = *fusion_ptr.get();
+  FusionGuard fg(&fusion);
+
+  TensorView* tv_input = makeContigTensor(1);
+  TensorView* tv_idx = makeContigTensor(1, DataType::Int);
+  TensorView* tv_src = makeContigTensor(1);
+
+  fusion.addInput(tv_input);
+  fusion.addInput(tv_idx);
+  fusion.addInput(tv_src);
+  auto tv_out = scatter(tv_input, 0, tv_idx, tv_src);
+  fusion.addOutput(tv_out); // init as zero ?
+
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+  auto options_i =
+      torch::TensorOptions().dtype(torch::kLong).device(at::kCUDA, 0);
+  at::Tensor idx = at::randperm(idx_dim, options_i);
+  at::Tensor input = at::randn({input_dim}, options);
+  at::Tensor src = at::randn({src_dim}, options);
+
+  std::vector<IValue> aten_inputs = {input, idx, src};
+  FusionExecutorCache executor_cache(std::move(fusion_ptr));
+  auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
+}
+
 TEST_F(NVFuserTest, FusionScatter1DIndexTvFusion_CUDA) {
-  const int input_dim = 256;
+  const int input_dim = 1024;
   const int src_dim = 256;
   const int idx_dim = 256;
 

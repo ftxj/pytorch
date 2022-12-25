@@ -58,6 +58,7 @@ Bool* ParallelizedDomainPredicate::PredicateInfo::getPredicate() const {
             pred_id, IdMappingMode::EXACT));
     auto new_pred = SimplifyingIrBuilder::ltExpr(index, pred_id->extent());
     pred = SimplifyingIrBuilder::andExpr(pred, new_pred)->as<Bool>();
+    // std::cout << "generate pred = " << pred->toString() << std::endl;
   }
 
   return pred;
@@ -219,6 +220,8 @@ Bool* ParallelizedDomainPredicate::getPredicate(
       const auto& pred_info = pred_info_it->second;
       auto tid_pred = pred_info.getPredicate();
       pred = SimplifyingIrBuilder::andExpr(pred, tid_pred);
+      // std::cout << " generate pred with get = " << pred->toString()
+      //           << std::endl;
     }
   }
 
@@ -285,9 +288,13 @@ UnswitchPredicateKey::UnswitchPredicateKey(
 
   // Find the corresponding concrete id for each parallel type
   for (auto consumer_leaf : parallelized_consumer_leaf_ids) {
+    // std::cout << " UnswitchPredicateKey construct consumer_leaf = "
+    //           << consumer_leaf->toString() << std::endl;
     auto pt = consumer_leaf->getParallelType();
     auto concrete_leaf = GpuLower::current()->caMap()->getConcreteMappedID(
         consumer_leaf, IdMappingMode::EXACT);
+    // std::cout << " UnswitchPredicateKey construct concrete_leaf = "
+    //           << concrete_leaf->toString() << std::endl;
     parallel_concrete_ids_.at(pt) = concrete_leaf;
   }
 }
@@ -425,6 +432,13 @@ Bool* UnswitchPredicate::get(
   Val* unswitch_pred = GpuLower::current()->kernel()->trueVal();
   for (auto pred : up.predicates_) {
     unswitch_pred = SimplifyingIrBuilder::andExpr(unswitch_pred, pred);
+    // if (unswitch_pred->definition())
+    //   std::cout << "generate unswitch predicate = "
+    //             << unswitch_pred->definition()->toString() << std::endl;
+    // else
+    //   std::cout << "generate unswitch predicate = " <<
+    //   unswitch_pred->toString()
+    //             << std::endl;
   }
 
   return unswitch_pred->as<Bool>();
@@ -434,6 +448,7 @@ void UnswitchPredicate::predicateOn(Expr* tv_expr) {
   FUSER_PERF_SCOPE("GpuLower::Lower::UnswitchPredicate::predicateOn");
 
   if (for_loops_.empty()) {
+    // std::cout << " predicateOn return 0;" << std::endl;
     return;
   }
 
@@ -447,6 +462,7 @@ void UnswitchPredicate::predicateOn(Expr* tv_expr) {
   if (gpu_lower->predicateElimination().canOmitPredicate(tv_expr) &&
       !ir_utils::isCpAsyncInit(tv_expr)) {
     addParallelizedDomainPredicates(tv_expr);
+    // std::cout << " predicateOn return 1;" << std::endl;
     return;
   }
 
@@ -467,7 +483,7 @@ void UnswitchPredicate::predicateOn(Expr* tv_expr) {
   for (const auto& pred_info : ref_pred_info) {
     TORCH_INTERNAL_ASSERT(pred_info.startPredicate() != nullptr);
     TORCH_INTERNAL_ASSERT(pred_info.stopPredicate() != nullptr);
-
+    // std::cout << pred_info.toString() << std::endl;
     const auto& root_ids = pred_info.rootIds();
 
     bool add_pred = false;
@@ -477,14 +493,21 @@ void UnswitchPredicate::predicateOn(Expr* tv_expr) {
     bool first_key_set = false;
 
     for (auto root_id : root_ids) {
+      // std::cout << "for output TV = " << out_tv->toString() << std::endl;
+      // std::cout << "for root domain gen root_id = " << root_id->toString()
+      //           << std::endl;
       auto concrete_root_id = gpu_lower->caMap()->getConcreteMappedID(
           root_id, IdMappingMode::EXACT);
 
       if (root_id->isBroadcast()) {
         continue;
       }
-
+      // std::cout << "for root domain gen concrete_root_id= "
+      //           << concrete_root_id->toString() << std::endl;
       UnswitchPredicateKey key(root_id, out_tv, concrete_root_id);
+      // std::cout << "generate key = " << key.toString() << std::endl;
+      // std::cout << "insert than size = " << predicated_keys_.size()
+      //           << std::endl;
       auto inserted = predicated_keys_.insert(key).second;
       add_pred = add_pred || inserted;
 
@@ -545,6 +568,7 @@ void UnswitchPredicate::predicateOn(Expr* tv_expr) {
     // If a corresponding MergedPredicates is found, merge both the
     // start and stop offsets.
     if (merged_pred_it != pending_predicates_.end()) {
+      // std::cout << "merge Predicates " << std::endl;
       mergeUnswitchPredicateOffsets(
           pred_info.startPredicate(),
           pred_info.startOffset(),
@@ -560,6 +584,7 @@ void UnswitchPredicate::predicateOn(Expr* tv_expr) {
   }
 
   addParallelizedDomainPredicates(tv_expr);
+  // std::cout << " predicateOn return 3;" << std::endl;
 }
 
 void UnswitchPredicate::addParallelizedDomainPredicates(Expr* tv_expr) {
@@ -589,12 +614,17 @@ void UnswitchPredicate::openLoop(kir::ForLoop* fl) {
   for_loops_.push_back(fl);
 
   for (auto expr : fl->body().exprs()) {
+    // std::cout << " UnswitchPredicate::openloop::expr = " << expr->toString()
+    //           << std::endl;
     if (ir_utils::isTvOp(expr) || isTensorIndexOp(expr)) {
       predicateOn(expr);
     } else if (auto ite = dynamic_cast<kir::IfThenElse*>(expr)) {
       openIte(ite);
     } else if (auto for_loop = dynamic_cast<kir::ForLoop*>(expr)) {
       openLoop(for_loop);
+    } else {
+      // std::cout << "open loop does not need to handle " << expr->toString()
+      //           << std::endl;
     }
   }
 
@@ -619,6 +649,7 @@ void UnswitchPredicate::openIte(kir::IfThenElse* ite) {
 void UnswitchPredicate::finalize() {
   for (const auto& merged_pred : pending_predicates_) {
     const auto& start_info = merged_pred.start;
+    // std::cout << "finalize = " << merged_pred.toString() << std::endl;
     if (start_info.static_pred) {
       predicates_.push_back(start_info.static_pred);
     }
@@ -647,21 +678,46 @@ void UnswitchPredicate::mergeUnswitchPredicateOffsets(
       return new_val > current_val;
     }
   };
+  // std::cout << "want to merge : " << std::endl;
+  // if (predicate->definition()) {
+  //   std::cout << "predicate : " << predicate->definition()->toString()
+  //             << std::endl;
+  // } else {
+  //   std::cout << "predicate : " << predicate->toString() << std::endl;
+  // }
+  // if (offset->definition()) {
+  //   std::cout << "offset : " << offset->definition()->toString() <<
+  //   std::endl;
+  // } else {
+  //   std::cout << "offset : " << offset->toString() << std::endl;
+  // }
 
   auto offset_int = dynamic_cast<Int*>(offset);
+  // if (offset_int && offset_int->definition()) {
+  //   std::cout << "offset_int : " << offset->definition()->toString()
+  //             << std::endl;
+  // } else if (offset_int) {
+  //   std::cout << "offset_int : " << offset->toString() << std::endl;
+  // } else {
+  //   std::cout << "offset_int is null " << std::endl;
+  // }
   // If it's a static predicate, replace the current one if it's
   // more restrictive. If it's dynamic, just adds it to the dynamic
   // predicate list.
   if (offset_int && offset_int->isConst()) {
+    // std::cout << "mereg staic " << std::endl;
     auto offset_const = offset_int->value().value();
+
     auto& static_pred = merged_predicate_info.static_pred;
     auto& static_offset = merged_predicate_info.static_offset;
+
     if (static_pred == nullptr ||
         is_more_restrictive(offset_const, static_offset)) {
       static_pred = predicate;
       static_offset = offset_const;
     }
   } else {
+    // std::cout << "mereg dynamic " << std::endl;
     merged_predicate_info.dynamic_preds.push_back(predicate);
   }
 }
@@ -670,6 +726,9 @@ UnswitchPredicate::UnswitchPredicate(
     std::vector<kir::ForLoop*> outer_loops,
     kir::ForLoop* unrolled_loop)
     : for_loops_(std::move(outer_loops)), unrolled_loop_(unrolled_loop) {
+  // std::cout << "generate UnswitchPredicate for for" <<
+  // unrolled_loop->toString()
+  //           << std::endl;
   openLoop(unrolled_loop);
   finalize();
 }

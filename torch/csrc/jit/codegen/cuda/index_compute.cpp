@@ -1867,9 +1867,12 @@ std::vector<Val*> Index::getRootIndices(
   auto root_dom = tv->getMaybeRFactorDomain();
   auto indexing = from_concrete ? index_from_id_graph.concrete_index
                                 : index_from_id_graph.index;
+  // std::cout << indexing.toString(0) << std::endl;
+
   std::vector<Val*> root_inds(
       root_dom.size(), GpuLower::current()->kernel()->zeroVal());
   for (const auto i : c10::irange(root_dom.size())) {
+    // std::cout << "root_dom = " << root_dom[i]->toString() << std::endl;
     // See a comment in indexing to root domains in getGlobalProducerIndex.
     if (root_dom[i]->isReduction() || root_dom[i]->isBroadcast() ||
         root_dom[i]->isStride()) {
@@ -2168,6 +2171,15 @@ struct PredicateDomainInfo {
   std::unordered_set<IterDomain*> covered_ids;
   // True if this predicate is for a non-divisible split
   bool is_non_divisible_split = false;
+  std::string toString() const {
+    std::stringstream ss;
+    ss << "PredicateDomainInfo {\n";
+    for (auto id : covered_ids) {
+      ss << "  covered_ids = " << id->toString() << "\n";
+    }
+    ss << "}";
+    return ss.str();
+  }
 };
 
 // Find iteration domains in the history of a consumer to predicate comprised
@@ -2195,6 +2207,9 @@ std::vector<PredicateDomainInfo> getPredicateContigIds(
     auto c_id = gpu_lower->caMap()->getConcreteMappedID(
         entry.first, IdMappingMode::EXACT);
     concrete_index_map[c_id] = entry.second;
+    // std::cout << " map key = : " << c_id->toString() << std::endl;
+    // std::cout << " map val = : " << concrete_index_map[c_id]->toString()
+    // << std::endl;
   }
 
   std::vector<bool> predicate_contiguity(consumer_root_domain.size(), true);
@@ -2239,6 +2254,9 @@ std::vector<PredicateDomainInfo> getPredicateContigIds(
     }
 
     auto contig_id_it = contig_finder.rootToIndexedID().find(root_id);
+    // std::cout << "find id = " << root_id->toString() << std::endl;
+    // std::cout << "contig_id_it = " << contig_id_it->second->toString()
+    // << std::endl;
 
     TORCH_INTERNAL_ASSERT(
         contig_id_it != contig_finder.rootToIndexedID().end(),
@@ -2733,6 +2751,13 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
 
   auto stop_indexing_from_idgraph = getPredicateIndexingFromIdGraph(
       loops, consumer_tv, unswitch_or_vec_loop, db_axis, false);
+  // std::cout << "print stop_indexing_from_idgraph for consumer_tv = "
+  //           << std::endl;
+  // std::cout << consumer_tv->toString() << std::endl;
+
+  // std::cout << "print stop_indexing_from_idgraph  = " << std::endl;
+  // std::cout << stop_indexing_from_idgraph.toString() << std::endl;
+
   const auto consumer_stop_indexing = stop_indexing_from_idgraph.index;
   const auto& consumer_stop_index_map = consumer_stop_indexing.indexMap();
 
@@ -2742,12 +2767,20 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
       ? getPredicateIndexingFromIdGraph(
             loops, consumer_tv, unswitch_or_vec_loop, db_axis, true)
       : stop_indexing_from_idgraph;
+
+  // std::cout << "print start_indexing_from_idgraph = " << std::endl;
+  // std::cout << start_indexing_from_idgraph.toString() << std::endl;
+
   const auto consumer_start_indexing = start_indexing_from_idgraph.index;
   const auto& consumer_start_index_map = consumer_start_indexing.indexMap();
 
   // Get the contiguous ids we need to generate predicates for
   auto contig_id_infos =
       getPredicateContigIds(consumer_tv, consumer_stop_index_map);
+  // std::cout << "print contig_id_infos = " << std::endl;
+  // for (auto id_info : contig_id_infos) {
+  //   std::cout << id_info.toString() << std::endl;
+  // }
 
   auto non_divisible_splits =
       getNonDivisibleConsumerDomainsToPredicate(consumer_tv);
@@ -2756,6 +2789,10 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
       non_divisible_splits.begin(),
       non_divisible_splits.end());
 
+  // std::cout << "print contig_id_infos = " << std::endl;
+  // for (auto id_info : contig_id_infos) {
+  //   std::cout << id_info.toString() << std::endl;
+  // }
   std::vector<RootPredicateInfo> pred_info_vec;
 
   for (auto contig_id_entry : contig_id_infos) {
@@ -2826,7 +2863,7 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
 
     start_index = start_magic_zero_info.index;
     stop_index = stop_magic_zero_info.index;
-
+    // std::cout << "start_index = " << start_index->toString() << std::endl;
     // Build predicates for start positions as:
     //   start_index + start_offset >= 0
     auto start_offset = simplifyStartOffset(info.start_offset_);
@@ -2850,8 +2887,10 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     } else {
       auto offsetted_stop_index =
           SimplifyingIrBuilder::addExpr(stop_index, stop_offset);
+      auto extent_id = gpu_lower->caMap()->getConcreteMappedID(
+          contig_id, IdMappingMode::EXACT);
       auto stop_pred = SimplifyingIrBuilder::ltExpr(
-                           offsetted_stop_index, contig_id->extent())
+                           offsetted_stop_index, extent_id->extent())
                            ->as<Bool>();
       info.stop_predicate_ = stop_pred;
     }
