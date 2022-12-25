@@ -159,57 +159,6 @@ class IndexCompute : public BackwardVisitor {
   std::unordered_map<IterDomain*, Val*> permissive_index_map_;
 
  public:
-  std::string toString(const int& size) const {
-    std::stringstream ss;
-    std::string space(size, ' ');
-    ss << space;
-    ss << "IndexCompute {\n";
-    ss << space;
-    ss << "  indexMap {\n";
-    for (auto item : indexMap()) {
-      ss << space;
-      ss << "    id = " << item.first->toString() << "\n";
-      ss << space;
-      if (item.second->definition() != nullptr)
-        ss << "    Val = " << item.second->definition()->toString() << "\n";
-      else
-        ss << "    Val = " << item.second->toString() << "\n";
-    }
-    ss << space;
-    ss << "  }\n";
-    ss << space;
-    ss << "  extentMap {\n";
-    for (auto item : extentMap()) {
-      ss << space;
-      ss << "    id = " << item.first->toString() << "\n";
-      ss << space;
-      if (item.second->definition() != nullptr)
-        ss << "    Val = " << item.second->definition()->toString() << "\n";
-      else
-        ss << "    Val = " << item.second->toString() << "\n";
-    }
-    ss << space;
-    ss << "  }\n";
-    ss << space;
-    ss << "  zeroDomains {\n";
-    for (auto item : zeroDomains()) {
-      ss << space;
-      ss << "    id = " << item->toString() << "\n";
-    }
-    ss << space;
-    ss << "  }\n";
-    ss << space;
-    ss << "  zeroMergedIn {\n";
-    for (auto item : zeroMergedIn()) {
-      ss << space;
-      ss << "    id = " << item->toString() << "\n";
-    }
-    ss << space;
-    ss << "  }\n";
-    ss << space;
-    ss << "}";
-    return ss.str();
-  }
   const std::unordered_map<IterDomain*, Val*>& indexMap() const {
     return index_map_;
   }
@@ -337,70 +286,6 @@ class RootPredicateInfo {
   //! Return a false RootPredicateInfo, i.e., both start and stop
   //! predicates are false.
   static RootPredicateInfo getFalseInfo();
-  std::string toString() const {
-    std::stringstream ss;
-    ss << "RootPredicate Info { \n";
-    for (auto id : rootIds()) {
-      ss << " id : " << id->toString() << "\n";
-    }
-    ss << "  start { \n";
-    {
-      if (startPredicate() != nullptr) {
-        if (startPredicate()->definition()) {
-          ss << "    predict : " << startPredicate()->definition()->toString()
-             << "\n";
-        } else {
-          ss << "    predict : " << startPredicate()->toString() << "\n";
-        }
-      } else {
-        ss << "    predict : "
-           << "null\n";
-      }
-
-      if (startOffset() != nullptr) {
-        if (startOffset()->definition()) {
-          ss << "    offset : " << startOffset()->definition()->toString()
-             << "\n";
-        } else {
-          ss << "    offset : " << startOffset()->toString() << "\n";
-        }
-      } else {
-        ss << "    offset : "
-           << "null\n";
-      }
-    }
-    ss << "  } \n";
-
-    ss << "  stop { \n";
-    {
-      if (stopPredicate() != nullptr) {
-        if (stopPredicate()->definition()) {
-          ss << "    predict : " << stopPredicate()->definition()->toString()
-             << "\n";
-        } else {
-          ss << "    predict : " << stopPredicate()->toString() << "\n";
-        }
-      } else {
-        ss << "    predict : "
-           << "null\n";
-      }
-
-      if (stopOffset() != nullptr) {
-        if (stopOffset()->definition()) {
-          ss << "    offset : " << stopOffset()->definition()->toString()
-             << "\n";
-        } else {
-          ss << "    offset : " << stopOffset()->toString() << "\n";
-        }
-      } else {
-        ss << "    offset : "
-           << "null\n";
-      }
-    }
-    ss << "  } \n";
-    ss << "}";
-    return ss.str();
-  }
 
  private:
   // prdicate for lower end

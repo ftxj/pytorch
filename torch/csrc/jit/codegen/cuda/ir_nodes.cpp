@@ -1747,11 +1747,6 @@ IterDomainBuilder& IterDomainBuilder::iter_type(IterType _iter_type) {
   return *this;
 }
 
-IterDomainBuilder& IterDomainBuilder::index_iter(IterDomain* _iter_index) {
-  index_ = _iter_index;
-  return *this;
-}
-
 IterDomainBuilder& IterDomainBuilder::is_rfactor_domain(
     bool _is_rfactor_domain) {
   is_rfactor_domain_ = _is_rfactor_domain;
@@ -1793,8 +1788,7 @@ IterDomain::IterDomain(
     bool is_rfactor_domain,
     bool is_padded_dimension,
     c10::optional<int64_t> padded_to_size,
-    bool is_mma_swizzled,
-    IterDomain* index)
+    bool is_mma_swizzled)
     : Val(passkey, ValType::IterDomain),
       start_(start),
       extent_(extent),
@@ -1807,8 +1801,7 @@ IterDomain::IterDomain(
       is_rfactor_domain_(is_rfactor_domain),
       is_padded_dimension_(is_padded_dimension),
       padded_to_size_(padded_to_size),
-      is_mma_swizzled_(is_mma_swizzled),
-      index_(index) {
+      is_mma_swizzled_(is_mma_swizzled) {
   TORCH_CHECK(
       !(isRFactorProduct() && isBroadcast()),
       "IterDomain cannot be both a broadcast and rfactor domain.");
@@ -1839,8 +1832,7 @@ IterDomain::IterDomain(IrBuilderPasskey passkey, const IterDomainBuilder& args)
           args.is_rfactor_domain_,
           args.is_padded_dimension_,
           args.padded_to_size_,
-          args.is_mma_swizzled_,
-          args.index_) {}
+          args.is_mma_swizzled_) {}
 
 IterDomain::IterDomain(const IterDomain* src, IrCloner* ir_cloner)
     : Val(src, ir_cloner),

@@ -1385,7 +1385,6 @@ class TORCH_CUDA_CU_API IterDomainBuilder {
   IterDomainBuilder& stop_offset(Val* _stop_offset);
   IterDomainBuilder& parallel_type(ParallelType _parallel_type);
   IterDomainBuilder& iter_type(IterType _iter_type);
-  IterDomainBuilder& index_iter(IterDomain* _iter_index);
   IterDomainBuilder& is_rfactor_domain(bool _is_rfactor_domain);
   IterDomainBuilder& is_padded_dimension(bool _is_padded_dimension);
   IterDomainBuilder& padded_to_size(c10::optional<int64_t> _padded_to_size);
@@ -1402,7 +1401,6 @@ class TORCH_CUDA_CU_API IterDomainBuilder {
   Val* stop_offset_ = nullptr;
   ParallelType parallel_type_ = ParallelType::Serial;
   IterType iter_type_ = IterType::Iteration;
-  IterDomain* index_ = nullptr;
 
   // Only relevant at scheduling time or compile time.
   bool is_rfactor_domain_ = false;
@@ -1436,8 +1434,7 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
       bool is_rfactor_domain,
       bool is_padded_dimension,
       c10::optional<int64_t> padded_to_size_,
-      bool is_mma_swizzled,
-      IterDomain* index = nullptr);
+      bool is_mma_swizzled);
 
   IterDomain(const IterDomain* src, IrCloner* ir_cloner);
 
@@ -1704,7 +1701,6 @@ class TORCH_CUDA_CU_API IterDomain : public Val {
   // "broadcasts" an operation
   Val* const expanded_extent_ = nullptr;
 
-  IterDomain* const index_ = nullptr;
   //! Distance of stop from the end
   Val* const stop_offset_ = nullptr;
   ParallelType parallel_type_ = ParallelType::Serial;

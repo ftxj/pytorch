@@ -48,13 +48,7 @@ at::Tensor selectInputTensorUsingTv(
     TensorView* tv,
     const KernelArgumentHolder& arg,
     kir::Kernel* kernel) {
-  std::cout << "want to find = " << tv->toString() << std::endl;
-
   for (const auto i : c10::irange(kernel->inputs().size())) {
-    std::cout << "actually find = " << kernel->inputs()[i]->toString()
-              << std::endl;
-    std::cout << "actually find kir = " << kernel->inputsOf(tv)[0]->toString()
-              << std::endl;
     if (kernel->inputs()[i] == kernel->inputsOf(tv)[0]) {
       return dynamic_cast<const TensorArgAbstract*>(arg[i])->getTensor();
     }
@@ -1041,14 +1035,13 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
   std::vector<at::Tensor> allocated_outputs;
   GlobalBuffers global_buffers;
   uint64_t rand_offset = 0;
-  std::cout << "allocate output init " << std::endl;
+
   if (executor_entry && executor_entry->init && !disable_parameter_cache_) {
     {
       // context manager to disable auto grad for `empty_cuda` calls later
       at::AutoDispatchBelowADInplaceOrView non_variable_type_mode;
       // take the short-cut for launch if we see a recorded input set again
       launch_params_ = executor_entry->launch_params;
-      std::cout << "allocate output " << std::endl;
       // only allocate outputs when not given
       if (outputs.empty()) {
         FUSER_PERF_SCOPE("ExecutorRunFusion::OutputAlloc");

@@ -208,8 +208,6 @@ class ConditionalFromPredicateModifier : public kir::ExprMutator {
         return UnswitchPredicate::get(outer_loops, vectorized_loop);
       }
       case PredicateType::Unswitch: {
-        // std::cout << "generate unswitch condation : " << pred->toString()
-        //           << std::endl;
         return UnswitchPredicate::get(for_loops_, pred->unrolled_loop());
       }
       case PredicateType::Manual: {

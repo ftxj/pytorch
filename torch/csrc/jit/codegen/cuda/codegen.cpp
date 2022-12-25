@@ -373,17 +373,13 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const Bool* pred) final {
-    // std::cout << "handle bool " << pred->toString() << std::endl;
     const auto def = pred->definition();
     const bool has_alloc = alloc_map_.find(pred) != alloc_map_.end();
     if (def != nullptr && !has_alloc) {
-      // std::cout << "handle bool 1 " << def->toString() << std::endl;
       code_ << "(" << genInline(def) << ")";
     } else if (pred->isConst()) {
-      // std::cout << "handle bool 2 " << pred->toString() << std::endl;
       code_ << (*pred->value() ? "true" : "false");
     } else {
-      // std::cout << "handle bool 3 " << pred->toString() << std::endl;
       code_ << ir_utils::varName(pred);
     }
   }
@@ -2571,7 +2567,6 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const kir::IfThenElse* ite) final {
-    // std::cout << "handle if = " << ite->toString() << std::endl;
     auto conditional = ite->predicate()->value();
     if (conditional->isConst()) {
       // If the conditional is a constant, then the IfThenElse is not required
@@ -2584,9 +2579,8 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     }
 
     indent() << "if (" << genInline(conditional) << ") ";
-    // std::cout << "condation orginal " << conditional->toString() <<
-    // std::endl; std::cout << "condation is " << genInline(conditional) <<
-    // std::endl; "then" block
+
+    // "then" block
     startBlock(true);
     handleScope(ite->thenBody());
 

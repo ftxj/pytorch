@@ -80,10 +80,6 @@ class TORCH_CUDA_CU_API GpuLower : public NonCopyable {
     return std::const_pointer_cast<const ComputeAtMap>(compute_at_map_);
   }
 
-  std::shared_ptr<ComputeAtMap> caMap_non() {
-    return compute_at_map_;
-  }
-
   std::shared_ptr<const HaloInfo> haloInfo() const {
     return std::const_pointer_cast<const HaloInfo>(halo_info_);
   }

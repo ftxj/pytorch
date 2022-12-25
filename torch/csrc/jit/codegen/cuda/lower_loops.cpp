@@ -87,49 +87,9 @@ void LoopNestGenerator::pushFront(Expr* expr) {
   }
 }
 
-void LoopNestGenerator::handle(ScatterOp* expr) {
-  TensorView* index_tv = expr->indexTv();
-  // loop_structure.emplace_back(last_id_concrete);
-  // Grab the loop structure
-  TORCH_INTERNAL_ASSERT(
-      loop_structures_.find(index_tv) != loop_structures_.end(),
-      "Could not find loop structure of ",
-      index_tv);
-
-  // Figure out what the entire loop structure should look like.
-  std::vector<IterDomain*> loop_structure = loop_structures_.at(index_tv);
-
-  // Ordering of loop_structure is global, so simply close loops we don't
-  // need, and open the ones we do.
-
-  while (!for_loops_.empty() &&
-         std::find(
-             loop_structure.begin(),
-             loop_structure.end(),
-             for_loops_.back()->iter_domain()) == loop_structure.end()) {
-    closeFor();
-  }
-
-  for (auto loop : loop_structure) {
-    auto find_it = std::find_if(
-        for_loops_.begin(), for_loops_.end(), [loop](kir::ForLoop* fl) {
-          return fl->iter_domain() == loop;
-        });
-    if (find_it == for_loops_.end()) {
-      openFor(loop);
-    }
-  }
-
-  pushFront(expr);
-}
-
 void LoopNestGenerator::handle(Expr* expr) {
   // Check if it's a tensor view expression we need to place in the loop nest
   // structure
-  // if (expr->isA<ScatterOp>()) {
-  //   handle(expr->as<ScatterOp>());
-  //   return;
-  // }
   if (!ir_utils::isTvOp(expr)) {
     // Close all the loops, scalar operations cannot be inside for loops based
     // on expr sorting.
@@ -163,8 +123,8 @@ void LoopNestGenerator::handle(Expr* expr) {
   // Figure out what the entire loop structure should look like.
   std::vector<IterDomain*> loop_structure = loop_structures_.at(out_tv);
 
-  // Ordering of loop_structure is global, so simply close loops we don't
-  // need, and open the ones we do.
+  // Ordering of loop_structure is global, so simply close loops we don't need,
+  // and open the ones we do.
 
   while (!for_loops_.empty() &&
          std::find(
@@ -191,16 +151,15 @@ void LoopNestGenerator::handle(Expr* expr) {
 void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
   TORCH_INTERNAL_ASSERT(lowered_exprs_.empty());
 
-  // Figure out loop structure of each expression. This can be a bit
-  // convoluted, for an example why see Indexing17 test
+  // Figure out loop structure of each expression. This can be a bit convoluted,
+  // for an example why see Indexing17 test
 
   // Grab iteration domain dependencies, similar to the logic in
   // lower_expr_sort, EXCEPT dependencies are in opposite order,
   // inner loops are dependant on outer loops.
 
-  auto ca_map = GpuLower::current()->caMap_non();
+  const auto& ca_map = GpuLower::current()->caMap();
 
-  std::cout << ca_map->toString() << std::endl;
   std::unordered_map<IterDomain*, std::unordered_set<IterDomain*>>
       concrete_id_dependencies;
   for (auto tv : ir_utils::allTvs(FusionGuard::getCurFusion())) {
@@ -223,13 +182,6 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
     }
   }
 
-  // for (auto item : concrete_id_dependencies) {
-  //   std::cout << "iter = " << item.first->toString() << std::endl;
-  //   for (auto dep : item.second) {
-  //     std::cout << "  dep = " << dep->toString() << std::endl;
-  //   }
-  // }
-
   // Fill out dependencies as IDs will have local dependency information, but
   // it's still not guaranteed to be global.
 
@@ -242,8 +194,8 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
   // I1 will be marked as a dependency of I2
   //
   // However, I0 will not be marked as a dep of I2, so we need to fill out the
-  // dependency analysis. This is done by iterating through IterDomains
-  // filling out all the dependencies of dependencies recursively.
+  // dependency analysis. This is done by iterating through IterDomains filling
+  // out all the dependencies of dependencies recursively.
 
   std::deque<IterDomain*> to_visit;
   std::unordered_set<IterDomain*> visited;
@@ -253,19 +205,12 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
       concrete_id_dependencies.end(),
       std::back_inserter(to_visit),
       [](const auto& concrete_dep_entry) { return concrete_dep_entry.first; });
-  // for (auto item : to_visit) {
-  //   std::cout << "to visit = " << item->toString() << std::endl;
-  // }
-  // std::cout << "------------------------------" << std::endl;
+
   while (!to_visit.empty()) {
     auto id = to_visit.front();
     to_visit.pop_front();
-    // std::cout << " non empty = " << id->toString() << std::endl;
+
     auto& dependencies = concrete_id_dependencies.at(id);
-    // for (auto etem : dependencies) {
-    // std::cout << " entry = " << etem->toString() << std::endl;
-    // std::cout << " visited = " << visited.count(etem) << std::endl;
-    // }
     bool ready = std::all_of(
         dependencies.begin(), dependencies.end(), [&visited](IterDomain* id) {
           return visited.count(id);
@@ -275,7 +220,7 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
       to_visit.push_back(id);
       continue;
     }
-    // std::cout << " then visited = " << id->toString() << std::endl;
+
     for (auto dependency : dependencies) {
       auto dep_of_dep = concrete_id_dependencies.at(dependency);
       dependencies.insert(dep_of_dep.begin(), dep_of_dep.end());

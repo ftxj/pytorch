@@ -23,31 +23,6 @@ struct IndexFromIdGraph {
       IndexCompute concrete_index,
       std::unordered_map<IterDomain*, Val*> initial_concrete_index_map,
       std::vector<IterDomain*> loop_domains);
-  std::string toString() const {
-    std::stringstream ss;
-    ss << "IndexFromIdGraph {\n";
-
-    ss << "  index {\n";
-    ss << index.toString(4) << "\n";
-    ss << "  }\n";
-
-    ss << "  concrete_index {\n";
-    ss << concrete_index.toString(4) << "\n";
-    ss << "  }\n";
-
-    ss << "  initial_concrete_index_map {\n";
-    for (auto item : initial_concrete_index_map) {
-      ss << "    id = " << item.first->toString() << "\n";
-      if (item.second->definition() != nullptr)
-        ss << "    Val = " << item.second->definition()->toString() << "\n";
-      else
-        ss << "    Val = " << item.second->toString() << "\n";
-    }
-    ss << "  }\n";
-
-    ss << "}";
-    return ss.str();
-  }
 };
 
 //! Indexing interface, returns IndexFromIdGraph which the IndexCompute object

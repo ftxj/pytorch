@@ -214,6 +214,7 @@ class DisjointSets {
         entry->toString());
     return set_it->second;
   }
+
   // Initializes a new set for provided entry
   //
   // TODO: Return iterator
