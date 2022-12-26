@@ -1871,6 +1871,9 @@ std::vector<Val*> Index::getRootIndices(
       root_dom.size(), GpuLower::current()->kernel()->zeroVal());
   for (const auto i : c10::irange(root_dom.size())) {
     // See a comment in indexing to root domains in getGlobalProducerIndex.
+    root_dom[i] = GpuLower::current()->caMap()->getConcreteMappedID(
+        root_dom[i], IdMappingMode::EXACT);
+
     if (root_dom[i]->isReduction() || root_dom[i]->isBroadcast() ||
         root_dom[i]->isStride()) {
       continue;

@@ -717,6 +717,7 @@ void ComputeAtMap::build(Fusion* fusion) {
   buildUniqueExactExprMaps();
   buildConcreteIds();
   buildUniqueExactExprMaps();
+  UpdateForNonEqualExtentMaps(fusion);
 }
 
 void ComputeAtMap::validateAndPropagatePType() {
@@ -1633,49 +1634,37 @@ void ComputeAtMap::updateComputeWith(TensorView* compute_with_tv) {
   }
 }
 
-void ComputeAtMap::updateScatterOp(ScatterOp* expr, bool update_all) {
-  auto output_ids = ir_utils::allIDsOf(expr->output(0)->as<TensorView>());
-  auto index_ids = ir_utils::allIDsOf(expr->indexTv());
-
-  for (int i = 0; i < output_ids.size(); ++i) {
-    auto out_id = output_ids[i];
-    auto idx_id = index_ids[i];
-    if (id_graph_.loopNodes().mappingExists(out_id) &&
-        id_graph_.loopNodes().mappingExists(idx_id)) {
-      auto entry = id_graph_.loopNodes().getDisjointSetPtrOf(out_id);
-      concrete_id_cache_backup_[entry] = concrete_id_cache_[entry];
-      concrete_id_cache_[entry] = idx_id;
-    }
-    if (update_all) {
+void ComputeAtMap::UpdateForNonEqualExtentMaps(Fusion* fusion) {
+  for (auto expr : ir_utils::getScatterOps(fusion)) {
+    auto output_ids = ir_utils::allIDsOf(expr->output(0)->as<TensorView>());
+    auto index_ids = ir_utils::allIDsOf(expr->indexTv());
+    for (int i = 0; i < output_ids.size(); ++i) {
+      auto out_id = output_ids[i];
+      auto idx_id = index_ids[i];
+      if (id_graph_.loopNodes().mappingExists(out_id) &&
+          id_graph_.loopNodes().mappingExists(idx_id)) {
+        auto entry = id_graph_.loopNodes().getDisjointSetPtrOf(out_id);
+        concrete_id_cache_[entry] = idx_id;
+      }
       if (id_graph_.permissiveNodes().mappingExists(out_id) &&
           id_graph_.permissiveNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.permissiveNodes().getDisjointSetPtrOf(out_id);
-        concrete_id_cache_backup_[entry] = concrete_id_cache_[entry];
         concrete_id_cache_[entry] = idx_id;
       }
 
       if (id_graph_.exactNodes().mappingExists(out_id) &&
           id_graph_.exactNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.exactNodes().getDisjointSetPtrOf(out_id);
-        concrete_id_cache_backup_[entry] = concrete_id_cache_[entry];
         concrete_id_cache_[entry] = idx_id;
       }
 
       if (id_graph_.almostExactNodes().mappingExists(out_id) &&
           id_graph_.almostExactNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.almostExactNodes().getDisjointSetPtrOf(out_id);
-        concrete_id_cache_backup_[entry] = concrete_id_cache_[entry];
         concrete_id_cache_[entry] = idx_id;
       }
     }
   }
-}
-
-void ComputeAtMap::leaveOutScatterOp() {
-  for (auto x : concrete_id_cache_backup_) {
-    concrete_id_cache_[x.first] = x.second;
-  }
-  concrete_id_cache_backup_.clear();
 }
 
 } // namespace cuda

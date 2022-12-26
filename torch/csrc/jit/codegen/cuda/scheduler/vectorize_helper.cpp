@@ -1149,6 +1149,11 @@ int64_t getVectorizationSize(
       continue;
     }
 
+    if (numerator > extent) {
+      auto tmp = numerator;
+      numerator = extent;
+      extent = tmp;
+    }
     TORCH_INTERNAL_ASSERT(
         numerator < extent,
         "Mapped extent in vectorization analysis should never be greater than the extent but ",

@@ -42,6 +42,9 @@ class DomainMap : public pointwise_utils::DomainMap {
       if (isValidReference(output_tv) &&
           hasMinimumSize(output_tv, minimum_num_axes) &&
           !output_tv->isFusionInput()) {
+        if (auto sop = output_tv->definition()->as<ScatterOp>()) {
+          output_tv = sop->indexTv();
+        }
         int n_dims = pointwise_utils::nRootDims(output_tv);
         if (n_dims > max_dims) {
           result = output_tv;

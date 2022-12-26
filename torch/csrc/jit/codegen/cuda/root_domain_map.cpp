@@ -4,6 +4,7 @@
 #include <torch/csrc/jit/codegen/cuda/root_domain_map.h>
 
 #include <sstream>
+#include <stack>
 
 namespace torch {
 namespace jit {
@@ -87,15 +88,27 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
       require_same_extent_) {
     // Nothing to map when having same extent is required
     return {};
-  } else if (
-      consumer_tv_->definition()->isA<ScatterOp>() &&
-      (consumer_tv_->definition()->as<ScatterOp>()->srcTv() == producerTv() ||
-       consumer_tv_->definition()->as<ScatterOp>()->indexTv() ==
-           producerTv()) &&
-      require_same_extent_) {
-    // In ScatterOp, the extent constraint is output == input, index <= src and
-    // index <= input.
-    return {};
+  }
+
+  std::stack<std::pair<const Val*, const Val*>> consumer_producer_tv_q;
+  consumer_producer_tv_q.push({consumer_tv_, producer_tv_});
+
+  while (!consumer_producer_tv_q.empty()) {
+    auto c_tv = consumer_producer_tv_q.top().first;
+    auto p_tv = consumer_producer_tv_q.top().second;
+    consumer_producer_tv_q.pop();
+    if (c_tv->definition()) {
+      if (c_tv->definition()->isA<ScatterOp>() &&
+          c_tv->definition()->as<ScatterOp>()->srcTv() == p_tv &&
+          require_same_extent_) {
+        return {};
+      }
+      for (auto expr : c_tv->uses()) {
+        for (auto o : expr->outputs()) {
+          consumer_producer_tv_q.push({o, c_tv});
+        }
+      }
+    }
   }
 
   std::vector<bool> broadcast_flags;
