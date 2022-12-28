@@ -6,6 +6,7 @@
 #include <torch/csrc/jit/codegen/cuda/root_domain_map.h>
 #include <torch/csrc/jit/codegen/cuda/transform_iter.h>
 
+#include <stack>
 #include <tuple>
 #include <typeinfo>
 
@@ -354,6 +355,27 @@ void IterDomainGraph::build(Fusion* fusion) {
       initializeId(id, is_view_rfactor_id, is_leaf_id);
     }
   }
+  std::unordered_map<const TensorView*, const TensorView*> need_split_p2c;
+  for (auto expr : ir_utils::getScatterOps(fusion)) {
+    const auto& domain = expr->srcTv()->domain()->domain();
+    for (auto id : domain) {
+      loop_split_nodes_.initializeSet(id);
+    }
+    std::stack<const TensorView*> consumer_tv_q;
+    consumer_tv_q.push(expr->srcTv());
+    while (!consumer_tv_q.empty()) {
+      auto c_tv = consumer_tv_q.top();
+      consumer_tv_q.pop();
+      if (c_tv->definition()) {
+        loop_split_expr_.insert(c_tv->definition());
+        for (auto p_tv :
+             ir_utils::filterByType<TensorView>(c_tv->definition()->inputs())) {
+          consumer_tv_q.push(p_tv);
+          need_split_p2c.insert({p_tv, c_tv});
+        }
+      }
+    }
+  }
 
   // All ID's are initialized, start connecting them on the permissive, exact,
   // and loop dimensions.
@@ -430,6 +452,8 @@ void IterDomainGraph::build(Fusion* fusion) {
       auto tv_inputs = ir_utils::filterByType<TensorView>(expr->inputs());
 
       for (auto p_tv : tv_inputs) {
+        bool insert_split_set = need_split_p2c[p_tv] == c_tv;
+
         auto pairwise_map = PairwiseRootDomainMap(p_tv, c_tv);
 
         // Look for matching ID transformations in producer and consumer, replay
@@ -456,6 +480,8 @@ void IterDomainGraph::build(Fusion* fusion) {
 
         for (auto c_id : getSortedKeys(exact_c2p_map, Statement::lessThan)) {
           auto p_id = exact_c2p_map.at(c_id);
+          if (insert_split_set)
+            loop_split_nodes_.mapEntries(c_id, p_id);
           exact_nodes_.mapEntries(c_id, p_id);
           consumers_.at(p_id).pushBack(c_id);
           producers_.at(c_id).pushBack(p_id);
@@ -717,6 +743,7 @@ void ComputeAtMap::build(Fusion* fusion) {
   buildUniqueExactExprMaps();
   buildConcreteIds();
   buildUniqueExactExprMaps();
+  buildLoopSplitIds(fusion);
   UpdateForNonEqualExtentMaps(fusion);
 }
 
@@ -1644,25 +1671,88 @@ void ComputeAtMap::UpdateForNonEqualExtentMaps(Fusion* fusion) {
       if (id_graph_.loopNodes().mappingExists(out_id) &&
           id_graph_.loopNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.loopNodes().getDisjointSetPtrOf(out_id);
-        concrete_id_cache_[entry] = idx_id;
+        if (entry->has(idx_id))
+          concrete_id_cache_[entry] = idx_id;
       }
       if (id_graph_.permissiveNodes().mappingExists(out_id) &&
           id_graph_.permissiveNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.permissiveNodes().getDisjointSetPtrOf(out_id);
-        concrete_id_cache_[entry] = idx_id;
+        if (entry->has(idx_id))
+          concrete_id_cache_[entry] = idx_id;
       }
 
       if (id_graph_.exactNodes().mappingExists(out_id) &&
           id_graph_.exactNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.exactNodes().getDisjointSetPtrOf(out_id);
-        concrete_id_cache_[entry] = idx_id;
+        if (entry->has(idx_id))
+          concrete_id_cache_[entry] = idx_id;
       }
 
       if (id_graph_.almostExactNodes().mappingExists(out_id) &&
           id_graph_.almostExactNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.almostExactNodes().getDisjointSetPtrOf(out_id);
-        concrete_id_cache_[entry] = idx_id;
+        if (entry->has(idx_id))
+          concrete_id_cache_[entry] = idx_id;
       }
+    }
+  }
+}
+
+IterDomain* ComputeAtMap::getLoopSplitBaseID(IterDomain* id) const {
+  const auto disjoint_set_shared_ptr =
+      id_graph_.loopSplitNodes().disjointSetMap().at(id);
+
+  TORCH_INTERNAL_ASSERT(
+      disjoint_set_shared_ptr->vector().size() > 0,
+      "Empty disjoint set found for ",
+      id->toString());
+
+  auto cache_it = split_loop_base_map_.find(disjoint_set_shared_ptr);
+
+  TORCH_INTERNAL_ASSERT(
+      cache_it != split_loop_base_map_.end(),
+      "Could not find concrete id for: ",
+      id->toString(),
+      " with SplitLoop ");
+
+  return cache_it->second;
+}
+
+IterDomain* ComputeAtMap::getLoopSplitHeadID(IterDomain* id) const {
+  const auto disjoint_set_shared_ptr =
+      id_graph_.loopSplitNodes().disjointSetMap().at(id);
+  TORCH_INTERNAL_ASSERT(
+      disjoint_set_shared_ptr->vector().size() > 0,
+      "Empty disjoint set found for ",
+      id->toString());
+  return disjoint_set_shared_ptr->vector()[0];
+}
+
+bool ComputeAtMap::idNeedSplit(IterDomain* id) const {
+  if (id_graph_.loopSplitNodes().disjointSetMap().find(id) !=
+      id_graph_.loopSplitNodes().disjointSetMap().end()) {
+    return true;
+  }
+  return false;
+}
+
+bool ComputeAtMap::isLoopSplitExpr(Expr* expr) const {
+  if (id_graph_.loopSplitExprs().find(expr) !=
+      id_graph_.loopSplitExprs().end()) {
+    return true;
+  }
+  return false;
+}
+
+void ComputeAtMap::buildLoopSplitIds(Fusion* fusion) {
+  for (auto expr : ir_utils::getScatterOps(fusion)) {
+    auto src_ids = ir_utils::allIDsOf(expr->srcTv());
+    auto idx_ids = ir_utils::allIDsOf(expr->indexTv());
+    for (int i = 0; i < idx_ids.size(); ++i) {
+      auto idx_id = idx_ids[i];
+      auto src_id = src_ids[i];
+      auto entry = id_graph_.loopSplitNodes().getDisjointSetPtrOf(src_id);
+      split_loop_base_map_[entry] = idx_id;
     }
   }
 }

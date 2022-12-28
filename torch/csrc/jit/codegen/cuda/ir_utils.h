@@ -239,6 +239,9 @@ TORCH_CUDA_CU_API std::vector<Val*> consumerValsOf(
 // code.
 TORCH_CUDA_CU_API std::vector<TensorView*> producerTvsOf(TensorView* tv);
 
+// Return recursive producers of tv.
+TORCH_CUDA_CU_API std::vector<TensorView*> allProducerTvsOf(TensorView* tv);
+
 // Return immediate consumers of tv, this function will return all immediate
 // consumers of tv through Exprs.
 //

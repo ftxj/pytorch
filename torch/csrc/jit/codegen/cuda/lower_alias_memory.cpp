@@ -736,7 +736,8 @@ class AllocationInfoMap : private kir::IrVisitor {
 
     // Make sure we don't have conflicting information on record
     TORCH_INTERNAL_ASSERT(!allocation_info_map_.count(alloc));
-    TORCH_INTERNAL_ASSERT(!tv_to_allocation_map_.count(tv->name()));
+    TORCH_INTERNAL_ASSERT(
+        !tv_to_allocation_map_.count(UniqueTv(tv->name(), for_loops_[0])));
 
     // make AllocationUseDefInfo:
     auto alloc_info = makeAllocationInfo();
@@ -750,7 +751,7 @@ class AllocationInfoMap : private kir::IrVisitor {
 
     // record short cuts
     allocation_info_map_[alloc] = alloc_info;
-    tv_to_allocation_map_[tv->name()] = alloc_info;
+    tv_to_allocation_map_[UniqueTv(tv->name(), for_loops_[0])] = alloc_info;
   }
 
   //! Factory function for internal use-def information data
@@ -831,7 +832,8 @@ class AllocationInfoMap : private kir::IrVisitor {
   }
 
   c10::optional<AllocationInfo*> getMaybeAllocInfoFromTV(TensorView* tv) const {
-    auto alloc_it = tv_to_allocation_map_.find(tv->name());
+    auto alloc_it =
+        tv_to_allocation_map_.find(UniqueTv(tv->name(), for_loops_[0]));
     if (alloc_it == tv_to_allocation_map_.end()) {
       return c10::nullopt;
     }
@@ -881,13 +883,29 @@ class AllocationInfoMap : private kir::IrVisitor {
   }
 
  private:
+  struct UniqueTv {
+    StmtNameType name_;
+    kir::ForLoop* outer_for_;
+    UniqueTv(StmtNameType name, kir::ForLoop* outer_for)
+        : name_(name), outer_for_(outer_for) {}
+    bool operator==(const UniqueTv& rhs) const {
+      return name_ == rhs.name_ && outer_for_ == rhs.outer_for_;
+    }
+  };
+  struct UniqueTvHash {
+    size_t operator()(const UniqueTv& p) const {
+      return std::hash<StmtNameType>()(p.name_) ^
+          std::hash<kir::ForLoop*>()(p.outer_for_);
+    }
+  };
   friend BufferReuseDebugPrinter;
 
   const ScopeMap scope_map_;
 
   //! Map TensorView name to Allocate node.
   //!  Note: this assumes that each tensor view is only allocated once.
-  std::unordered_map<StmtNameType, AllocationInfo*> tv_to_allocation_map_;
+  std::unordered_map<UniqueTv, AllocationInfo*, UniqueTvHash>
+      tv_to_allocation_map_;
 
   //! Allocation sites that will participate in this analysis
   std::unordered_map<const kir::Allocate*, AllocationInfo*>

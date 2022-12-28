@@ -481,9 +481,17 @@ ForLoop::ForLoop(IrBuilderPasskey passkey, const ForLoop* other)
 
 std::string ForLoop::toString(int indent_size) const {
   std::stringstream ss;
-  indent(ss, indent_size) << "FOR " << index()->toString() << " in "
-                          << iter_domain()->toString() << ":\n"
-                          << body().toString(indent_size + 1);
+  if (start() && stop()) {
+    indent(ss, indent_size)
+        << "FOR " << index()->toString() << " in " << iter_domain()->toString()
+        << ", start = " << start()->toString()
+        << ", stop = " << stop()->toString() << ":\n"
+        << body().toString(indent_size + 1);
+  } else {
+    indent(ss, indent_size) << "FOR " << index()->toString() << " in "
+                            << iter_domain()->toString() << ":\n"
+                            << body().toString(indent_size + 1);
+  }
   return ss.str();
 }
 

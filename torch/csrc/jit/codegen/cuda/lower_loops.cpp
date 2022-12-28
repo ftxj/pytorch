@@ -32,10 +32,25 @@ LoopNestGenerator::LoopNestGenerator(const std::vector<Expr*>& exprs) {
 
 namespace {
 
-kir::ForLoop* openForHelper(kir::ForLoop* scope, IterDomain* id) {
+kir::ForLoop* openForHelper(
+    kir::ForLoop* scope,
+    IterDomain* id,
+    bool split_mode) {
   auto extent_with_halo = GpuLower::current()->haloInfo()->getExtent(id);
   kir::ForLoop* new_scope = nullptr;
-  if (extent_with_halo) {
+  if (split_mode) {
+    std::cout << id->toString() << std::endl;
+    new_scope = IrBuilder::create<kir::ForLoop>(
+        id,
+        GpuLower::current()->caMap()->getIndexVariable(id),
+        GpuLower::current()->caMap()->getLoopSplitBaseID(id)->extent(),
+        id->extent(),
+        nullptr,
+        false,
+        nullptr,
+        false,
+        DoubleBufferLoopStage::NotApplicable);
+  } else if (extent_with_halo) {
     // When an axis is extended with halo, unrolling and vectorization
     // are assumed to not be used for now.
     TORCH_INTERNAL_ASSERT(
@@ -63,13 +78,13 @@ kir::ForLoop* openForHelper(kir::ForLoop* scope, IterDomain* id) {
 
 } // namespace
 
-void LoopNestGenerator::openFor(IterDomain* id) {
+void LoopNestGenerator::openFor(IterDomain* id, bool split_mode) {
   if (for_loops_.size() > 0) {
-    const auto new_scope = openForHelper(for_loops_.back(), id);
+    const auto new_scope = openForHelper(for_loops_.back(), id, split_mode);
     // for_loop_allocations_.insert({new_scope, 0});
     for_loops_.push_back(new_scope);
   } else {
-    for_loops_.push_back(openForHelper(nullptr, id));
+    for_loops_.push_back(openForHelper(nullptr, id, split_mode));
     lowered_exprs_.insert(lowered_exprs_.begin(), for_loops_.back());
   }
 }
@@ -87,7 +102,10 @@ void LoopNestGenerator::pushFront(Expr* expr) {
   }
 }
 
-void LoopNestGenerator::handle(Expr* expr) {
+void LoopNestGenerator::handle(
+    Expr* expr,
+    std::unordered_map<TensorView*, std::vector<IterDomain*>>& loop_structures_,
+    bool split_mode) {
   // Check if it's a tensor view expression we need to place in the loop nest
   // structure
   if (!ir_utils::isTvOp(expr)) {
@@ -140,7 +158,7 @@ void LoopNestGenerator::handle(Expr* expr) {
           return fl->iter_domain() == loop;
         });
     if (find_it == for_loops_.end()) {
-      openFor(loop);
+      openFor(loop, split_mode);
     }
   }
 
@@ -162,8 +180,11 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
 
   std::unordered_map<IterDomain*, std::unordered_set<IterDomain*>>
       concrete_id_dependencies;
+  std::unordered_map<IterDomain*, std::unordered_set<IterDomain*>>
+      split_head_id_dependencies;
   for (auto tv : ir_utils::allTvs(FusionGuard::getCurFusion())) {
     std::unordered_set<IterDomain*> dependencies;
+    std::unordered_set<IterDomain*> split_head_dependencies;
 
     for (auto tv_id : tv->domain()->domain()) {
       auto concrete_id =
@@ -179,6 +200,18 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
 
       // Loops after tv_id are dependent on tv_id
       dependencies.emplace(concrete_id);
+
+      if (ca_map->idNeedSplit(tv_id)) {
+        auto split_head_id = ca_map->getLoopSplitHeadID(tv_id);
+        if (split_head_id_dependencies.find(split_head_id) ==
+            split_head_id_dependencies.end()) {
+          split_head_id_dependencies[split_head_id] = split_head_dependencies;
+        } else {
+          split_head_id_dependencies[split_head_id].insert(
+              split_head_dependencies.begin(), split_head_dependencies.end());
+        }
+        split_head_dependencies.emplace(split_head_id);
+      }
     }
   }
 
@@ -233,6 +266,7 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
     // Zero dim tensor support
     if (tv->nDims() == 0) {
       loop_structures_[tv] = std::vector<IterDomain*>();
+      split_loop_structures_[tv] = std::vector<IterDomain*>();
       continue;
     }
 
@@ -255,11 +289,34 @@ void LoopNestGenerator::generate(const std::vector<Expr*>& exprs) {
         ir_utils::IterDomainDependencySorter(
             concrete_id_dependencies, GpuLower::current()->caMap()));
     loop_structures_[tv] = loop_structure;
+    if (tv->definition() && ca_map->isLoopSplitExpr(tv->definition())) {
+      auto split_head_id =
+          ca_map->getLoopSplitHeadID(tv->axis((int)(tv->nDims() - 1)));
+      auto all_need_split_loops_it =
+          split_head_id_dependencies.find(split_head_id);
+      std::vector<IterDomain*> loop_structure(
+          all_need_split_loops_it->second.begin(),
+          all_need_split_loops_it->second.end());
+      loop_structure.emplace_back(split_head_id);
+      std::sort(
+          loop_structure.rbegin(),
+          loop_structure.rend(),
+          ir_utils::IterDomainDependencySorter(
+              split_head_id_dependencies, GpuLower::current()->caMap(), true));
+      split_loop_structures_[tv] = loop_structure;
+    }
   }
 
   // Process the carefully ordered expressions
   for (auto it = exprs.rbegin(); it != exprs.rend(); ++it) {
-    handle(*it);
+    handle(*it, loop_structures_);
+  }
+
+  for (auto it = exprs.rbegin(); it != exprs.rend(); ++it) {
+    if (GpuLower::current()->caMap()->isLoopSplitExpr(*it)) {
+      std::cout << "we generate " << *it << std::endl;
+      handle(*it, split_loop_structures_, true);
+    }
   }
 }
 

@@ -147,6 +147,82 @@ TEST_F(NVFuserTest, FusionScatter2DSelectOneIndexTvFusion_CUDA) {
   }
 }
 
+TEST_F(NVFuserTest, FusionScatter2DSelectOneSrcTvFusion_CUDA) {
+  const std::vector<std::vector<int64_t>> input_dims = {
+      {2, 2}, {3, 3}, {2048, 2048}, {1024, 2048}, {1024, 2048}};
+
+  const std::vector<std::vector<int64_t>> src_dims = {
+      {3, 3}, {2, 2}, {1024, 1024}, {512, 512}, {512, 512}};
+
+  const std::vector<std::vector<int64_t>> idx_dims = {
+      {2, 2}, {2, 2}, {512, 256}, {1, 256}, {512, 1}};
+
+  at::manual_seed(0);
+  for (size_t test_id = 0; test_id < idx_dims.size(); ++test_id) {
+    auto fusion_ptr = std::make_unique<Fusion>();
+    Fusion& fusion = *fusion_ptr.get();
+    FusionGuard fg(&fusion);
+
+    TensorView* tv_input = makeContigTensor(2);
+    TensorView* tv_idx = makeContigTensor(2, DataType::Int);
+    TensorView* tv_src_1 = makeContigTensor(2);
+    TensorView* tv_src_2 = makeContigTensor(2);
+
+    fusion.addInput(tv_input);
+    fusion.addInput(tv_idx);
+    fusion.addInput(tv_src_1);
+    fusion.addInput(tv_src_2);
+    auto tv_src_11 = mul(tv_src_1, tv_src_2);
+    auto tv_src = add(tv_src_1, tv_src_11);
+    auto tv_idx_2 = add(tv_idx, tv_idx);
+    auto tv_out = scatter(tv_input, 0, tv_idx_2, tv_src);
+    fusion.addOutput(tv_out);
+
+    std::cout << fusion << std::endl;
+
+    auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+    auto options_i =
+        torch::TensorOptions().dtype(torch::kLong).device(at::kCUDA, 0);
+
+    at::Tensor t_input = at::randn(input_dims[test_id], options);
+    at::Tensor t_idx = generateScatter2DIndex(
+        0, idx_dims[test_id][1], idx_dims[test_id][0], 0);
+    at::Tensor t_src_1 = at::randn(src_dims[test_id], options);
+    at::Tensor t_src_2 = at::randn(src_dims[test_id], options);
+
+    auto t_src = at::add(t_src_1, t_src_2);
+    auto out_ref = at::scatter(t_input, 0, t_idx, t_src);
+
+    std::vector<IValue> aten_inputs = {t_input, t_idx, t_src_1, t_src_2};
+
+    FusionExecutorCache executor_cache(std::move(fusion_ptr));
+    auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
+    testValidate(
+        &fusion, cg_outputs, aten_inputs, {out_ref}, __LINE__, __FILE__);
+  }
+}
+
+TEST_F(NVFuserTest, FusionComputeAtLearn_CUDA) {
+  Fusion fusion;
+  FusionGuard fg(&fusion);
+
+  TensorView* tv0 = makeSymbolicTensor(3);
+  fusion.addInput(tv0);
+
+  TensorView* tv1 = add(tv0, tv0);
+  TensorView* tv2 = add(tv1, tv1);
+
+  fusion.addOutput(tv2);
+
+  tv0->computeAt(tv2, 1);
+
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+  at::Tensor t_input = at::randn({3, 3, 3}, options);
+  FusionExecutor fe;
+  fe.compileFusion(&fusion);
+  fe.runFusion({t_input});
+}
+
 TEST_F(NVFuserTest, FusionScatterOpCompileRtc_CUDA) {
   FusionExecutor fe;
   std::string kernel = R"(
@@ -235,7 +311,7 @@ __global__ void kernel1(Tensor<float, 2> T0, Tensor<int64_t, 2> T1, Tensor<int64
   std::cout << out << std::endl;
 
   TORCH_CHECK(out_ref.allclose(out));
-} // namespace torch
+}
 
 } // namespace jit
 } // namespace torch

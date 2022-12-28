@@ -36,7 +36,7 @@ class TORCH_CUDA_CU_API LoopNestGenerator {
 
   // Open a new inner most for loop, track which TV it was constructed from
   // according to the computeAt chain.
-  void openFor(IterDomain*);
+  void openFor(IterDomain*, bool split_mode = false);
 
   // Close the inner most for loop
   void closeFor();
@@ -44,7 +44,11 @@ class TORCH_CUDA_CU_API LoopNestGenerator {
   // Appends an expression to the current scope
   void pushFront(Expr* expr);
 
-  void handle(Expr* expr);
+  void handle(
+      Expr* expr,
+      std::unordered_map<TensorView*, std::vector<IterDomain*>>&
+          loop_structures_,
+      bool split_mode = false);
 
   // Run the pass and accumulate output in lowered_exprs_
   void generate(const std::vector<Expr*>& exprs);
@@ -59,6 +63,10 @@ class TORCH_CUDA_CU_API LoopNestGenerator {
 
   // Loop structure of each expression
   std::unordered_map<TensorView*, std::vector<IterDomain*>> loop_structures_;
+
+  // Loop structure of each expression
+  std::unordered_map<TensorView*, std::vector<IterDomain*>>
+      split_loop_structures_;
 };
 
 } // namespace cuda
