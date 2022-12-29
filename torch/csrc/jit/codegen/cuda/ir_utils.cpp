@@ -5,7 +5,6 @@
 #include <torch/csrc/jit/codegen/cuda/ir_utils.h>
 #include <torch/csrc/jit/codegen/cuda/lower_utils.h>
 
-#include <queue>
 #include <set>
 
 namespace torch {
@@ -295,25 +294,6 @@ TORCH_CUDA_CU_API std::vector<Val*> consumerValsOf(
 std::vector<TensorView*> producerTvsOf(TensorView* tv) {
   auto producer_vals = producerValsOf(tv);
   auto producer_tvs = ir_utils::filterByType<TensorView>(producer_vals);
-  return {producer_tvs.begin(), producer_tvs.end()};
-}
-
-std::vector<TensorView*> allProducerTvsOf(TensorView* tv) {
-  std::vector<Val*> producers_vals;
-  std::queue<Val*> consumers_q;
-  consumers_q.push(tv);
-  while (!consumers_q.empty()) {
-    auto consumer = consumers_q.back();
-    consumers_q.pop();
-    if (!consumer->definition()) {
-      continue;
-    }
-    for (auto val : consumer->definition()->inputs()) {
-      consumers_q.push(val);
-      producers_vals.push_back(val);
-    }
-  }
-  auto producer_tvs = ir_utils::filterByType<TensorView>(producers_vals);
   return {producer_tvs.begin(), producer_tvs.end()};
 }
 

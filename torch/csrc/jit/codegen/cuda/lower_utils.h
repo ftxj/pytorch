@@ -190,21 +190,18 @@ struct TORCH_CUDA_CU_API IterDomainDependencySorter {
   IterDomainDependencySorter(
       const std::unordered_map<IterDomain*, std::unordered_set<IterDomain*>>&
           concrete_id_dependencies,
-      std::shared_ptr<const ComputeAtMap> compute_at_map,
-      bool use_split_head_id = false)
+      std::shared_ptr<const ComputeAtMap> compute_at_map)
       : concrete_id_dependencies_(concrete_id_dependencies),
-        compute_at_map_(compute_at_map),
-        use_split_head_id_(use_split_head_id) {}
+        compute_at_map_(compute_at_map) {}
 
   // Return true if id0 should be before id1
   // Orders such that if x maps to {y}, x comes before y in final ordering.
   inline bool operator()(IterDomain* id0, IterDomain* id1) {
-    auto concrete_id_0 = use_split_head_id_
-        ? compute_at_map_->getLoopSplitHeadID(id0)
-        : compute_at_map_->getConcreteMappedID(id0, IdMappingMode::LOOP);
-    auto concrete_id_1 = use_split_head_id_
-        ? compute_at_map_->getLoopSplitHeadID(id1)
-        : compute_at_map_->getConcreteMappedID(id1, IdMappingMode::LOOP);
+    auto concrete_id_0 =
+        compute_at_map_->getConcreteMappedID(id0, IdMappingMode::LOOP);
+    auto concrete_id_1 =
+        compute_at_map_->getConcreteMappedID(id1, IdMappingMode::LOOP);
+
     if (concrete_id_dependencies_.find(concrete_id_0) !=
         concrete_id_dependencies_.end()) {
       const auto& dependencies_0 = concrete_id_dependencies_.at(concrete_id_0);
@@ -220,7 +217,6 @@ struct TORCH_CUDA_CU_API IterDomainDependencySorter {
   const std::unordered_map<IterDomain*, std::unordered_set<IterDomain*>>&
       concrete_id_dependencies_;
   const std::shared_ptr<const ComputeAtMap> compute_at_map_;
-  const bool use_split_head_id_;
 };
 
 } // namespace ir_utils

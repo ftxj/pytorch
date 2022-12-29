@@ -75,12 +75,7 @@ class TORCH_CUDA_CU_API IterDomainGraph {
   const DisjointSets<IterDomain*>& loopNodes() const {
     return loop_nodes_;
   }
-  const DisjointSets<IterDomain*>& loopSplitNodes() const {
-    return loop_split_nodes_;
-  }
-  const std::unordered_set<Expr*>& loopSplitExprs() const {
-    return loop_split_expr_;
-  }
+
   // Consumers and producers is not symmetric like the other sets
   const std::unordered_map<IterDomain*, VectorOfUniqueEntries<IterDomain*>>&
   consumers() const {
@@ -133,10 +128,6 @@ class TORCH_CUDA_CU_API IterDomainGraph {
   DisjointSets<IterDomain*> exact_nodes_;
   DisjointSets<IterDomain*> almost_exact_nodes_;
   DisjointSets<IterDomain*> loop_nodes_;
-  DisjointSets<IterDomain*> loop_split_nodes_;
-  std::unordered_map<IterDomain*, VectorOfUniqueEntries<IterDomain*>>
-      loop_split_map_;
-  std::unordered_set<Expr*> loop_split_expr_;
 
   // Consumers and producers is not symmetric like the other sets
   std::unordered_map<IterDomain*, VectorOfUniqueEntries<IterDomain*>>
@@ -272,12 +263,6 @@ class TORCH_CUDA_CU_API ComputeAtMap {
 
   void UpdateForNonEqualExtentMaps(Fusion* fusion);
 
-  void buildLoopSplitIds(Fusion* fusion);
-  bool idNeedSplit(IterDomain* id) const;
-  IterDomain* getLoopSplitBaseID(IterDomain* id) const;
-  bool isLoopSplitExpr(Expr*) const;
-  IterDomain* getLoopSplitHeadID(IterDomain* id) const;
-
  private:
   // Traverses through definitions of exact maps (unique_exact_definitions_) to
   // input ID's from provided ID. Returns all the exact map concrete IDs of the
@@ -331,11 +316,6 @@ class TORCH_CUDA_CU_API ComputeAtMap {
       IterDomain*>
       concrete_id_cache_;
 
-  std::unordered_map<
-      std::shared_ptr<VectorOfUniqueEntries<IterDomain*>>,
-      IterDomain*>
-      split_loop_base_map_;
-  std::unordered_set<Expr*> need_split_exprs_;
   // Unique expressions operating on exact disjoint set. For each IterDomain in
   // each exact disjoint set will log its definition in the std::vector<Expr*>.
   // If another expression is already in the set where inputs and outputs
