@@ -133,14 +133,6 @@ void LoopNestGenerator::handle(Expr* expr) {
              for_loops_.back()->iter_domain()) == loop_structure.end()) {
     closeFor();
   }
-  bool outer_loop = true;
-
-  auto loop_size = SimplifyingIrBuilder::mulExpr(
-      GpuLower::current()->kernel()->oneVal(),
-      GpuLower::current()->kernel()->oneVal());
-  for (auto loop : loop_structure) {
-    loop_size = SimplifyingIrBuilder::mulExpr(loop_size, loop->extent());
-  }
 
   for (auto loop : loop_structure) {
     auto find_it = std::find_if(
@@ -150,7 +142,6 @@ void LoopNestGenerator::handle(Expr* expr) {
     if (find_it == for_loops_.end()) {
       openFor(loop);
     }
-    outer_loop = false;
   }
 
   pushFront(expr);
