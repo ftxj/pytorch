@@ -39,17 +39,33 @@ kir::ForLoop* openForHelper(
   auto extent_with_halo = GpuLower::current()->haloInfo()->getExtent(id);
   kir::ForLoop* new_scope = nullptr;
   if (split_mode) {
-    std::cout << id->toString() << std::endl;
-    new_scope = IrBuilder::create<kir::ForLoop>(
-        id,
-        GpuLower::current()->caMap()->getIndexVariable(id),
-        GpuLower::current()->caMap()->getLoopSplitBaseID(id)->extent(),
-        id->extent(),
-        nullptr,
-        false,
-        nullptr,
-        false,
-        DoubleBufferLoopStage::NotApplicable);
+    if (id->isThread()) {
+      new_scope = IrBuilder::create<kir::ForLoop>(
+          id,
+          GpuLower::current()->caMap()->getIndexVariable(id),
+          // id->start(),
+          SimplifyingIrBuilder::addExpr(
+              NamedScalar::getParallelIndex(id->getParallelType()),
+              GpuLower::current()->caMap()->getLoopSplitBaseID(id)->extent()),
+          id->extent(),
+          NamedScalar::getParallelDim(id->getParallelType()),
+          false,
+          nullptr,
+          false,
+          DoubleBufferLoopStage::NotApplicable);
+    } else {
+      new_scope = IrBuilder::create<kir::ForLoop>(
+          id,
+          GpuLower::current()->caMap()->getIndexVariable(id),
+          GpuLower::current()->caMap()->getLoopSplitBaseID(id)->extent(),
+          id->extent(),
+          nullptr,
+          false,
+          nullptr,
+          false,
+          DoubleBufferLoopStage::NotApplicable);
+    }
+
   } else if (extent_with_halo) {
     // When an axis is extended with halo, unrolling and vectorization
     // are assumed to not be used for now.
@@ -73,6 +89,14 @@ kir::ForLoop* openForHelper(
   if (scope != nullptr) {
     scope->body().insert(0, new_scope);
   }
+  std::cout << "generate loop for " << id->toString() << std::endl;
+  std::cout << "generate loop start " << id->start()->toString() << std::endl;
+  std::cout << "generate loop index "
+            << GpuLower::current()->caMap()->getIndexVariable(id)->toString()
+            << std::endl;
+  std::cout << " using halo ?" << bool(extent_with_halo != nullptr)
+            << std::endl;
+  std::cout << new_scope->toString() << std::endl;
   return new_scope;
 }
 
@@ -151,6 +175,14 @@ void LoopNestGenerator::handle(
              for_loops_.back()->iter_domain()) == loop_structure.end()) {
     closeFor();
   }
+  bool outer_loop = true;
+
+  auto loop_size = SimplifyingIrBuilder::mulExpr(
+      GpuLower::current()->kernel()->oneVal(),
+      GpuLower::current()->kernel()->oneVal());
+  for (auto loop : loop_structure) {
+    loop_size = SimplifyingIrBuilder::mulExpr(loop_size, loop->extent());
+  }
 
   for (auto loop : loop_structure) {
     auto find_it = std::find_if(
@@ -158,8 +190,9 @@ void LoopNestGenerator::handle(
           return fl->iter_domain() == loop;
         });
     if (find_it == for_loops_.end()) {
-      openFor(loop, split_mode);
+      openFor(loop, split_mode && outer_loop);
     }
+    outer_loop = false;
   }
 
   pushFront(expr);
