@@ -1638,34 +1638,58 @@ void ComputeAtMap::UpdateForNonEqualExtentMaps(Fusion* fusion) {
   for (auto expr : ir_utils::getScatterOps(fusion)) {
     auto output_ids = ir_utils::allIDsOf(expr->output(0)->as<TensorView>());
     auto index_ids = ir_utils::allIDsOf(expr->indexTv());
+    auto src_ids = ir_utils::allIDsOf(expr->srcTv());
     for (int i = 0; i < output_ids.size(); ++i) {
       auto out_id = output_ids[i];
       auto idx_id = index_ids[i];
+      auto src_id = src_ids[i];
       if (id_graph_.loopNodes().mappingExists(out_id) &&
           id_graph_.loopNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.loopNodes().getDisjointSetPtrOf(out_id);
-        if (entry->has(idx_id))
+        if (entry->has(idx_id)) {
           concrete_id_cache_[entry] = idx_id;
+        }
+        auto entry_src = id_graph_.loopNodes().getDisjointSetPtrOf(out_id);
+        if (entry->has(src_id)) {
+          concrete_id_cache_[entry_src] = idx_id;
+        }
       }
       if (id_graph_.permissiveNodes().mappingExists(out_id) &&
           id_graph_.permissiveNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.permissiveNodes().getDisjointSetPtrOf(out_id);
-        if (entry->has(idx_id))
+        if (entry->has(idx_id)) {
           concrete_id_cache_[entry] = idx_id;
+        }
+        auto entry_src =
+            id_graph_.permissiveNodes().getDisjointSetPtrOf(out_id);
+        if (entry->has(src_id)) {
+          concrete_id_cache_[entry_src] = idx_id;
+        }
       }
 
       if (id_graph_.exactNodes().mappingExists(out_id) &&
           id_graph_.exactNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.exactNodes().getDisjointSetPtrOf(out_id);
-        if (entry->has(idx_id))
+        if (entry->has(idx_id)) {
           concrete_id_cache_[entry] = idx_id;
+        }
+        auto entry_src = id_graph_.exactNodes().getDisjointSetPtrOf(out_id);
+        if (entry->has(src_id)) {
+          concrete_id_cache_[entry_src] = idx_id;
+        }
       }
 
       if (id_graph_.almostExactNodes().mappingExists(out_id) &&
           id_graph_.almostExactNodes().mappingExists(idx_id)) {
         auto entry = id_graph_.almostExactNodes().getDisjointSetPtrOf(out_id);
-        if (entry->has(idx_id))
+        if (entry->has(idx_id)) {
           concrete_id_cache_[entry] = idx_id;
+        }
+        auto entry_src =
+            id_graph_.almostExactNodes().getDisjointSetPtrOf(out_id);
+        if (entry->has(src_id)) {
+          concrete_id_cache_[entry_src] = idx_id;
+        }
       }
     }
   }
