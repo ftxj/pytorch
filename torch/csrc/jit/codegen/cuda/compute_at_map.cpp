@@ -1638,10 +1638,9 @@ void ComputeAtMap::modiftyConcreteID(
     IterDomain* old_id,
     IterDomain* new_id,
     IdMappingMode mode) {
-  if (getIdSets(mode).mappingExists(old_id) &&
-      getIdSets(mode).mappingExists(new_id)) {
+  if (getIdSets(mode).mappingExists(old_id)) {
     auto entry = disjointSetOf(old_id, mode);
-    if (entry->has(new_id)) {
+    if (entry->has(new_id) || new_id->isBroadcast()) {
       concrete_id_cache_[entry] = new_id;
     }
   }
@@ -1651,28 +1650,16 @@ void ComputeAtMap::updateForNonEqualExtentMaps(Fusion* fusion) {
   for (auto expr : ir_utils::getScatterOps(fusion)) {
     auto output_ids = ir_utils::allIDsOf(expr->output(0)->as<TensorView>());
     auto index_ids = ir_utils::allIDsOf(expr->indexTv());
-    auto src_ids = ir_utils::allIDsOf(expr->srcTv());
     auto inp_ids = ir_utils::allIDsOf(expr->inputTv());
+
     for (int i = 0; i < output_ids.size(); ++i) {
       auto out_id = output_ids[i];
       auto idx_id = index_ids[i];
-      auto src_id = src_ids[i];
       auto inp_id = inp_ids[i];
       modiftyConcreteID(out_id, idx_id, IdMappingMode::LOOP);
-      modiftyConcreteID(src_id, idx_id, IdMappingMode::LOOP);
-      modiftyConcreteID(inp_id, idx_id, IdMappingMode::LOOP);
-
       modiftyConcreteID(out_id, idx_id, IdMappingMode::ALMOSTEXACT);
-      modiftyConcreteID(src_id, idx_id, IdMappingMode::ALMOSTEXACT);
-      modiftyConcreteID(inp_id, idx_id, IdMappingMode::ALMOSTEXACT);
-
       modiftyConcreteID(out_id, idx_id, IdMappingMode::EXACT);
-      modiftyConcreteID(src_id, idx_id, IdMappingMode::EXACT);
-      modiftyConcreteID(inp_id, idx_id, IdMappingMode::EXACT);
-
       modiftyConcreteID(out_id, idx_id, IdMappingMode::PERMISSIVE);
-      modiftyConcreteID(src_id, idx_id, IdMappingMode::PERMISSIVE);
-      modiftyConcreteID(inp_id, idx_id, IdMappingMode::PERMISSIVE);
     }
   }
 }
