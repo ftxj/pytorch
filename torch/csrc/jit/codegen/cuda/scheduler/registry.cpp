@@ -52,6 +52,50 @@ bool rejectScheduleForTorchGather(
   return false;
 }
 
+bool rejectScheduleForScatter(
+    ScatterOp* op,
+    ScheduleHeuristic schedule_stragety) {
+  if (!op->inputTv()->isFusionInput()) {
+    scheduler_debug_utils::canScheduleRejectReason(
+        schedule_stragety, "InputTv of ScatterOp must be fusion input.");
+    return true;
+  }
+  if (!op->output(0)->isFusionOutput()) {
+    scheduler_debug_utils::canScheduleRejectReason(
+        schedule_stragety, "OutputTv of ScatterOp must be fusion output.");
+    return true;
+  }
+
+  if (op->srcTv()->isFusionOutput()) {
+    scheduler_debug_utils::canScheduleRejectReason(
+        schedule_stragety, "SrcTv of ScatterOp cannot be fusion output.");
+    return true;
+  }
+  if (op->inputTv()->isFusionOutput()) {
+    scheduler_debug_utils::canScheduleRejectReason(
+        schedule_stragety, "InputTv of ScatterOp cannot be fusion output.");
+    return true;
+  }
+
+  for (auto used_op : op->srcTv()->uses()) {
+    if (!used_op->isA<ScatterOp>()) {
+      scheduler_debug_utils::canScheduleRejectReason(
+          schedule_stragety,
+          "srcTv of ScatterOp can only be used by ScatterOp");
+      return true;
+    }
+  }
+  for (auto used_op : op->inputTv()->uses()) {
+    if (!used_op->isA<ScatterOp>()) {
+      scheduler_debug_utils::canScheduleRejectReason(
+          schedule_stragety,
+          "inputTv of ScatterOp can only be used by ScatterOp");
+      return true;
+    }
+  }
+  return false;
+}
+
 class SchedulerTopologyChecker {
  public:
   // Checks if any broadcasts are resolved after a reduction that don't follow
@@ -1271,6 +1315,11 @@ class ReductionScheduler : public SchedulerEntry {
         return false;
       }
     }
+    for (auto op : ir_utils::getScatterOps(fusion)) {
+      if (rejectScheduleForScatter(op, ScheduleHeuristic::Reduction)) {
+        return false;
+      }
+    }
 
     auto reduction_tvs = scheduler_utils::getReductionTvs(fusion);
 
@@ -1488,6 +1537,12 @@ class TransposeScheduler : public SchedulerEntry {
       }
     }
 
+    for (auto op : ir_utils::getScatterOps(fusion)) {
+      if (rejectScheduleForScatter(op, ScheduleHeuristic::Transpose)) {
+        return false;
+      }
+    }
+
     if (!hasAtLeastTwoValidGroups(fusion)) {
       scheduler_debug_utils::canScheduleRejectReason(
           ScheduleHeuristic::Transpose,
@@ -1598,6 +1653,12 @@ class PointWiseScheduler : public SchedulerEntry {
     for (auto torch_gather : ir_utils::getTorchGatherOps(fusion)) {
       if (rejectScheduleForTorchGather(
               torch_gather, ScheduleHeuristic::PointWise)) {
+        return false;
+      }
+    }
+
+    for (auto op : ir_utils::getScatterOps(fusion)) {
+      if (rejectScheduleForScatter(op, ScheduleHeuristic::Transpose)) {
         return false;
       }
     }
@@ -1721,6 +1782,12 @@ class PersistentKernelScheduler : public SchedulerEntry {
     for (auto torch_gather : ir_utils::getTorchGatherOps(fusion)) {
       if (rejectScheduleForTorchGather(
               torch_gather, ScheduleHeuristic::Persistent)) {
+        return false;
+      }
+    }
+
+    for (auto op : ir_utils::getScatterOps(fusion)) {
+      if (rejectScheduleForScatter(op, ScheduleHeuristic::Transpose)) {
         return false;
       }
     }

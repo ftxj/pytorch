@@ -195,6 +195,40 @@ TEST_F(NVFuserTest, FusionScatter2DOneHot_Fusion) {
   }
 }
 
+TEST_F(NVFuserTest, FusionScatterOnehot_CUDA) {
+  const std::vector<std::vector<int64_t>> x_size = {
+      {1, 1}, {3, 3}, {16, 16}, {16, 512}};
+
+  const std::vector<int64_t> classes = {4, 8, 16, 1024};
+
+  at::manual_seed(0);
+  for (size_t test_id = 0; test_id < classes.size(); ++test_id) {
+    auto fusion_ptr = std::make_unique<Fusion>();
+    Fusion& fusion = *fusion_ptr.get();
+    FusionGuard fg(&fusion);
+
+    TensorView* tv_idx_base = makeContigTensor(2, DataType::Int);
+
+    fusion.addInput(tv_idx_base);
+
+    auto tv_out = onehot(tv_idx_base, classes[test_id]);
+
+    fusion.addOutput(tv_out);
+
+    at::Tensor idx_base =
+        generateScatter2DIndex(0, x_size[test_id][1], x_size[test_id][0], 1);
+
+    auto out_ref = at::one_hot(idx_base, classes[test_id]);
+
+    std::vector<IValue> aten_inputs = {idx_base};
+
+    FusionExecutorCache executor_cache(std::move(fusion_ptr));
+    auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
+    testValidate(
+        &fusion, cg_outputs, aten_inputs, {out_ref}, __LINE__, __FILE__);
+  }
+}
+
 TEST_F(NVFuserTest, FusionScatter2DSelectOneSrcTvFusion_CUDA) {
   const std::vector<std::vector<int64_t>> input_dims = {
       {2, 2}, {3, 3}, {2048, 2048}, {1024, 2048}, {1024, 2048}};

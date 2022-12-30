@@ -261,7 +261,11 @@ class TORCH_CUDA_CU_API ComputeAtMap {
   // Update the LOOP map with resolved computeWith
   void updateComputeWith(TensorView* compute_with_tv);
 
-  void UpdateForNonEqualExtentMaps(Fusion* fusion);
+  void updateForNonEqualExtentMaps(Fusion* fusion);
+  void modiftyConcreteID(
+      IterDomain* old_id,
+      IterDomain* new_id,
+      IdMappingMode mode);
 
  private:
   // Traverses through definitions of exact maps (unique_exact_definitions_) to
