@@ -150,6 +150,7 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
   using Expr::Expr;
   ScatterOp(
       IrBuilderPasskey,
+      ScatterOpType type,
       Val* out,
       Val* input,
       int dim,
@@ -185,6 +186,10 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
 
   IterDomain* getOutputSelectAxis() const {
     return attribute(0)->as<IterDomain>();
+  }
+
+  ScatterOpType getScatterOpType() const {
+    return attribute(3)->as<Attribute<ScatterOpType>>()->value;
   }
 
   void updateOutputSelectAxis(Val* mutated) {

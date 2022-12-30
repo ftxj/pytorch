@@ -1014,6 +1014,14 @@ std::ostream& operator<<(std::ostream& out, const BinaryOpType botype) {
   return out << binary_op_type2string(botype);
 }
 
+std::ostream& operator<<(std::ostream& out, const ScatterOpType sotype) {
+  if (sotype == ScatterOpType::Set)
+    return out << "scatter";
+  if (sotype == ScatterOpType::Add)
+    return out << "scatter_add";
+  return out << "scatter_error";
+}
+
 std::ostream& operator<<(std::ostream& out, const TernaryOpType totype) {
   return out << ternary_op_type2string(totype);
 }

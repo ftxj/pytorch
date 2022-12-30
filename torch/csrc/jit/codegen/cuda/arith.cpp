@@ -597,7 +597,8 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
 }
 
 // torch.scatter, out-of-place version of Tensor.scatter_(dim, index, src)
-TensorView* scatter(
+TensorView* scatter_base(
+    ScatterOpType type,
     TensorView* input,
     int dim,
     TensorView* index,
@@ -639,11 +640,26 @@ TensorView* scatter(
       input->getDataType().value());
 
   IrBuilder::create<ScatterOp>(
-      out_tensor, input, dim, index, src, out_domain[dim], inp_dom[dim]);
+      type, out_tensor, input, dim, index, src, out_domain[dim], inp_dom[dim]);
   return out_tensor->as<TensorView>();
 }
 
-// TENSOR FACTORIES
+TensorView* scatter_add(
+    TensorView* input,
+    int dim,
+    TensorView* index,
+    TensorView* src) {
+  return scatter_base(ScatterOpType::Add, input, dim, index, src);
+}
+
+TensorView* scatter(
+    TensorView* input,
+    int dim,
+    TensorView* index,
+    TensorView* src) {
+  return scatter_base(ScatterOpType::Set, input, dim, index, src);
+}
+
 TensorView* rand(const std::vector<Val*>& shape, DataType dtype) {
   auto n = shape.size();
   auto out = TensorViewBuilder()

@@ -217,6 +217,7 @@ NVFUSER_DEFINE_CLONE_AND_CREATE(TorchGatherOp)
 
 ScatterOp::ScatterOp(
     IrBuilderPasskey passkey,
+    ScatterOpType type,
     Val* out,
     Val* input,
     int dim,
@@ -234,13 +235,15 @@ ScatterOp::ScatterOp(
   addAttribute(select_out_id);
   addAttribute(select_inp_id);
   addAttribute(IrBuilder::create<Attribute<int>>(passkey.ir_container_, dim));
+  addAttribute(
+      IrBuilder::create<Attribute<ScatterOpType>>(passkey.ir_container_, type));
 }
 
 std::string ScatterOp::toString(int indent_size) const {
   std::stringstream ss;
   indent(ss, indent_size) << output(0)->toString() << "\n";
   indent_size++;
-  indent(ss, indent_size) << " = scatter( ";
+  indent(ss, indent_size) << " =" << getScatterOpType() << "(";
   if (inputTv()->isA<kir::TensorIndex>()) {
     ss << inputTv()->as<kir::TensorIndex>()->view()->toString();
   } else {

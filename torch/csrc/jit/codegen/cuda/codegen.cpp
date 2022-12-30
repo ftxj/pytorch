@@ -999,7 +999,13 @@ class CudaKernelGenerator : private OptOutConstDispatch {
 
   void handle(const ScatterOp* sop) final {
     // generate code like T_output[... + T_index[...]] = T_src[...];
-    indent() << gen(sop->output(0)) << " = " << gen(sop->srcTv()) << ";\n";
+    if (sop->getScatterOpType() == ScatterOpType::Set) {
+      indent() << gen(sop->output(0)) << " = " << gen(sop->srcTv()) << ";\n";
+    } else if (sop->getScatterOpType() == ScatterOpType::Add) {
+      indent() << "atomicAdd(&" << gen(sop->output(0)) << ", "
+               << gen(sop->srcTv()) << ")"
+               << ";\n";
+    }
   }
 
   std::string genArchString(MmaOptions::MacroType macro) {

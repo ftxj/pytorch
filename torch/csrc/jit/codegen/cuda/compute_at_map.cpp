@@ -1659,20 +1659,20 @@ void ComputeAtMap::updateForNonEqualExtentMaps(Fusion* fusion) {
       auto src_id = src_ids[i];
       auto inp_id = inp_ids[i];
       modiftyConcreteID(out_id, idx_id, IdMappingMode::LOOP);
-      modiftyConcreteID(out_id, src_id, IdMappingMode::LOOP);
-      modiftyConcreteID(out_id, inp_id, IdMappingMode::LOOP);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::LOOP);
+      modiftyConcreteID(inp_id, idx_id, IdMappingMode::LOOP);
 
       modiftyConcreteID(out_id, idx_id, IdMappingMode::ALMOSTEXACT);
-      modiftyConcreteID(out_id, src_id, IdMappingMode::ALMOSTEXACT);
-      modiftyConcreteID(out_id, inp_id, IdMappingMode::ALMOSTEXACT);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::ALMOSTEXACT);
+      modiftyConcreteID(inp_id, idx_id, IdMappingMode::ALMOSTEXACT);
 
       modiftyConcreteID(out_id, idx_id, IdMappingMode::EXACT);
-      modiftyConcreteID(out_id, src_id, IdMappingMode::EXACT);
-      modiftyConcreteID(out_id, inp_id, IdMappingMode::EXACT);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::EXACT);
+      modiftyConcreteID(inp_id, idx_id, IdMappingMode::EXACT);
 
       modiftyConcreteID(out_id, idx_id, IdMappingMode::PERMISSIVE);
-      modiftyConcreteID(out_id, src_id, IdMappingMode::PERMISSIVE);
-      modiftyConcreteID(out_id, inp_id, IdMappingMode::PERMISSIVE);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::PERMISSIVE);
+      modiftyConcreteID(inp_id, idx_id, IdMappingMode::PERMISSIVE);
     }
   }
 }

@@ -261,6 +261,7 @@ void IndexLowering::handle(const ScatterOp* sop) {
   auto lowered_out = lowerDstIndex(sop->output(0), override_index_out);
 
   pushBack(IrBuilder::create<ScatterOp>(
+      sop->getScatterOpType(),
       lowered_out,
       lowered_input,
       sop->dim(),
