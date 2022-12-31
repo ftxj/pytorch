@@ -222,6 +222,52 @@ const std::vector<std::string> functions = {
             # FIXME: torchscript: torch.zeros(sizes, grad.options())
             return torch.zeros(sizes).to(grad).scatter_(dim, indices, grad)
 
+        # python implementation of at::_gather_sparse_backward function. Need to Refine
+        def AD_gather_sparse_backend(grad,
+                                     self,
+                                     dim: int,
+                                     index):
+            if (self.dim() == 0):
+                zero_grad = torch.zeros(0, grad.numel()).to(index)
+                return torch._sparse_coo_tensor_unsafe(zero_grad, grad, self.size())
+            if (grad.dim() == 0):
+                return torch._sparse_coo_tensor_unsafe(index.view(1, 1), grad, self.size())
+
+            grad_self = torch.zeros_like(self)
+            # FIXME: torch.empty(self.dim(), grad.numel(), self.options()).dtype(torch.long)
+            sparse_ind = torch.empty(self.dim(), grad.numel()).to(index)
+            print(sparse_ind)
+
+            grad_numel = grad.numel()
+            if (grad_numel > 0):
+                n_above = grad_numel
+                n_below = 1
+                if (dim < 0):
+                    dim += self.dim()
+                for i in range(self.dim()):
+                    n_above = int(n_above / grad.size(i))
+                    if (i == dim):
+                        sparse_ind[i] = index.reshape(-1)
+                    else:
+                        sparse_ind[i] = torch.arange(grad.size(i)).unsqueeze(1).expand(grad.size(i), n_above).reshape(-1).repeat(n_below).to(index)
+
+                    n_below *= grad.size(i)
+            return torch._sparse_coo_tensor_unsafe(sparse_ind, grad.reshape(-1), self.size())
+
+        def gather(self,
+                    dim: int,
+                    index,
+                    *,
+                    sparse_grad: bool = False):
+            output = torch.gather(self, dim, index, sparse_grad = sparse_grad)
+            def backward(grad_output):
+                if (sparse_grad):
+                    return AD_gather_sparse_backend(grad_output, self, dim, index), None, None, None
+                grad_self = torch.zeros_like(self)
+                grad_self = torch.scatter_add(grad_self, dim, index, grad_output)
+                return grad_self, None, None, None
+            return output, backward
+
         def index_select(self,
                          dim: int,
                          index):
