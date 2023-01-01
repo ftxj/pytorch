@@ -560,6 +560,7 @@ TORCH_CUDA_CU_API TensorView* torch_gather(
     TensorView* index);
 // torch.scatter
 TORCH_CUDA_CU_API TensorView* scatter_base(
+    ScatterOpType type,
     TensorView* input,
     int dim,
     TensorView* index,

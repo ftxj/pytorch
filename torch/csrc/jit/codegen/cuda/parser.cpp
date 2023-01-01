@@ -52,7 +52,7 @@ constexpr auto kNumVarOps = 2;
 constexpr auto kNumSoftmaxFwd = 2;
 constexpr auto kNumSoftmaxBwd = 2;
 constexpr auto kNumAminAmaxOps = 2;
-
+constexpr auto kNumScatterOps = 2;
 namespace {
 
 #define REGISTER_PARSE_RULE(op, func_body, ...)                                \
@@ -1604,6 +1604,51 @@ class IrParser {
               return true;
             },
             nullptr);
+      }
+    }
+    {
+      if (isOptionEnabled(EnableOption::GraphOp)) {
+        std::array<const char*, kNumScatterOps> ScatterOps = {
+            "aten::scatter(Tensor self, int dim, Tensor index, Tensor src) -> Tensor",
+            "aten::scatter_add(Tensor self, int dim, Tensor index, Tensor src) -> Tensor"};
+        for (auto signature : ScatterOps) {
+          auto ptr_op = getOperatorForLiteral(signature);
+          REGISTER_PARSE_RULE(
+              ptr_op,
+              {
+                static std::unordered_map<Symbol, ScatterOpType> op_mapping(
+                    {{aten::scatter, ScatterOpType::Set},
+                     {aten::scatter_add, ScatterOpType::Add}});
+                MemoryFormat format;
+                std::list<Val*> list_val;
+                std::tie(format, list_val) = getPWFormatValues(
+                    MemoryFormat::Contiguous(),
+                    value_map[node->inputs()[0]->unique()],
+                    value_map[node->inputs()[2]->unique()],
+                    value_map[node->inputs()[3]->unique()]);
+                auto self = list_val.front();
+                list_val.pop_front();
+                auto index = list_val.front();
+                list_val.pop_front();
+                auto src = list_val.front();
+                list_val.pop_front();
+
+                auto dim_value = constant_as<int>(node->input(1));
+                TORCH_INTERNAL_ASSERT(
+                    dim_value.has_value(), "dim parameter is required.");
+
+                Val* out = scatter_base(
+                    op_mapping[node->kind()],
+                    self->as<TensorView>(),
+                    dim_value.value(),
+                    index->as<TensorView>(),
+                    src->as<TensorView>());
+                value_map.emplace(
+                    node->output()->unique(), ValueHolder(out, format));
+              },
+              isInputNonSizeZeroTensor,
+              nullptr);
+        }
       }
     }
     {
@@ -3777,7 +3822,7 @@ class IrParser {
 
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static c10::once_flag once_flag_;
-};
+}; // namespace
 std::unordered_set<Symbol> IrParser::parser_symbol_set_; // NOLINT
 std::unordered_set<Symbol> IrParser::parser_skip_set_; // NOLINT
 std::mutex IrParser::parser_mutex_;

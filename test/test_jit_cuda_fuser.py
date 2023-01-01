@@ -4274,6 +4274,47 @@ class TestCudaFuser(JitTestCase):
     @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
     @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
                      "Requires fusion optimization pass to be effective")
+    def test_scatter_backward(self):
+        input_dim = (256, 256)
+        src_dim = (256, 256)
+        idx_dim = (256, 256)
+
+        input = torch.rand(input_dim, dtype=torch.float, device="cuda")
+        src1 = torch.rand(src_dim, dtype=torch.float, device="cuda").requires_grad_()
+        src2 = torch.rand(src_dim, dtype=torch.float, device="cuda").requires_grad_()
+        idx = torch.randint(0, idx_dim[1], idx_dim, device="cuda").to(dtype=torch.long)
+        grad = torch.randn(src_dim, dtype=torch.float, device="cuda")
+        for i, x in enumerate(idx):
+            idx[i] = torch.randperm(idx_dim[1])
+        def t(input, index, src1, src2):
+            o = torch.scatter(input, 0, index, src1 + src2)
+            return o
+        t_jit = torch.jit.script(t)
+        self._run_training_helper(t_jit, t, grad, input, idx.transpose(0, 1).contiguous(), src1, src2)
+
+    @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
+    @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
+                     "Requires fusion optimization pass to be effective")
+    def test_scatter_forward_fusion(self):
+        input_dim = (128, 512)
+        src_dim = (256, 256)
+        idx_dim = (32, 32)
+
+        input_dim = torch.rand(input_dim, dtype=torch.float, device="cuda")
+        src1 = torch.rand(src_dim, dtype=torch.float, device="cuda")
+        src2 = torch.rand(src_dim, dtype=torch.float, device="cuda")
+        idx = torch.randint(0, idx_dim[1], idx_dim, device="cuda").to(dtype=torch.long)
+        for i, x in enumerate(idx):
+            idx[i] = torch.randperm(idx_dim[1])
+        def t(input, index, src1, src2):
+            o = torch.scatter(input, 0, index, src1 + src2)
+            return o
+        t_jit = torch.jit.script(t)
+        self._run_helper(t_jit, t, input, idx.transpose(0, 1).contiguous(), src1, src2)
+
+    @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
+    @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
+                     "Requires fusion optimization pass to be effective")
     def test_gather_sparse_grad(self):
         x = torch.randn(2, 2, dtype=torch.float, device="cuda").requires_grad_()
         y = torch.randint(0, 1, (2, 2), device="cuda").to(dtype=torch.long)

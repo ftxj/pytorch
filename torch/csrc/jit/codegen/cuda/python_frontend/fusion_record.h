@@ -37,6 +37,9 @@ enum class RecordType {
   ViewOp,
   PermuteOp,
   IndexSelectOp,
+  TorchGatherOp,
+  ScatterOp,
+  ScatterAddOp,
   FullOp
 };
 
@@ -1342,6 +1345,101 @@ struct IndexSelectOpRecord : RecordFunctor {
         fd.getFusionState(args_.at(1).index)->template as<Nvf::TensorView>();
 
     Nvf::Val* output = Nvf::index_select(arg1, dim_, arg3);
+    fd.setFusionState(outputs_.at(0).index, output);
+  }
+
+ private:
+  //! Dimension to select.
+  int64_t dim_;
+};
+
+struct TorchGatherOpRecord : RecordFunctor {
+  TorchGatherOpRecord(
+      std::vector<State> _args,
+      std::vector<State> _outputs,
+      int64_t dim)
+      : RecordFunctor(
+            std::move(_args),
+            std::move(_outputs),
+            "gather",
+            RecordType::TorchGatherOp),
+        dim_(dim) {}
+  virtual ~TorchGatherOpRecord() = default;
+  virtual RecordFunctor* clone() final {
+    return new TorchGatherOpRecord(*this);
+  }
+
+  void operator()(FusionDefinition& fd) final {
+    auto arg1 =
+        fd.getFusionState(args_.at(0).index)->template as<Nvf::TensorView>();
+    auto arg3 =
+        fd.getFusionState(args_.at(1).index)->template as<Nvf::TensorView>();
+
+    Nvf::Val* output = Nvf::torch_gather(arg1, dim_, arg3);
+    fd.setFusionState(outputs_.at(0).index, output);
+  }
+
+ private:
+  //! Dimension to select.
+  int64_t dim_;
+};
+
+struct ScatterOpRecord : RecordFunctor {
+  ScatterOpRecord(
+      std::vector<State> _args,
+      std::vector<State> _outputs,
+      int64_t dim)
+      : RecordFunctor(
+            std::move(_args),
+            std::move(_outputs),
+            "scatter",
+            RecordType::ScatterOp),
+        dim_(dim) {}
+  virtual ~ScatterOpRecord() = default;
+  virtual RecordFunctor* clone() final {
+    return new ScatterOpRecord(*this);
+  }
+
+  void operator()(FusionDefinition& fd) final {
+    auto arg1 =
+        fd.getFusionState(args_.at(0).index)->template as<Nvf::TensorView>();
+    auto arg3 =
+        fd.getFusionState(args_.at(1).index)->template as<Nvf::TensorView>();
+    auto arg4 =
+        fd.getFusionState(args_.at(2).index)->template as<Nvf::TensorView>();
+    Nvf::Val* output = Nvf::scatter(arg1, dim_, arg3, arg4);
+    fd.setFusionState(outputs_.at(0).index, output);
+  }
+
+ private:
+  //! Dimension to select.
+  int64_t dim_;
+};
+
+struct ScatterAddOpRecord : RecordFunctor {
+  ScatterAddOpRecord(
+      std::vector<State> _args,
+      std::vector<State> _outputs,
+      int64_t dim)
+      : RecordFunctor(
+            std::move(_args),
+            std::move(_outputs),
+            "scatter_add",
+            RecordType::ScatterAddOp),
+        dim_(dim) {}
+  virtual ~ScatterAddOpRecord() = default;
+  virtual RecordFunctor* clone() final {
+    return new ScatterAddOpRecord(*this);
+  }
+
+  void operator()(FusionDefinition& fd) final {
+    auto arg1 =
+        fd.getFusionState(args_.at(0).index)->template as<Nvf::TensorView>();
+    auto arg3 =
+        fd.getFusionState(args_.at(1).index)->template as<Nvf::TensorView>();
+    auto arg4 =
+        fd.getFusionState(args_.at(2).index)->template as<Nvf::TensorView>();
+    Nvf::Val* output = Nvf::scatter_add(arg1, dim_, arg3, arg4);
     fd.setFusionState(outputs_.at(0).index, output);
   }
 
