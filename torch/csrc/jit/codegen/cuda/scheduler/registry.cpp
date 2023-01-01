@@ -66,6 +66,12 @@ bool rejectScheduleForScatter(
     return true;
   }
 
+  if (op->output(0)->as<TensorView>()->uses().size() > 0) {
+    scheduler_debug_utils::canScheduleRejectReason(
+        schedule_stragety, "OutputTv of ScatterOp cannot be used by other.");
+    return true;
+  }
+
   if (op->srcTv()->isFusionOutput()) {
     scheduler_debug_utils::canScheduleRejectReason(
         schedule_stragety, "SrcTv of ScatterOp cannot be fusion output.");
