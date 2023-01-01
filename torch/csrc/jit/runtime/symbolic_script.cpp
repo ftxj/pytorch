@@ -281,6 +281,17 @@ const std::vector<std::string> functions = {
                 return grad_self, None, grad_src, grad_res
             return output, backward
 
+        def scatter_add(self,
+                    dim: int,
+                    index,
+                    src):
+            output = torch.scatter(self, dim, index, src)
+            def backward(grad_output):
+                grad_src = torch.gather(grad_output, dim, index)
+                grad_res = torch.scatter_add(self, dim, index, src)
+                return grad_output, None, grad_src, grad_res
+            return output, backward
+
         def index_select(self,
                          dim: int,
                          index):
