@@ -230,7 +230,7 @@ TEST_F(NVFuserTest, FusionScatterOnehot_CUDA) {
 
     fusion.addInput(tv_idx_base);
 
-    auto tv_out = onehot(tv_idx_base, classes[test_id]);
+    auto tv_out = one_hot(tv_idx_base, classes[test_id]);
 
     fusion.addOutput(tv_out);
 

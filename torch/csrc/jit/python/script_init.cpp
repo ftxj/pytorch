@@ -1569,7 +1569,9 @@ void initJitScriptBindings(PyObject* module) {
             // see: [pybind11 varargs]
             HANDLE_TH_ERRORS
             Method& method = py::cast<Method&>(args[0]);
-
+            for (auto x : args) {
+              std::cout << x << std::endl;
+            }
             return invokeScriptMethodFromPython(
                 method,
                 // NOLINTNEXTLINE(performance-move-const-arg)

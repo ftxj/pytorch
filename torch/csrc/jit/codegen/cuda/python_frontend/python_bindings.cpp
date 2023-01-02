@@ -1438,6 +1438,25 @@ void initNvFuserPythonBindings(PyObject* module) {
       py::arg("arg4"),
       py::return_value_policy::reference);
   nvf_ops.def(
+      "one_hot",
+      [](nvfuser::FusionDefinition::Operators& self,
+         nvfuser::Tensor arg1,
+         int64_t num_classes) -> nvfuser::Tensor {
+        FUSER_PERF_SCOPE("Operators.one_hot");
+        nvfuser::FusionDefinition* fd = self.fusion_definition;
+        nvfuser::Tensor output = fd->defineTensor(arg1.dims + 1);
+        fd->defineRecord(new nvfuser::ScatterAddOpRecord(
+            {
+                fd->recordingState(arg1()),
+            },
+            {fd->recordingState(output())},
+            num_classes));
+        return output;
+      },
+      py::arg("arg1"),
+      py::arg("num_classes"),
+      py::return_value_policy::reference);
+  nvf_ops.def(
       "permute",
       [](nvfuser::FusionDefinition::Operators& self,
          nvfuser::Tensor arg,

@@ -1085,7 +1085,13 @@ struct CudaGraphFuser {
         shape_of.emplace(n->output(), size);
         continue;
       }
-
+      if (n->kind() == aten::scatter_add || n->kind() == aten::scatter) {
+        TORCH_INTERNAL_ASSERT(
+            shape_of.count(n->input(0)) > 0,
+            "buildShapeExpressions failed at accessing input shapes");
+        shape_of.emplace(n->output(0), shape_of.at(n->input(0)));
+        continue;
+      }
       auto tensor_inputs = filter(n->inputs(), [](Value* v) {
         return v->type()->isSubtypeOf(*TensorType::get());
       });

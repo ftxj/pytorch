@@ -40,6 +40,7 @@ enum class RecordType {
   TorchGatherOp,
   ScatterOp,
   ScatterAddOp,
+  OneHotOp,
   FullOp
 };
 
@@ -1446,6 +1447,34 @@ struct ScatterAddOpRecord : RecordFunctor {
  private:
   //! Dimension to select.
   int64_t dim_;
+};
+
+struct OneHotOpRecord : RecordFunctor {
+  OneHotOpRecord(
+      std::vector<State> _args,
+      std::vector<State> _outputs,
+      int64_t num_classes)
+      : RecordFunctor(
+            std::move(_args),
+            std::move(_outputs),
+            "one_hot",
+            RecordType::OneHotOp),
+        num_classes_(num_classes) {}
+  virtual ~OneHotOpRecord() = default;
+  virtual RecordFunctor* clone() final {
+    return new OneHotOpRecord(*this);
+  }
+
+  void operator()(FusionDefinition& fd) final {
+    auto arg1 =
+        fd.getFusionState(args_.at(0).index)->template as<Nvf::TensorView>();
+
+    Nvf::Val* output = Nvf::one_hot(arg1, num_classes_);
+    fd.setFusionState(outputs_.at(0).index, output);
+  }
+
+ private:
+  int64_t num_classes_;
 };
 
 //! Specialized Record Functor for recording FusionDefinition input scalars.

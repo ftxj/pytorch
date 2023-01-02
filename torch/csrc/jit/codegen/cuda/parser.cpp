@@ -1652,6 +1652,29 @@ class IrParser {
       }
     }
     {
+      if (isOptionEnabled(EnableOption::GraphOp)) {
+        auto ptr_op = getOperatorForLiteral(
+            "aten::one_hot(Tensor self, int num_classes) -> Tensor");
+        REGISTER_PARSE_RULE(
+            ptr_op,
+            {
+              MemoryFormat format;
+              std::list<Val*> list_val;
+              std::tie(format, list_val) = getPWFormatValues(
+                  MemoryFormat::Contiguous(),
+                  value_map[node->inputs()[0]->unique()]);
+              auto input = list_val.front();
+              list_val.pop_front();
+              auto num_classes = constant_as<int>(node->input(1));
+              Val* out = one_hot(input->as<TensorView>(), num_classes.value());
+              value_map.emplace(
+                  node->output()->unique(), ValueHolder(out, format));
+            },
+            isInputNonSizeZeroTensor,
+            nullptr);
+      }
+    }
+    {
       auto ptr_op = getOperatorForLiteral(
           "aten::addcmul(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor");
       REGISTER_PARSE_RULE(
@@ -4462,6 +4485,38 @@ bool insertProfileIValue(ProfilingRecord* pr, Node* node, size_t offset) {
   if (node->matches(torch_gather_schema)) {
     switch (offset) {
       // argument 1: gather dim;
+      case 1:
+        profileInt(pr, node, offset);
+        break;
+      default:
+        return false;
+    }
+    return true;
+  }
+
+  static auto scatter_add_schema =
+      getOperatorForLiteral(
+          "aten::scatter_add(Tensor self, int dim, Tensor index, Tensor src) -> Tensor")
+          ->schema();
+  if (node->matches(scatter_add_schema)) {
+    switch (offset) {
+      // argument 1: scatter_add dim;
+      case 1:
+        profileInt(pr, node, offset);
+        break;
+      default:
+        return false;
+    }
+    return true;
+  }
+
+  static auto scatter_schema =
+      getOperatorForLiteral(
+          "aten::scatter(Tensor self, int dim, Tensor index, Tensor src) -> Tensor")
+          ->schema();
+  if (node->matches(scatter_schema)) {
+    switch (offset) {
+      // argument 1: scatter_add dim;
       case 1:
         profileInt(pr, node, offset);
         break;

@@ -462,6 +462,7 @@ class NaiveTypePropagator {
       case aten::gather:
       case aten::scatter:
       case aten::scatter_add:
+      case aten::one_hot:
       case prim::view_copy: {
         auto out_type = node->input(0)->type()->cast<TensorType>();
         copyScalarTypeAndDeviceToOutput(out_type, node);

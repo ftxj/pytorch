@@ -333,7 +333,7 @@ TensorView* transpose(TensorView* x) {
   return transpose(x, 0, 1);
 }
 
-TensorView* onehot(TensorView* x, int classes) {
+TensorView* one_hot(TensorView* x, int classes) {
   TORCH_INTERNAL_ASSERT(x != nullptr, "Input is invalid.");
   std::vector<Val*> self_shape;
   auto dom = TensorDomain::noReductions(x->getMaybeRFactorDomain());

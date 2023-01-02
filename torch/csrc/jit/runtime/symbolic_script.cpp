@@ -277,19 +277,25 @@ const std::vector<std::string> functions = {
                 zeros = torch.zeros(self.shape)
                 grad_self = torch.scatter(grad_output, dim, index, zeros)
                 grad_src = torch.gather(grad_output, dim, index)
-                grad_res = torch.scatter(self, dim, index, src)
-                return grad_self, None, grad_src, grad_res
+                return grad_self, None, None, grad_src
             return output, backward
 
         def scatter_add(self,
                     dim: int,
                     index,
                     src):
-            output = torch.scatter(self, dim, index, src)
+            output = torch.scatter_add(self, dim, index, src)
             def backward(grad_output):
                 grad_src = torch.gather(grad_output, dim, index)
                 grad_res = torch.scatter_add(self, dim, index, src)
-                return grad_output, None, grad_src, grad_res
+                return grad_output, None, None, grad_src
+            return output, backward
+        
+        def one_hot(self,
+                    num_classes: int):
+            output = torch.nn.functional(self, num_classes)
+            def backward(grad_output):
+                return None, None
             return output, backward
 
         def index_select(self,
