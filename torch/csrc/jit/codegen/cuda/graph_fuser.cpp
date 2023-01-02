@@ -1092,6 +1092,17 @@ struct CudaGraphFuser {
         shape_of.emplace(n->output(0), shape_of.at(n->input(0)));
         continue;
       }
+      if (n->kind() == aten::one_hot) {
+        TORCH_INTERNAL_ASSERT(
+            shape_of.count(n->input(0)) > 0,
+            "buildShapeExpressions failed at accessing input shapes");
+        auto size_node = graph->insertNode(graph->create(
+            prim::add_optional, {shape_of.at(n->input(0)), n->input(1)}));
+        Value* size = size_node->output(0);
+        size->setType(ListType::ofInts());
+        shape_of.emplace(n->output(0), shape_of.at(n->input(0)));
+        continue;
+      }
       auto tensor_inputs = filter(n->inputs(), [](Value* v) {
         return v->type()->isSubtypeOf(*TensorType::get());
       });
