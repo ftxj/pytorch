@@ -217,7 +217,7 @@ class TestCudaFuser(JitTestCase):
 
         self.assertGraphContainsExactly(jit_op.graph_for(*args), FUSION_GUARD, num_fusion, consider_subgraphs=True)
 
-    def _run_training_helper(self, jit_op, op, grads, *args):
+    def _run_training_helper(self, jit_op, op, grads, *args, num_bw_fusion=1):
         def has_grad(x):
             if torch.is_tensor(x) and x.requires_grad:
                 if x.grad is not None:
@@ -249,7 +249,7 @@ class TestCudaFuser(JitTestCase):
             list(jit_op.get_debug_state().execution_plans.values())[
                 0].code.grad_executor_states()[0].execution_plans.values()
         )[0].graph
-        self.assertGraphContainsExactly(bwd_graph, FUSION_GUARD, 1, consider_subgraphs=True)
+        self.assertGraphContainsExactly(bwd_graph, FUSION_GUARD, num_bw_fusion, consider_subgraphs=True)
 
     @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
     @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
@@ -4285,7 +4285,7 @@ class TestCudaFuser(JitTestCase):
             return o
 
         t_jit = torch.jit.script(t)
-        self._run_training_helper(t_jit, t, grad, x, y, z)
+        self._run_training_helper(t_jit, t, grad, x, y, z, num_bw_fusion=0)
 
     @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
     @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
