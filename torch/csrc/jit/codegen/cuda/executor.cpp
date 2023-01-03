@@ -37,28 +37,28 @@ bool shouldFillAllocationWithNan() {
   return fill_allocation_with_nan_;
 }
 
-TensorView* shouldFillWithAnotherTensor(Val* output) {
+// for scatter operator, we need initialize output tensor using self tensor.
+TensorView* getOutputTensorForFillWithInputTensor(Val* output) {
   if (output->definition() && output->definition()->isA<ScatterOp>()) {
-    return output->definition()->as<ScatterOp>()->inputTv();
+    return output->definition()->as<ScatterOp>()->selfTv();
   }
   return nullptr;
 }
 
-at::Tensor selectInputTensorUsingTv(
+at::Tensor getTensorForFillAnotherTensor(
     TensorView* tv,
     const KernelArgumentHolder& arg,
     kir::Kernel* kernel) {
   for (const auto i : c10::irange(kernel->inputs().size())) {
     if (kernel->inputs()[i] == kernel->inputsOf(tv)[0]) {
-      return dynamic_cast<const TensorArgAbstract*>(arg[i])->getTensor();
+      return dynamic_cast<const TensorArgAbstract*>(arg[i])
+          ->getTensor()
+          .clone()
+          .detach();
     }
   }
   TORCH_INTERNAL_ASSERT(
       false, "can't select input tensor to initiallize output tensor");
-}
-
-at::Tensor allocateAndInitOutputUsingAnotherTensor(at::Tensor t) {
-  return t.clone().detach();
 }
 
 void setFillAllocationWithNan(bool value) {
@@ -843,9 +843,10 @@ std::vector<at::Tensor> FusionExecutor::allocOutputs(
           kernel->outputs()[out_i]->isA<TensorView>(),
           "Cannot allocate outputs that are not tensors.");
       auto output = kernel->outputs()[out_i]->as<TensorView>();
-      if (auto filled = shouldFillWithAnotherTensor(kernel->outputs()[out_i])) {
-        outputs.push_back(allocateAndInitOutputUsingAnotherTensor(
-            selectInputTensorUsingTv(filled, args, kernel)));
+      if (auto need_fill =
+              getOutputTensorForFillWithInputTensor(kernel->outputs()[out_i])) {
+        outputs.push_back(
+            getTensorForFillAnotherTensor(need_fill, args, kernel));
       } else if (alias_indices.count(out_i) != 0) {
         // aliasing to inputs, no need to allocate real output, just push empty
         // tensor here.
@@ -1046,10 +1047,10 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
       if (outputs.empty()) {
         FUSER_PERF_SCOPE("ExecutorRunFusion::OutputAlloc");
         for (const auto i : c10::irange(executor_entry->output_sizes.size())) {
-          if (auto filled = shouldFillWithAnotherTensor(
+          if (auto need_fill = getOutputTensorForFillWithInputTensor(
                   lowered_->kernel()->outputs()[i])) {
-            allocated_outputs.push_back(allocateAndInitOutputUsingAnotherTensor(
-                selectInputTensorUsingTv(filled, args, lowered_->kernel())));
+            allocated_outputs.push_back(getTensorForFillAnotherTensor(
+                need_fill, args, lowered_->kernel()));
           } else {
             allocated_outputs.push_back(at::native::empty_strided_cuda(
                 executor_entry->output_sizes[i],

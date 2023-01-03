@@ -1909,7 +1909,7 @@ std::vector<Val*> Index::getGlobalConsumerStridedIndices(
   auto strides = getStrides(consumer_tv);
 
   // When override_index set has something, this means we want to override
-  // selected index for the original domain, so we need to get indices for
+  // selected index for the original domain, so we need to get indices from
   // orginal domain.
   auto root_inds = getRootIndices(
       consumer_tv, loops, index_from_id_graph, override_index.size() > 0);
@@ -2857,6 +2857,7 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
           SimplifyingIrBuilder::addExpr(stop_index, stop_offset);
       auto extent_id = gpu_lower->caMap()->getConcreteMappedID(
           contig_id, IdMappingMode::EXACT);
+      // without this, FusionScatterAddOpAllDim_CUDA fail.
       auto stop_pred = SimplifyingIrBuilder::ltExpr(
                            offsetted_stop_index, extent_id->extent())
                            ->as<Bool>();

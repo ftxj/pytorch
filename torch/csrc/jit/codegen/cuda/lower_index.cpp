@@ -253,8 +253,8 @@ void IndexLowering::handle(const ScatterOp* sop) {
 
   const std::unordered_map<IterDomain*, Val*> override_index_inp = {
       {sop->getInputSelectAxis(), lowered_index}};
-  auto lowered_input =
-      lowerSrcIndex(sop->inputTv(), sop->output(0), override_index_inp);
+  auto lowered_self =
+      lowerSrcIndex(sop->selfTv(), sop->output(0), override_index_inp);
 
   const std::unordered_map<IterDomain*, Val*> override_index_out = {
       {sop->getOutputSelectAxis(), lowered_index}};
@@ -263,7 +263,7 @@ void IndexLowering::handle(const ScatterOp* sop) {
   pushBack(IrBuilder::create<ScatterOp>(
       sop->getScatterOpType(),
       lowered_out,
-      lowered_input,
+      lowered_self,
       sop->dim(),
       lowered_index,
       lowered_src,

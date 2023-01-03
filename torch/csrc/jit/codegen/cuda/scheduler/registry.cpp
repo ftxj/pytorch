@@ -55,7 +55,7 @@ bool rejectScheduleForTorchGather(
 bool rejectScheduleForScatter(
     ScatterOp* op,
     ScheduleHeuristic schedule_stragety) {
-  if (!op->inputTv()->isFusionInput()) {
+  if (!op->selfTv()->isFusionInput()) {
     scheduler_debug_utils::canScheduleRejectReason(
         schedule_stragety, "InputTv of ScatterOp must be fusion input.");
     return true;
@@ -71,7 +71,7 @@ bool rejectScheduleForScatter(
         schedule_stragety, "SrcTv of ScatterOp cannot be fusion output.");
     return true;
   }
-  if (op->inputTv()->isFusionOutput()) {
+  if (op->selfTv()->isFusionOutput()) {
     scheduler_debug_utils::canScheduleRejectReason(
         schedule_stragety, "InputTv of ScatterOp cannot be fusion output.");
     return true;
@@ -85,11 +85,11 @@ bool rejectScheduleForScatter(
       return true;
     }
   }
-  for (auto used_op : op->inputTv()->uses()) {
+  for (auto used_op : op->selfTv()->uses()) {
     if (!used_op->isA<ScatterOp>()) {
       scheduler_debug_utils::canScheduleRejectReason(
           schedule_stragety,
-          "inputTv of ScatterOp can only be used by ScatterOp");
+          "selfTv of ScatterOp can only be used by ScatterOp");
       return true;
     }
   }

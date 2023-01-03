@@ -596,70 +596,71 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
   return out_tensor->as<TensorView>();
 }
 
-// torch.scatter, out-of-place version of Tensor.scatter_(dim, index, src)
+// torch.scatter torch.scatter_add
 TensorView* scatter_base(
     ScatterOpType type,
-    TensorView* input,
+    TensorView* self,
     int dim,
     TensorView* index,
     TensorView* src) {
-  auto inp_dom = TensorDomain::noReductions(input->getMaybeRFactorDomain());
+  auto self_dom = TensorDomain::noReductions(self->getMaybeRFactorDomain());
   auto idx_dom = TensorDomain::noReductions(index->getMaybeRFactorDomain());
   auto src_dom = TensorDomain::noReductions(src->getMaybeRFactorDomain());
 
-  TORCH_CHECK(inp_dom.size() > 0, "scatter can not be applied to 0d tensor.");
+  TORCH_CHECK(self_dom.size() > 0, "scatter can not be applied to 0d tensor.");
   TORCH_CHECK(
-      inp_dom.size() == idx_dom.size() && src_dom.size() == inp_dom.size(),
-      "input, index and src (if it is a Tensor) should all have the same number of dimensions in scatter op.");
+      self_dom.size() == idx_dom.size() && self_dom.size() == src_dom.size(),
+      "self, index and src tensor should all have the same number of dimensions in scatter like ops.");
   if (dim < 0) {
-    dim += inp_dom.size();
+    dim += self_dom.size();
   }
   TORCH_CHECK(
-      dim >= 0 && dim < inp_dom.size(),
-      "Gather on invalid axis, received: ",
+      dim >= 0 && dim < self_dom.size(),
+      "Scatter on invalid axis, received: ",
       dim,
       " however tensor view only has ",
-      inp_dom.size(),
+      self_dom.size(),
       " non-reduction dims.");
 
   // The shape of output tensor is same as input tensor.
   std::vector<IterDomain*> out_domain;
-  for (int i = 0; i < inp_dom.size(); ++i) {
+  for (const auto i : c10::irange(self_dom.size())) {
     out_domain.push_back(
-        IterDomainBuilder(inp_dom[i])
+        IterDomainBuilder(self_dom[i])
             .iter_type(
-                inp_dom[i]->getIterType() == IterType::Iteration
+                self_dom[i]->getIterType() == IterType::Iteration
                     ? IterType::GatherScatter
-                    : inp_dom[i]->getIterType())
+                    : self_dom[i]->getIterType())
             .build());
   }
 
   TensorView* out_tensor = IrBuilder::create<TensorView>(
       IrBuilder::create<TensorDomain>(
           out_domain, TensorDomain::getContiguousContiguity(out_domain)),
-      input->getDataType().value());
+      self->getDataType().value());
 
   IrBuilder::create<ScatterOp>(
-      type, out_tensor, input, dim, index, src, out_domain[dim], inp_dom[dim]);
+      type, out_tensor, self, dim, index, src, out_domain[dim], self_dom[dim]);
   return out_tensor->as<TensorView>();
 }
 
 TensorView* scatter_add(
-    TensorView* input,
+    TensorView* self,
     int dim,
     TensorView* index,
     TensorView* src) {
-  return scatter_base(ScatterOpType::Add, input, dim, index, src);
+  return scatter_base(ScatterOpType::Add, self, dim, index, src);
 }
 
 TensorView* scatter(
-    TensorView* input,
+    TensorView* self,
     int dim,
     TensorView* index,
     TensorView* src) {
-  return scatter_base(ScatterOpType::Set, input, dim, index, src);
+  return scatter_base(ScatterOpType::Set, self, dim, index, src);
 }
 
+// TENSOR FACTORIES
 TensorView* rand(const std::vector<Val*>& shape, DataType dtype) {
   auto n = shape.size();
   auto out = TensorViewBuilder()

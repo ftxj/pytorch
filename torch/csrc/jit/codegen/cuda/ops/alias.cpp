@@ -343,13 +343,9 @@ TensorView* onehot(TensorView* x, int classes) {
   for (auto id : dom) {
     self_shape.emplace_back(id->getMaybeExpandedExtent());
   }
-
   self_shape.emplace_back(IrBuilder::create<Int>(classes));
-
   auto tv_self = zeros(self_shape, DataType::Int);
-
   auto tv_idx = unsqueeze(x, -1);
-
   auto tv_src = ones_like(tv_idx);
 
   return scatter(tv_self, -1, tv_idx, tv_src);

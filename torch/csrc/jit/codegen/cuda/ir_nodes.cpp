@@ -219,14 +219,14 @@ ScatterOp::ScatterOp(
     IrBuilderPasskey passkey,
     ScatterOpType type,
     Val* out,
-    Val* input,
+    Val* self,
     int dim,
     Val* index,
     Val* src,
     IterDomain* select_out_id,
     IterDomain* select_inp_id)
     : Expr(passkey) {
-  addInput(input);
+  addInput(self);
   addInput(index);
   addInput(src);
   addOutput(out);
@@ -244,13 +244,9 @@ std::string ScatterOp::toString(int indent_size) const {
   indent(ss, indent_size) << output(0)->toString() << "\n";
   indent_size++;
   indent(ss, indent_size) << " =" << getScatterOpType() << "(";
-  if (inputTv()->isA<kir::TensorIndex>()) {
-    ss << inputTv()->as<kir::TensorIndex>()->view()->toString();
-  } else {
-    ss << inputTv()->toString();
-  }
-  ss << ", dim = " << dim() << ", src = " << srcTv()->toString()
-     << ", idx = " << indexTv()->toString() << " )\n";
+  ss << "self = " << selfTv()->toString() << ", dim = " << dim()
+     << ", src = " << srcTv()->toString() << ", idx = " << indexTv()->toString()
+     << " )\n";
   return ss.str();
 }
 

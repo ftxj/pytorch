@@ -998,13 +998,14 @@ class CudaKernelGenerator : private OptOutConstDispatch {
   }
 
   void handle(const ScatterOp* sop) final {
-    // generate code like T_output[... + T_index[...]] = T_src[...];
+    // generate code like T_output[... + T_index[...]] = op(T_src[...]);
     if (sop->getScatterOpType() == ScatterOpType::Set) {
       indent() << gen(sop->output(0)) << " = " << gen(sop->srcTv()) << ";\n";
     } else if (sop->getScatterOpType() == ScatterOpType::Add) {
       indent() << "atomicAdd(&" << gen(sop->output(0)) << ", "
-               << gen(sop->srcTv()) << ")"
-               << ";\n";
+               << gen(sop->srcTv()) << ");\n";
+    } else {
+      TORCH_INTERNAL_ASSERT(false, "unkown scatter op");
     }
   }
 

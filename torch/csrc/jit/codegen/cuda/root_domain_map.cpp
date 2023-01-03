@@ -90,6 +90,7 @@ std::unordered_map<IterDomain*, IterDomain*> PairwiseRootDomainMap::map(
     return {};
   }
 
+  // Nothing to map when the consumer is ScatterOp (recursive)
   std::stack<std::pair<const Val*, const Val*>> consumer_producer_tv_q;
   consumer_producer_tv_q.push({consumer_tv_, producer_tv_});
 
