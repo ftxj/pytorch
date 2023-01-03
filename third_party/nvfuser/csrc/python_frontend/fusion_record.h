@@ -1,6 +1,6 @@
 #pragma once
-#include <c10/util/complex.h>
 #include <arith.h>
+#include <c10/util/complex.h>
 #include <ir_interface_nodes.h>
 #include <ops/alias.h>
 #include <ops/normalization.h>
@@ -37,7 +37,7 @@ enum class RecordType {
   ViewOp,
   PermuteOp,
   IndexSelectOp,
-  TorchGatherOp
+  TorchGatherOp,
   FullOp
 };
 

@@ -262,7 +262,7 @@ const std::vector<std::string> functions = {
             output = torch.gather(self, dim, index, sparse_grad = sparse_grad)
             def backward(grad_output):
                 if (sparse_grad):
-                    return AD_gather_sparse_backend(grad_output, self, dim, index), None, None, None
+                    return torch.gather_backward(grad_output, self, dim, index, sparse_grad), None, None, None
                 grad_self = torch.zeros_like(self)
                 grad_self = torch.scatter_add(grad_self, dim, index, grad_output)
                 return grad_self, None, None, None
