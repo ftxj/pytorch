@@ -293,7 +293,7 @@ const std::vector<std::string> functions = {
         
         def one_hot(self,
                     num_classes: int):
-            output = torch.nn.functional.one_hot(self, num_classes)
+            output = torch.one_hot(self, num_classes)
             def backward(grad_output):
                 return None, None
             return output, backward

@@ -923,6 +923,20 @@ RegisterOperators reg_expand_as_copy({
         aliasAnalysisFromSchema()),
 });
 
+RegisterOperators reg_infer_one_hot_size({
+    Operator(
+        "prim::infer_one_hot_size(int[] size, int num_classes) -> int[]",
+        [](const Node* node) -> Operation {
+          return [](Stack& stack) {
+            auto num_classes = pop(stack).toInt();
+            auto size = pop(stack).toIntList();
+            size.push_back(num_classes);
+            push(stack, IValue(std::move(size)));
+          };
+        },
+        aliasAnalysisFromSchema()),
+});
+
 } // namespace
 
 } // namespace jit

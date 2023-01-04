@@ -4526,6 +4526,22 @@ bool insertProfileIValue(ProfilingRecord* pr, Node* node, size_t offset) {
     return true;
   }
 
+  static auto one_hot_schema =
+      getOperatorForLiteral(
+          "aten::one_hot(Tensor self, int num_classes) -> Tensor")
+          ->schema();
+  if (node->matches(one_hot_schema)) {
+    switch (offset) {
+      // argument 1: scatter_add dim;
+      case 1:
+        profileInt(pr, node, offset);
+        break;
+      default:
+        return false;
+    }
+    return true;
+  }
+
   static auto batch_norm_impl_index_schema =
       getOperatorForLiteral(
           "aten::_batch_norm_impl_index(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, bool cudnn_enabled) -> (Tensor, Tensor, Tensor, Tensor, int)")

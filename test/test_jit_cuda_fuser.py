@@ -4332,6 +4332,20 @@ class TestCudaFuser(JitTestCase):
         t_jit = torch.jit.script(t)
         self._run_helper(t_jit, t, input, idx.transpose(0, 1).contiguous(), src1, src2)
 
+    @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
+    @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
+                     "Requires fusion optimization pass to be effective")
+    def test_onehot_forward_fusion(self):
+        input_dim = (128, 1)
+
+        input = torch.arange(0, 5, device="cuda") % 2
+        input2 = torch.arange(0, 5, device="cuda") % 2
+        
+        def t(input, input2):
+            o = torch.nn.functional.one_hot(input + input2, 5)
+            return o
+        t_jit = torch.jit.script(t)
+        self._run_helper(t_jit, t, input, input2, num_fusion = 1)
 
     @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
     @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,

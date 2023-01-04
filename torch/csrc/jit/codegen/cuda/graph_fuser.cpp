@@ -1096,8 +1096,13 @@ struct CudaGraphFuser {
         TORCH_INTERNAL_ASSERT(
             shape_of.count(n->input(0)) > 0,
             "buildShapeExpressions failed at accessing input shapes");
-        auto size_node = graph->insertNode(graph->create(
-            prim::add_optional, {shape_of.at(n->input(0)), n->input(1)}));
+        Node* in1_const = graph->createClone(n->input(1)->node(), map_inputs);
+        graph->insertNode(in1_const);
+
+        Node* size_node = graph->insertNode(graph->create(
+            Symbol::fromQualString("prim::infer_one_hot_size"),
+            {shape_of.at(n->input(0)), in1_const->output()},
+            1));
         Value* size = size_node->output(0);
         size->setType(ListType::ofInts());
         shape_of.emplace(n->output(0), shape_of.at(n->input(0)));
