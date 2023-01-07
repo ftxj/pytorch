@@ -235,10 +235,6 @@ void KernelArgumentHolder::push(const at::Tensor& tensor) {
 // Push a list to the arguments
 void KernelArgumentHolder::push(const c10::List<int64_t>& list) {
   arguments_.push_back(std::make_unique<IntListArg>(list.vec()));
-
-  for (auto val : list.vec()) {
-    std::cout << "Long " << val << std::endl;
-  }
 }
 
 // Push a scalar or integer to the arguments
@@ -299,14 +295,19 @@ void KernelArgumentHolder::push(const c10::ArrayRef<c10::IValue>& args) {
   // Naive I/O setup, I'm ignoring all the potential transformation (i.e. I/O
   // allocated here from the subgraph could be, and very likely are, different
   // from I/O expected by the generated CUDA kernel.
+  std::vector<int64_t> added_args;
   for (const auto& arg : args) {
     if (arg.isTensor()) {
       push(arg.toTensor());
     } else if (arg.isIntList()) {
-      push(arg.toIntList());
+      auto vec = arg.toIntList().vec();
+      added_args.insert(added_args.begin(), vec.begin(), vec.end());
     } else {
       push(arg);
     }
+  }
+  for (auto val : added_args) {
+    push(IValue(val));
   }
 }
 

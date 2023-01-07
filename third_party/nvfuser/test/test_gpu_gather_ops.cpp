@@ -358,7 +358,7 @@ TEST_F(NVFuserTest, FusionListInput_Test) {
   std::cout << fusion << std::endl;
 
   c10::List<int64_t> list{20, 30};
-  std::vector<IValue> aten_inputs = {IValue(list), 20, 30};
+  std::vector<IValue> aten_inputs = {IValue(list)};
 
   FusionExecutorCache executor_cache(std::move(fusion_ptr));
   auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);

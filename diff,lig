@@ -1,0 +1,888 @@
+diff --git a/third_party/fbgemm b/third_party/fbgemm
+index 908a8f361a..4d1738b314 160000
+--- a/third_party/fbgemm
++++ b/third_party/fbgemm
+@@ -1 +1 @@
+-Subproject commit 908a8f361ac5c6103e55fbbb38ef8110457ff6eb
++Subproject commit 4d1738b3142a6cb0c032cd639e239566010b054a
+diff --git a/third_party/ideep b/third_party/ideep
+index e533c771a1..ececd0a4f5 160000
+--- a/third_party/ideep
++++ b/third_party/ideep
+@@ -1 +1 @@
+-Subproject commit e533c771a1e75a1c225c14b2261eefa62681d9e6
++Subproject commit ececd0a4f53c39f2d91caaddee0de1cd214f5b99
+diff --git a/third_party/kineto b/third_party/kineto
+index 6c16298090..0703c78999 160000
+--- a/third_party/kineto
++++ b/third_party/kineto
+@@ -1 +1 @@
+-Subproject commit 6c1629809068efd78a8d56b4aa479c7ec49ae562
++Subproject commit 0703c78999061b8329dfab7ec5046fc5764a5573
+diff --git a/third_party/nvfuser/CMakeLists.txt b/third_party/nvfuser/CMakeLists.txt
+index 1cca6680ae..06f6b341f8 100644
+--- a/third_party/nvfuser/CMakeLists.txt
++++ b/third_party/nvfuser/CMakeLists.txt
+@@ -293,27 +293,6 @@ target_include_directories(${NVFUSER_CODEGEN} PRIVATE "${CMAKE_BINARY_DIR}/inclu
+ if(USE_CUDA)
+   set(NVFUSER_TESTS "${PROJECT_NAME}_tests")
+   set(JIT_TEST_SRCS)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_SRCS_DIR}/python_frontend/test/test_nvfuser_fusion_definition.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_SRCS_DIR}/python_frontend/test/test_nvfuser_fusion_cache.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_SRCS_DIR}/python_frontend/test/test_nvfuser_fusion_record.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu1.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu2.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu3.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_compute_with.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_expr_simplifier.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_external_src.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_swizzle.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_tensor_factories.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_fused_reduction.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_outer_reduction.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_shift.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_tensorcore.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_view.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_transpose.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_rng.cu)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_utils.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_indexing_ops.cpp)
+-  list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_indexing.cpp)
+   list(APPEND JIT_TEST_SRCS ${NVFUSER_ROOT}/test/test_gpu_gather_ops.cpp)
+ 
+   add_executable(${NVFUSER_TESTS}
+diff --git a/third_party/nvfuser/csrc/arith.cpp b/third_party/nvfuser/csrc/arith.cpp
+index 9d3a14c94d..b7133d8907 100644
+--- a/third_party/nvfuser/csrc/arith.cpp
++++ b/third_party/nvfuser/csrc/arith.cpp
+@@ -702,6 +702,25 @@ TensorView* zeros(const std::vector<Val*>& shape, DataType dtype) {
+   return full(shape, FusionGuard::getCurFusion()->zeroVal(), dtype);
+ }
+ 
++TensorView* zeros(ListInt* shape, DataType dtype) {
++  auto n = 2;
++  std::vector<Val*> shape_vec;
++  shape_vec.emplace_back(
++      IrBuilder::create<NamedScalar>("list_shape_0", DataType::Int));
++  shape_vec.emplace_back(
++      IrBuilder::create<NamedScalar>("list_shape_1", DataType::Int));
++  shape->fusion()->addInput(shape_vec[0]);
++  shape->fusion()->addInput(shape_vec[1]);
++  auto out = TensorViewBuilder()
++                 .ndims(n)
++                 .dtype(dtype)
++                 .contiguity(std::vector<bool>(n, true))
++                 .shape(shape_vec)
++                 .build();
++  IrBuilder::create<FullOp>(out, FusionGuard::getCurFusion()->zeroVal());
++  return out;
++}
++
+ TensorView* zeros_like(TensorView* tv) {
+   return full_like(tv, FusionGuard::getCurFusion()->zeroVal());
+ }
+diff --git a/third_party/nvfuser/csrc/arith.h b/third_party/nvfuser/csrc/arith.h
+index 3c6e4d055f..52015cb5a3 100644
+--- a/third_party/nvfuser/csrc/arith.h
++++ b/third_party/nvfuser/csrc/arith.h
+@@ -7,6 +7,7 @@
+ #include <type_promotion.h>
+ 
+ class Val;
++class ListInt;
+ 
+ /*
+  * The operations defined in this header is intended as user facing functions.
+@@ -177,6 +178,9 @@ TORCH_CUDA_CU_API Val* full_like(Val* tv, Val* fill_value);
+ TORCH_CUDA_CU_API TensorView* zeros(
+     const std::vector<Val*>& shape,
+     DataType dtype);
++TORCH_CUDA_CU_API TensorView* zeros(ListInt* shape, DataType dtype);
++TORCH_CUDA_CU_API std::vector<Val*> unpack_list(ListInt* shape, DataType dtype);
++
+ TORCH_CUDA_CU_API TensorView* zeros_like(TensorView*);
+ TORCH_CUDA_CU_API Val* zeros_like(Val*);
+ TORCH_CUDA_CU_API TensorView* ones(
+diff --git a/third_party/nvfuser/csrc/dispatch.cpp b/third_party/nvfuser/csrc/dispatch.cpp
+index 85676f4819..42a42723af 100644
+--- a/third_party/nvfuser/csrc/dispatch.cpp
++++ b/third_party/nvfuser/csrc/dispatch.cpp
+@@ -85,6 +85,9 @@ void Val::dispatch(T handler, Val* val) {
+     case ValType::TensorIndex:
+       ptr(handler)->handle(val->as<kir::TensorIndex>());
+       return;
++    case ValType::List:
++      ptr(handler)->handle(val->as<ListInt>());
++      return;
+     default:
+       break;
+   }
+@@ -328,6 +331,9 @@ void Val::constDispatch(T handler, const Val* val) {
+     case ValType::TensorIndex:
+       ptr(handler)->handle(val->as<kir::TensorIndex>());
+       return;
++    case ValType::List:
++      ptr(handler)->handle(val->as<ListInt>());
++      return;
+     case ValType::Attribute:
+       // Attribute Val is just a wrapper for non-IR data, so there is nothing to
+       // handle
+@@ -587,6 +593,9 @@ void Val::mutatorDispatch(T mutator, Val* val) {
+     case ValType::TensorIndex:
+       ptr(mutator)->mutate(val->as<kir::TensorIndex>());
+       return;
++    case ValType::List:
++      ptr(mutator)->mutate(val->as<ListInt>());
++      return;
+     case ValType::Attribute:
+       TORCH_INTERNAL_ASSERT(
+           false,
+@@ -728,6 +737,10 @@ void OptOutConstDispatch::handle(const TensorView* stmt) {
+   unhandled(stmt);
+ }
+ 
++void OptOutConstDispatch::handle(const ListInt* stmt) {
++  unhandled(stmt);
++}
++
+ void OptOutConstDispatch::handle(const kir::Predicate* stmt) {
+   unhandled(stmt);
+ }
+@@ -896,6 +909,10 @@ void OptOutDispatch::handle(TensorView* stmt) {
+   unhandled(stmt);
+ }
+ 
++void OptOutDispatch::handle(ListInt* stmt) {
++  unhandled(stmt);
++}
++
+ void OptOutDispatch::handle(kir::Predicate* stmt) {
+   unhandled(stmt);
+ }
+diff --git a/third_party/nvfuser/csrc/dispatch.h b/third_party/nvfuser/csrc/dispatch.h
+index ddad717fcb..cbab18eac3 100644
+--- a/third_party/nvfuser/csrc/dispatch.h
++++ b/third_party/nvfuser/csrc/dispatch.h
+@@ -62,6 +62,13 @@ class IterDomain;
+ class TensorDomain;
+ class TensorView;
+ 
++template <typename DT>
++class List;
++using ListBool = List<bool>;
++using ListInt = List<int64_t>;
++using ListDouble = List<double>;
++using ListComplexDouble = List<std::complex<double>>;
++
+ template <typename DT>
+ class Scalar;
+ using Bool = Scalar<bool>;
+@@ -140,6 +147,9 @@ class TORCH_CUDA_CU_API OptOutConstDispatch : public PolymorphicBase {
+   virtual void handle(const IterDomain* stmt);
+   virtual void handle(const TensorDomain* stmt);
+   virtual void handle(const TensorView* stmt);
++
++  virtual void handle(const ListInt* stmt);
++
+   virtual void handle(const Bool* stmt);
+   virtual void handle(const Double* stmt);
+   virtual void handle(const Int* stmt);
+@@ -217,6 +227,8 @@ class TORCH_CUDA_CU_API OptOutDispatch : public PolymorphicBase {
+   virtual void handle(TensorDomain* stmt);
+   virtual void handle(TensorView* stmt);
+ 
++  virtual void handle(ListInt* stmt);
++
+   virtual void handle(kir::Predicate*);
+   virtual void handle(kir::TensorIndex*);
+ 
+@@ -329,6 +341,8 @@ class TORCH_CUDA_CU_API OptOutMutator : public PolymorphicBase {
+   virtual void mutate(TensorDomain*);
+   virtual void mutate(TensorView*);
+ 
++  virtual void mutate(ListInt*);
++
+   virtual void mutate(kir::Predicate*);
+   virtual void mutate(kir::TensorIndex*);
+ 
+diff --git a/third_party/nvfuser/csrc/executor_kernel_arg.cpp b/third_party/nvfuser/csrc/executor_kernel_arg.cpp
+index c3a4081408..72fbe4674a 100644
+--- a/third_party/nvfuser/csrc/executor_kernel_arg.cpp
++++ b/third_party/nvfuser/csrc/executor_kernel_arg.cpp
+@@ -232,6 +232,15 @@ void KernelArgumentHolder::push(const at::Tensor& tensor) {
+   }
+ }
+ 
++// Push a list to the arguments
++void KernelArgumentHolder::push(const c10::List<int64_t>& list) {
++  arguments_.push_back(std::make_unique<IntListArg>(list.vec()));
++
++  for (auto val : list.vec()) {
++    std::cout << "Long " << val << std::endl;
++  }
++}
++
+ // Push a scalar or integer to the arguments
+ void KernelArgumentHolder::push(const IValue& val) {
+   changed_ = true;
+@@ -293,6 +302,8 @@ void KernelArgumentHolder::push(const c10::ArrayRef<c10::IValue>& args) {
+   for (const auto& arg : args) {
+     if (arg.isTensor()) {
+       push(arg.toTensor());
++    } else if (arg.isIntList()) {
++      push(arg.toIntList());
+     } else {
+       push(arg);
+     }
+diff --git a/third_party/nvfuser/csrc/executor_kernel_arg.h b/third_party/nvfuser/csrc/executor_kernel_arg.h
+index 4fd11b75e2..317ef29611 100644
+--- a/third_party/nvfuser/csrc/executor_kernel_arg.h
++++ b/third_party/nvfuser/csrc/executor_kernel_arg.h
+@@ -3,8 +3,8 @@
+ #include <ATen/core/ivalue.h>
+ #include <ATen/cuda/CUDAGeneratorImpl.h>
+ #include <c10/util/Exception.h>
+-#include <type.h>
+ #include <torch/csrc/jit/ir/ir.h>
++#include <type.h>
+ #include <array>
+ 
+ namespace torch {
+@@ -83,7 +83,8 @@ enum class ArgType {
+   ComplexDouble,
+   Bool,
+   Tensor,
+-  CpuScalarTensor
++  CpuScalarTensor,
++  IntList
+ };
+ 
+ inline std::string argTypeToString(ArgType type) {
+@@ -110,6 +111,9 @@ inline std::string argTypeToString(ArgType type) {
+     case ArgType::CpuScalarTensor:
+       ret = "CpuScalarTensor";
+       break;
++    case ArgType::IntList:
++      ret = "IntList";
++      break;
+   }
+   return ret;
+ }
+@@ -313,6 +317,7 @@ class TORCH_CUDA_CU_API KernelArgumentHolder {
+ 
+   // Push a scalar or integer to the arguments
+   void push(const IValue& val);
++  void push(const c10::List<int64_t>& list);
+ 
+   void push(const at::PhiloxCudaState& val);
+ 
+@@ -377,6 +382,19 @@ class TORCH_CUDA_CU_API KernelArgumentHolder {
+   KernelIndexMode index_mode_ = KernelIndexMode::INT64;
+ };
+ 
++struct IntListArg : public ArgAbstract {
++  std::vector<int64_t> val_;
++  int64_t getSize() const {
++    return val_.size();
++  }
++  int64_t getElm(int64_t i) const {
++    return val_[i];
++  }
++  explicit IntListArg(const std::vector<int64_t>& val) : val_(val) {}
++  DEF_HELPEE_FUNC(IntList, val_)
++  DEF_TOSTRING_FUNC
++};
++
+ } // namespace cuda
+ } // namespace fuser
+ } // namespace jit
+diff --git a/third_party/nvfuser/csrc/fusion.cpp b/third_party/nvfuser/csrc/fusion.cpp
+index 31bb763ac5..fb04e83c5f 100644
+--- a/third_party/nvfuser/csrc/fusion.cpp
++++ b/third_party/nvfuser/csrc/fusion.cpp
+@@ -204,6 +204,8 @@ void Fusion::addInput(Val* input) {
+     TORCH_CHECK(
+         !(input->isA<Double>() && input->getDataType() == DataType::Float),
+         "Using Double with DataType::Float as an input is not supported as there is no scalar float type in PyTorch.");
++  } else if (input->getValType().value() == ValType::List) {
++    std::cout << "add a list input" << std::endl;
+   }
+ 
+   inputs_.push_back(input);
+diff --git a/third_party/nvfuser/csrc/fusion_segmenter.cpp b/third_party/nvfuser/csrc/fusion_segmenter.cpp
+index 7e84fe4e20..74c0ff2091 100644
+--- a/third_party/nvfuser/csrc/fusion_segmenter.cpp
++++ b/third_party/nvfuser/csrc/fusion_segmenter.cpp
+@@ -3096,24 +3096,32 @@ FusionKernelRuntime::SchedulerEntryPtr SegmentedFusion::
+         SegmentedGroup* sg,
+         SchedulerRuntimeInfo& runtime_info) {
+   auto local_fusion = completeFusion();
++  std::cout << "makeInitialSchedulerEntry stage 1" << std::endl;
+   FusionSegmentGuard fsg(local_fusion, getAllInputs(sg), getAllOutputs(sg));
+   // This will be the first time each group is scheduled. So we'd want to
+   //  construct the cache data here.
++  std::cout << "makeInitialSchedulerEntry stage 2" << std::endl;
+   auto data_cache_ptr = std::make_unique<HeuristicSummary>(
+       local_fusion, sg->heuristic(), runtime_info);
+   auto data_cache = data_cache_ptr.get();
++  std::cout << "makeInitialSchedulerEntry stage 3" << std::endl;
+   setCachedHeuristicDataFor(sg, std::move(data_cache_ptr));
++  std::cout << "makeInitialSchedulerEntry stage 4" << std::endl;
+   return SchedulerEntry::makeEntry(
+       sg->heuristic(), local_fusion, runtime_info, data_cache);
+ }
+ 
+ std::unique_ptr<FusionHeuristics> SegmentedFusion::makeInitialHeuristics(
+     const KernelArgumentHolder& inputs) {
++  std::cout << "init SegmentedFusion 1" << std::endl;
+   auto ret = std::make_unique<FusionHeuristics>();
++  std::cout << "init SegmentedFusion 2" << std::endl;
+   SchedulerRuntimeInfo runtime_info(completeFusion(), inputs, true);
++  std::cout << "init SegmentedFusion 3" << std::endl;
+   for (auto g : groups()) {
+     ret->emplaceBack(makeInitialSchedulerEntry(g, runtime_info));
+   }
++  std::cout << "init SegmentedFusion 4" << std::endl;
+   return ret;
+ }
+ 
+diff --git a/third_party/nvfuser/csrc/ir_base_nodes.h b/third_party/nvfuser/csrc/ir_base_nodes.h
+index a3a03ea447..b0d70ec882 100644
+--- a/third_party/nvfuser/csrc/ir_base_nodes.h
++++ b/third_party/nvfuser/csrc/ir_base_nodes.h
+@@ -530,6 +530,9 @@ class TORCH_CUDA_CU_API Expr : public Statement {
+   auto attributeVal(size_t index) const {
+     return dynamic_cast<Val*>(attributes_.at(index));
+   }
++  void modify(int i, Val* val) {
++    inputs_[i] = val;
++  }
+ 
+   // Dispatch functions, definitions in dispatch.cpp
+   template <typename T>
+diff --git a/third_party/nvfuser/csrc/ir_builder.h b/third_party/nvfuser/csrc/ir_builder.h
+index 52f91352fd..70c12f5dc3 100644
+--- a/third_party/nvfuser/csrc/ir_builder.h
++++ b/third_party/nvfuser/csrc/ir_builder.h
+@@ -150,6 +150,8 @@ class TORCH_CUDA_CU_API SimplifyingIrBuilder : public IrBuilder {
+ 
+ template <typename T>
+ NVFUSER_DEFINE_CLONE(Scalar<T>)
++template <typename T>
++NVFUSER_DEFINE_CLONE(List<T>)
+ 
+ } // namespace cuda
+ } // namespace fuser
+diff --git a/third_party/nvfuser/csrc/ir_interface_nodes.h b/third_party/nvfuser/csrc/ir_interface_nodes.h
+index bcdbf45571..59e8663158 100644
+--- a/third_party/nvfuser/csrc/ir_interface_nodes.h
++++ b/third_party/nvfuser/csrc/ir_interface_nodes.h
+@@ -168,10 +168,79 @@ using Int = Scalar<int64_t>;
+ using Double = Scalar<double>;
+ using ComplexDouble = Scalar<std::complex<double>>;
+ 
++template <typename ScalarType>
++class TORCH_CUDA_CU_API List : public Val {
++ public:
++  static constexpr DataType kDefaultDataType =
++      NativeTypeToDataType<ScalarType>::type;
++  explicit List(
++      IrBuilderPasskey passkey,
++      std::vector<ScalarType> value,
++      DataType dtype = kDefaultDataType)
++      : Val(passkey, ValType::List, dtype), maybe_value_{value} {}
++
++  explicit List(IrBuilderPasskey passkey, DataType dtype = kDefaultDataType)
++      : Val(passkey, ValType::List, dtype), maybe_value_{c10::nullopt} {}
++
++  List(const List* src, IrCloner* ir_cloner)
++      : Val(src, ir_cloner), maybe_value_(src->maybe_value_) {}
++
++  NVFUSER_DECLARE_CLONE
++
++  bool isSymbolic() const {
++    return !(maybe_value_.has_value());
++  }
++
++  std::vector<TensorView*> allInitializeTvs() {
++    return binding_tvs_;
++  };
++
++  void addInitializeTvs(TensorView* tv) {
++    return binding_tvs_.push_back(tv);
++  };
++
++  std::string toString(int indent_size = 0) const override {
++    std::stringstream ss;
++    if (isSymbolic()) {
++      ss << ir_utils::varName(this) << "[]";
++      return ss.str();
++    } else {
++      ss << "int []";
++    }
++    return ss.str();
++  }
++
++  std::string toInlineString(int indent_size = 0) const override {
++    return toString(indent_size);
++  }
++
++  c10::optional<std::vector<ScalarType>> value() const {
++    return maybe_value_;
++  }
++
++  bool sameAs(const Statement* other) const override {
++    if (this == other) {
++      return true;
++    }
++    if (!other->isA<List>()) {
++      return false;
++    }
++    return true;
++  }
++
++ private:
++  const c10::optional<std::vector<ScalarType>> maybe_value_;
++  std::vector<TensorView*> binding_tvs_;
++};
++using ListBool = List<bool>;
++using ListInt = List<int64_t>;
++using ListDouble = List<double>;
++using ListComplexDouble = List<std::complex<double>>;
++
+ //! Mode during propagation of computeAt, standard will throw an error if
+-//! computeAt position provided can't be satisfied, best effort will lower the
+-//! computeAt position as needed during traversal, most inlined will increase
+-//! the compute at position to maximum possible through traversal.
++//! computeAt position provided can't be satisfied, best effort will lower
++//! the computeAt position as needed during traversal, most inlined will
++//! increase the compute at position to maximum possible through traversal.
+ enum class ComputeAtMode { Standard, BestEffort, MostInlined };
+ 
+ class TransformPropagator;
+@@ -560,7 +629,7 @@ class TORCH_CUDA_CU_API TensorView : public Val {
+   // example, grouping multiple reductions.
+   void updateMaxProducerPosition();
+ 
+- protected:
++ public:
+   void setDomain(TensorDomain* td) {
+     domain_ = td;
+   }
+diff --git a/third_party/nvfuser/csrc/ir_nodes.cpp b/third_party/nvfuser/csrc/ir_nodes.cpp
+index c41194919f..2ce6a5e648 100644
+--- a/third_party/nvfuser/csrc/ir_nodes.cpp
++++ b/third_party/nvfuser/csrc/ir_nodes.cpp
+@@ -79,10 +79,34 @@ template class Scalar<int64_t>;
+ template class Scalar<double>;
+ template class Scalar<std::complex<double>>;
+ 
+-template Scalar<bool>* IrBuilder::clone<Scalar<bool>>(const Scalar<bool>*, IrCloner*);
+-template Scalar<int64_t>* IrBuilder::clone<Scalar<int64_t>>(const Scalar<int64_t>*, IrCloner*);
+-template Scalar<double>* IrBuilder::clone<Scalar<double>>(const Scalar<double>*, IrCloner*);
+-template Scalar<std::complex<double>>* IrBuilder::clone<Scalar<std::complex<double>>>(const Scalar<std::complex<double>>*, IrCloner*);
++template Scalar<bool>* IrBuilder::clone<Scalar<bool>>(
++    const Scalar<bool>*,
++    IrCloner*);
++template Scalar<int64_t>* IrBuilder::clone<Scalar<int64_t>>(
++    const Scalar<int64_t>*,
++    IrCloner*);
++template Scalar<double>* IrBuilder::clone<Scalar<double>>(
++    const Scalar<double>*,
++    IrCloner*);
++template Scalar<std::complex<double>>* IrBuilder::clone<
++    Scalar<std::complex<double>>>(
++    const Scalar<std::complex<double>>*,
++    IrCloner*);
++
++template class List<bool>;
++template class List<int64_t>;
++template class List<double>;
++template class List<std::complex<double>>;
++
++template List<bool>* IrBuilder::clone<List<bool>>(const List<bool>*, IrCloner*);
++template List<int64_t>* IrBuilder::clone<List<int64_t>>(
++    const List<int64_t>*,
++    IrCloner*);
++template List<double>* IrBuilder::clone<List<double>>(
++    const List<double>*,
++    IrCloner*);
++template List<std::complex<double>>* IrBuilder::clone<
++    List<std::complex<double>>>(const List<std::complex<double>>*, IrCloner*);
+ 
+ FullOp::FullOp(IrBuilderPasskey passkey, Val* out, Val* fill_value)
+     : Expr(passkey) {
+diff --git a/third_party/nvfuser/csrc/kernel_cache.cpp b/third_party/nvfuser/csrc/kernel_cache.cpp
+index fcbb34bd2e..ba83f6990d 100644
+--- a/third_party/nvfuser/csrc/kernel_cache.cpp
++++ b/third_party/nvfuser/csrc/kernel_cache.cpp
+@@ -66,6 +66,9 @@ InputsIdLookup::IdLookupReturn InputsIdLookup::lookupId(
+           encoding_);
+       encoding_.push_back('d');
+       encodeBuffer(input_tensor.device().index(), encoding_);
++    } else if (input.isIntList()) {
++      auto input_vec = input.toIntList().vec();
++      encoding_.push_back('l');
+     } else {
+       // encode s for scalar;
+       encoding_.push_back('s');
+@@ -171,12 +174,37 @@ void FusionExecutorCache::compileFusionAsync(
+ //
+ // For details  on Part_2, refer to implementation Note [ Permutation
+ // Bookkeeping and Propagation in Parser ]
++
+ std::vector<at::Tensor> FusionExecutorCache::runFusionWithInputs(
+     const at::ArrayRef<IValue>& inputs) {
+   FUSER_PERF_SCOPE("FusionExecutorCache::runFusionWithInputs");
+ 
+   // permute input tensor for kernel execution. See Part_1 in Note [ Channels
+   // Last support in nvfuser ]
++
++  // for (auto arg : inputs) {
++  //   if (arg.isIntList()) {
++  //     auto shape = arg.toIntList().vec();
++  //     std::vector<Val*> shape_val;
++  //     for (auto tv : ir_utils::allTvs(fusion_.get())) {
++  //       if (tv->definition() && tv->definition()->isA<FullOp>()) {
++  //         auto expr = tv->definition()->as<FullOp>();
++  //         std::vector<IterDomain*> new_domain(shape.size(), nullptr);
++  //         for (size_t i = 0; i < tv->domain()->domain().size(); ++i) {
++  //           auto val = IrBuilder::create<Int>(shape[i]);
++  //           expr->modify(i, val);
++  //           IterDomainBuilder builder(
++  //               FusionGuard::getCurFusion()->zeroVal(), val);
++  //           new_domain[i] = builder.build();
++  //         }
++  //         TensorDomain* new_d = IrBuilder::create<TensorDomain>(new_domain);
++  //         tv->setDomain(new_d);
++  //       }
++  //     }
++  //     break;
++  //   }
++  // }
++
+   at::ArrayRef<IValue> perm_inputs = inputs;
+   const auto& to_be_permuted_inputs = fusion_->getPermutationInputMap();
+   std::vector<IValue> inputs_vec;
+@@ -191,7 +219,8 @@ std::vector<at::Tensor> FusionExecutorCache::runFusionWithInputs(
+     }
+     perm_inputs = inputs_vec;
+   }
+-
++  std::cout << "runFusionWithInputs" << std::endl;
++  std::cout << fusion_.get() << std::endl;
+   KernelArgumentHolder args = prepareInputs(perm_inputs);
+ 
+   auto kernel_runtime = getKernelRuntimeFor(args);
+@@ -264,9 +293,11 @@ FusionKernelRuntime* FusionExecutorCache::getKernelRuntimeFor(
+ 
+   FusionKernelRuntime* kernel_runtime = nullptr;
+   if (reuse_it != kernel_runtimes.end()) {
++    std::cout << "init FusionKernelRuntime" << std::endl;
+     kernel_runtime = reuse_it->get();
+     kernel_runtime->updateHeuristicsLaunchParams(new_heuristics.get());
+   } else {
++    std::cout << "init FusionKernelRuntime 2" << std::endl;
+     // graph miss, need to re-build an optimized graph for this case
+     kernel_runtimes.emplace_back(
+         std::make_unique<FusionKernelRuntime>(fusion_.get(), args));
+@@ -284,24 +315,24 @@ FusionKernelRuntime::FusionKernelRuntime(
+     Fusion* fusion,
+     const KernelArgumentHolder& args) {
+   FUSER_PERF_SCOPE("FusionKernelRuntime::FusionKernelRuntime");
+-
++  std::cout << "init FusionKernelRuntime 1" << std::endl;
+   // Make a copy of fusion and do segmentation and translation
+   //  on this copy
+   auto fusion_copy = std::make_unique<Fusion>(*fusion);
+ 
+   // Run segmentation on the copied fusion
+   SchedulerRuntimeInfo runtime_info(fusion_copy.get(), args, true);
+-
++  std::cout << "init FusionKernelRuntime 2" << std::endl;
+   // Initialize the evaluator simplifer
+   precomputed_values_ = std::make_unique<PrecomputedValues>(fusion_copy.get());
+-
++  std::cout << "init FusionKernelRuntime 3" << std::endl;
+   //! Try to schedule the complete fusion
+   scheduler_debug_utils::canScheduleMessage(
+       "***Runtime***: Try to schedule fusion un-segmented:\n");
+-
++  std::cout << "init FusionKernelRuntime 4" << std::endl;
+   const auto maybe_complete_fusion_heuristic =
+       SchedulerEntry::proposeHeuristics(fusion_copy.get(), runtime_info);
+-
++  std::cout << "init FusionKernelRuntime 5" << std::endl;
+   //! Decide if this fusion is segmented or not
+   const bool segmented = !maybe_complete_fusion_heuristic.has_value();
+ 
+@@ -313,13 +344,16 @@ FusionKernelRuntime::FusionKernelRuntime(
+     segmented_fusion_ = SegmentedFusion::fromCompleteFusion(
+         std::move(fusion_copy), maybe_complete_fusion_heuristic.value());
+   }
+-
++  std::cout << "init FusionKernelRuntime 6" << std::endl;
++  segmented_fusion_->print();
+   heuristics_ = segmented_fusion_->makeInitialHeuristics(args);
++  std::cout << "init FusionKernelRuntime 6.5" << std::endl;
++
+   executors_ = std::vector<FusionExecutor>(segmented_fusion_->groups().size());
+   if (isDebugDumpEnabled(DebugDumpOption::FusionSegments)) {
+     segmented_fusion_->print();
+   }
+-
++  std::cout << "init FusionKernelRuntime 7" << std::endl;
+   // Even if we go through the segmented path we may still end up
+   //  with a segmented fusion with one group. This case still
+   //  counts as un-segmented.
+@@ -341,6 +375,7 @@ std::vector<at::Tensor> FusionKernelRuntime::runKernelWithInput(
+   //   a kernel is compiled and run for a segmented group
+   //  In the case of complete fusion, sg = nullptr, and the original fusion
+   //   is complied and run
++  std::cout << "runKernelWithInput: need valid group to run" << std::endl;
+   TORCH_INTERNAL_ASSERT(sg, "runKernelWithInput: need valid group to run");
+   auto group_id = sg->groupId();
+ 
+@@ -411,6 +446,7 @@ std::vector<at::Tensor> FusionKernelRuntime::runKernelWithInput(
+ 
+ void FusionKernelRuntime::prepareRuntimeOrder() {
+   // Setup group run order:
++  std::cout << "prepareRuntimeOrder" << std::endl;
+   std::unordered_set<Val*> available_input;
+ 
+   // setup the order tensor dimensions are bound
+@@ -424,6 +460,20 @@ void FusionKernelRuntime::prepareRuntimeOrder() {
+         const auto extent = root_dom[dim]->extent();
+         available_input.insert(extent);
+         runtime_workspace_.group_extent_binding_order.push_back(extent);
++        std::cout << "push tv extent " << extent->toString() << std::endl;
++      }
++    }
++    if (auto input_list = dynamic_cast<ListInt*>(input_val)) {
++      std::cout << "debig" << std::endl;
++      auto tvs = input_list->allInitializeTvs();
++      for (auto tv : tvs) {
++        auto root_dom = TensorDomain::noReductions(tv->getRootDomain());
++        for (const size_t dim : c10::irange(2)) {
++          const auto extent = root_dom[dim]->extent();
++          available_input.insert(extent);
++          runtime_workspace_.group_extent_binding_order.push_back(extent);
++          std::cout << "push list extent " << extent->toString() << std::endl;
++        }
+       }
+     }
+   }
+@@ -501,7 +551,8 @@ void FusionKernelRuntime::startAsyncCompile(KernelArgumentHolder& args_old) {
+ 
+     c10::Device device(c10::DeviceType::CUDA, args.getDeviceIndex());
+     std::unordered_map<Val*, const ArgAbstract*> tensor_map;
+-    mapFusionInputsToArgs(tensor_map, args);
++    std::unordered_map<Val*, const ArgAbstract*> list_map;
++    mapFusionInputsToArgs(tensor_map, list_map, args);
+ 
+     // TODO: compilation can happen in parallel! We can have output sizes
+     // inferred on un-compiled kernel and setup all tensor_map prior to
+@@ -579,6 +630,7 @@ KernelArgumentHolder FusionKernelRuntime::compileKernel(
+ 
+ void FusionKernelRuntime::mapFusionInputsToArgs(
+     std::unordered_map<Val*, const ArgAbstract*>& tensor_map,
++    std::unordered_map<Val*, const ArgAbstract*>& list_map,
+     KernelArgumentHolder& args) {
+   int extent_index = 0;
+   auto original_args_size = args.size();
+@@ -602,6 +654,18 @@ void FusionKernelRuntime::mapFusionInputsToArgs(
+             args.back());
+       }
+     }
++
++    if (auto list_arg_abstract = dynamic_cast<const IntListArg*>(args[i])) {
++      // Note this is very ugly way. We are pushing every single extent to args,
++      // because we don't have a better place to hold them.
++      auto size = list_arg_abstract->getSize();
++      for (const auto dim : c10::irange(size)) {
++        args.push(list_arg_abstract->getElm(dim));
++        tensor_map.emplace(
++            runtime_workspace_.group_extent_binding_order[extent_index++],
++            args.back());
++      }
++    }
+   }
+ }
+ 
+@@ -619,7 +683,8 @@ std::vector<at::Tensor> FusionKernelRuntime::runWithInput(
+   c10::Device device(c10::DeviceType::CUDA, args.getDeviceIndex());
+ 
+   std::unordered_map<Val*, const ArgAbstract*> tensor_map;
+-  mapFusionInputsToArgs(tensor_map, args);
++  std::unordered_map<Val*, const ArgAbstract*> list_map;
++  mapFusionInputsToArgs(tensor_map, list_map, args);
+ 
+   // TODO: we don't need this any more, since TensorArgAbstract already holds a
+   // reference to tensor
+@@ -633,6 +698,7 @@ std::vector<at::Tensor> FusionKernelRuntime::runWithInput(
+   // group should share cache id.
+   auto group_cache_id = args.getCacheId();
+   for (auto group_to_run : runtime_workspace_.group_run_order) {
++    group_to_run->print();
+     // TODO: index mode should be updated per segmented kernel
+     // Prepare input vector
+     KernelArgumentHolder group_runtime_inputs(args.getIndexMode());
+diff --git a/third_party/nvfuser/csrc/kernel_cache.h b/third_party/nvfuser/csrc/kernel_cache.h
+index eca915697f..530028f6e7 100644
+--- a/third_party/nvfuser/csrc/kernel_cache.h
++++ b/third_party/nvfuser/csrc/kernel_cache.h
+@@ -80,6 +80,7 @@ class TORCH_CUDA_CU_API FusionKernelRuntime {
+   //! after this function and use it with caution.
+   void mapFusionInputsToArgs(
+       std::unordered_map<Val*, const ArgAbstract*>& tensor_map,
++      std::unordered_map<Val*, const ArgAbstract*>& list_map,
+       KernelArgumentHolder& args);
+ 
+   //! Unified interface to run the managed kernels with given input
+diff --git a/third_party/nvfuser/csrc/mutator.cpp b/third_party/nvfuser/csrc/mutator.cpp
+index af2fcd980e..d7bc6edf9f 100644
+--- a/third_party/nvfuser/csrc/mutator.cpp
++++ b/third_party/nvfuser/csrc/mutator.cpp
+@@ -47,6 +47,8 @@ void OptOutMutator::mutate(Double* d) {}
+ 
+ void OptOutMutator::mutate(Int* i) {}
+ 
++void OptOutMutator::mutate(ListInt* i) {}
++
+ void OptOutMutator::mutate(ComplexDouble* c) {}
+ 
+ void OptOutMutator::mutate(NamedScalar* ns) {}
+diff --git a/third_party/nvfuser/csrc/scheduler/pointwise.cpp b/third_party/nvfuser/csrc/scheduler/pointwise.cpp
+index 17d4c0678f..a07574fbd0 100644
+--- a/third_party/nvfuser/csrc/scheduler/pointwise.cpp
++++ b/third_party/nvfuser/csrc/scheduler/pointwise.cpp
+@@ -120,6 +120,7 @@ std::shared_ptr<PointwiseParams> getPointwiseHeuristics(
+   std::vector<int64_t> elem_counts(ref_root.size(), 1);
+   int64_t n_elems = 1;
+   for (size_t ref_i = 0; ref_i < ref_root.size(); ref_i++) {
++    std::cout << ref_root[ref_i]->toString() << std::endl;
+     auto inferred_val =
+         runtime_info.expressionEvaluator().evaluate(ref_root[ref_i]->extent());
+     TORCH_INTERNAL_ASSERT(
+diff --git a/third_party/nvfuser/csrc/scheduler/registry.cpp b/third_party/nvfuser/csrc/scheduler/registry.cpp
+index 0a5ce2b132..586d000979 100644
+--- a/third_party/nvfuser/csrc/scheduler/registry.cpp
++++ b/third_party/nvfuser/csrc/scheduler/registry.cpp
+@@ -748,6 +748,11 @@ void SchedulerRuntimeInfo::initialize(
+         expected_stride *= size;
+       }
+     }
++    if (auto list_arg_abstract = dynamic_cast<const IntListArg*>(kernel_arg)) {
++      auto fusion_inp = complete_fusion_->inputs()[inp_i];
++      input_ptrs_[fusion_inp] = (size_t) nullptr;
++      input_discontig_strides_[fusion_inp] = {};
++    }
+   }
+ 
+   expression_evaluator_ = std::make_unique<ExpressionEvaluator>();
+@@ -2119,6 +2124,7 @@ HeuristicSummary::HeuristicSummary(
+       NoOpScheduler::canScheduleRunTime(fusion, runtime_info, this);
+       break;
+     case ScheduleHeuristic::PointWise:
++      std::cout << "run this path" << std::endl;
+       getPointwiseHeuristics(fusion, runtime_info, this);
+       PointWiseScheduler::canScheduleRunTime(fusion, runtime_info, this);
+       break;
+diff --git a/third_party/nvfuser/csrc/tensor_view.cpp b/third_party/nvfuser/csrc/tensor_view.cpp
+index 0129479097..a19d2e46a6 100644
+--- a/third_party/nvfuser/csrc/tensor_view.cpp
++++ b/third_party/nvfuser/csrc/tensor_view.cpp
+@@ -1,5 +1,5 @@
+-#include <c10/util/irange.h>
+ #include <arith.h>
++#include <c10/util/irange.h>
+ #include <compute_at.h>
+ #include <fusion.h>
+ #include <inlining.h>
+diff --git a/third_party/nvfuser/csrc/type.h b/third_party/nvfuser/csrc/type.h
+index 0b9eae064c..0c2544dbd2 100644
+--- a/third_party/nvfuser/csrc/type.h
++++ b/third_party/nvfuser/csrc/type.h
+@@ -35,7 +35,8 @@ enum class ValType {
+   NamedScalar,
+   Predicate,
+   TensorIndex,
+-  Attribute
++  Attribute,
++  List
+ };
+ 
+ // Manual - The user provides the Bool value. Predicate generation is bypassed.
+diff --git a/third_party/nvfuser/test/test_gpu_gather_ops.cpp b/third_party/nvfuser/test/test_gpu_gather_ops.cpp
+index c977e36be8..8bf4646990 100644
+--- a/third_party/nvfuser/test/test_gpu_gather_ops.cpp
++++ b/third_party/nvfuser/test/test_gpu_gather_ops.cpp
+@@ -340,6 +340,55 @@ TEST_F(NVFuserTest, FusionTorchGatherIndexTvExtentIsOne_CUDA) {
+       &fusion, cg_outputs, aten_inputs, {tv_out_ref}, __LINE__, __FILE__);
+ }
+ 
++// Test List Init
++TEST_F(NVFuserTest, FusionListInput_Test) {
++  auto fusion_ptr = std::make_unique<Fusion>();
++  Fusion& fusion = *fusion_ptr.get();
++  FusionGuard fg(&fusion);
++
++  auto shape = IrBuilder::create<ListInt>();
++
++  fusion.addInput(shape);
++
++  auto z0 = zeros(shape, DataType::Double);
++  auto output = add(z0, IrBuilder::create<Double>(3.0));
++
++  fusion.addOutput(output);
++
++  std::cout << fusion << std::endl;
++
++  c10::List<int64_t> list{20, 30};
++  std::vector<IValue> aten_inputs = {IValue(list), 20, 30};
++
++  FusionExecutorCache executor_cache(std::move(fusion_ptr));
++  auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
++}
++
++// Test List Init
++TEST_F(NVFuserTest, FusionInput_Test) {
++  auto fusion_ptr = std::make_unique<Fusion>();
++  Fusion& fusion = *fusion_ptr.get();
++  FusionGuard fg(&fusion);
++
++  auto shape1 = IrBuilder::create<Int>();
++  auto shape2 = IrBuilder::create<Int>();
++
++  fusion.addInput(shape1);
++  fusion.addInput(shape2);
++
++  auto z0 = zeros({shape1, shape2}, DataType::Double);
++  auto output = add(z0, IrBuilder::create<Double>(3.0));
++
++  fusion.addOutput(output);
++
++  std::cout << fusion << std::endl;
++
++  std::vector<IValue> aten_inputs = {20, 30};
++
++  FusionExecutorCache executor_cache(std::move(fusion_ptr));
++  auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
++}
++
+ } // namespace jit
+ } // namespace torch
+ #endif // #if defined(USE_CUDA)
+diff --git a/torch/csrc/profiler/kineto_client_interface.cpp b/torch/csrc/profiler/kineto_client_interface.cpp
+index caaad47ab2..2a903544fd 100644
+--- a/torch/csrc/profiler/kineto_client_interface.cpp
++++ b/torch/csrc/profiler/kineto_client_interface.cpp
+@@ -46,7 +46,7 @@ class LibKinetoClient : public libkineto::ClientInterface {
+     (void)disableProfiler();
+   }
+ 
+-  void set_withstack(bool withStack) override {
++  void set_withstack(bool withStack) {
+     withStack_ = withStack;
+   }
+ 

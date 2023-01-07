@@ -204,10 +204,7 @@ void Fusion::addInput(Val* input) {
     TORCH_CHECK(
         !(input->isA<Double>() && input->getDataType() == DataType::Float),
         "Using Double with DataType::Float as an input is not supported as there is no scalar float type in PyTorch.");
-  } else if (input->getValType().value() == ValType::List) {
-    std::cout << "add a list input" << std::endl;
   }
-
   inputs_.push_back(input);
   input->setIsFusionInput(true);
 

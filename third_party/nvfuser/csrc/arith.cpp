@@ -703,22 +703,13 @@ TensorView* zeros(const std::vector<Val*>& shape, DataType dtype) {
 }
 
 TensorView* zeros(ListInt* shape, DataType dtype) {
-  auto n = 2;
   std::vector<Val*> shape_vec;
-  shape_vec.emplace_back(
-      IrBuilder::create<NamedScalar>("list_shape_0", DataType::Int));
-  shape_vec.emplace_back(
-      IrBuilder::create<NamedScalar>("list_shape_1", DataType::Int));
+  shape_vec.emplace_back(IrBuilder::create<Int>());
+  shape_vec.emplace_back(IrBuilder::create<Int>());
   shape->fusion()->addInput(shape_vec[0]);
   shape->fusion()->addInput(shape_vec[1]);
-  auto out = TensorViewBuilder()
-                 .ndims(n)
-                 .dtype(dtype)
-                 .contiguity(std::vector<bool>(n, true))
-                 .shape(shape_vec)
-                 .build();
-  IrBuilder::create<FullOp>(out, FusionGuard::getCurFusion()->zeroVal());
-  return out;
+  shape->fusion()->removeInput(shape);
+  return full(shape_vec, FusionGuard::getCurFusion()->zeroVal(), dtype);
 }
 
 TensorView* zeros_like(TensorView* tv) {
