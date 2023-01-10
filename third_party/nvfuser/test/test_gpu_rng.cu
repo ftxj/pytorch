@@ -2,8 +2,8 @@
 #include <gtest/gtest.h>
 
 #include <ATen/cuda/CUDAGeneratorImpl.h>
-#include <c10/util/Optional.h>
 #include <arith.h>
+#include <c10/util/Optional.h>
 #include <fusion.h>
 #include <ir_all_nodes.h>
 #include <kernel_cache.h>
@@ -217,8 +217,6 @@ TEST_F(NVFuserTest, FusionRNGManualScheduleValidateWithCURand2_CUDA) {
   fusion->addInput(size4);
   TensorView* tv0 = rand({size1, size2, size3, size4}, DataType::Float);
   fusion->addOutput(tv0);
-
-  auto options = at::TensorOptions().dtype(dtype).device(at::kCUDA, 0);
 
   FusionExecutor fe;
   fe.compileFusion(fusion, {10, 10, 10, 10});
