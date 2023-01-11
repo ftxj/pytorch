@@ -592,17 +592,13 @@ class TestNvFuserFrontend(TestCase):
             t0 = fd.define_tensor(2)
             t1 = fd.define_tensor(2)
             t2 = fd.define_tensor(2, DataType.Int)
-            
             t3 = fd.ops.add(t0, t1)
             t4 = fd.ops.gather(t3, 0, t2)
             fd.add_output(t4)
 
-        # Expected Output is a tensor of 48's
         nvf_out1, _ = self.exec_nvfuser(fusion_func, inputs)
-
         # Create a new fusion with the same definition, it should hit the cache!
         nvf_out2, fs2 = self.exec_nvfuser(fusion_func, inputs, new_fusion_expected=False)
-
         # Create a fusion from a fusion id and make sure it executes!
         fs3 = Fusion(fs2.id())
         nvf_out3 = fs3.execute(inputs)[0]
