@@ -1359,7 +1359,7 @@ struct TorchGatherOpRecord : RecordFunctor {
       : RecordFunctor(
             std::move(_args),
             std::move(_outputs),
-            "gather",
+            "ops.gather",
             RecordType::TorchGatherOp),
         dim_(dim) {}
   virtual ~TorchGatherOpRecord() = default;

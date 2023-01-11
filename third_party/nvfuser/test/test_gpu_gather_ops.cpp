@@ -340,6 +340,50 @@ TEST_F(NVFuserTest, FusionTorchGatherIndexTvExtentIsOne_CUDA) {
       &fusion, cg_outputs, aten_inputs, {tv_out_ref}, __LINE__, __FILE__);
 }
 
+// Test when then extent of iteration domain is euqal to one, and the iteration
+// type is broadcast (IndexTv), used in RGCN model.
+TEST_F(NVFuserTest, FusionTorchGatherIndexTvExtentIsOne_CUDA) {
+  std::vector<int64_t> input_dims{16384};
+  std::vector<int64_t> index_dims{16384};
+  const int max_selected_index = 60;
+
+  at::manual_seed(0);
+
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+  auto options_i = at::TensorOptions().dtype(at::kLong).device(at::kCUDA, 0);
+
+  auto fusion_ptr = std::make_unique<Fusion>();
+  Fusion& fusion = *fusion_ptr.get();
+  FusionGuard fg(&fusion);
+
+  TensorView* tv_in1 = makeConcreteTensor(input_dims);
+  TensorView* tv_in2 = makeConcreteTensor(index_dims);
+  fusion.addInput(tv_in1);
+  fusion.addInput(tv_in2);
+
+  auto tv_gather = sum(tv_in1, {0});
+  auto tv_add = add(tv_gather, index_dims);
+  auto tv_out = mul(tv_add, tv_in2);
+  fusion.addOutput(tv_out);
+
+  at::Tensor input_1 = at::randn(input_dims, options);
+  at::Tensor input_2 = at::randn(index_dims, options);
+  at::Tensor input_idx =
+      at::randint(0, max_selected_index, index_dims, options_i);
+  at::Tensor output = at::zeros(index_dims, options);
+
+  auto t_gather = at::gather(input_1, 1, input_idx);
+  auto t_add = at::clamp(t_gather, -1, 1);
+  auto tv_out_ref = at::mul(input_2, t_add);
+
+  std::vector<IValue> aten_inputs = {input_1, input_idx, input_2};
+
+  FusionExecutorCache executor_cache(std::move(fusion_ptr));
+  auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
+  testValidate(
+      &fusion, cg_outputs, aten_inputs, {tv_out_ref}, __LINE__, __FILE__);
+}
+
 } // namespace jit
 } // namespace torch
 #endif // #if defined(USE_CUDA)
