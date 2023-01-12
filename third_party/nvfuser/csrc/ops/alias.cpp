@@ -335,24 +335,6 @@ TensorView* transpose(TensorView* x) {
   return transpose(x, 0, 1);
 }
 
-TensorView* onehot(TensorView* x, int classes) {
-  TORCH_INTERNAL_ASSERT(x != nullptr, "Input is invalid.");
-  std::vector<Val*> self_shape;
-  auto dom = TensorDomain::noReductions(x->getMaybeRFactorDomain());
-
-  self_shape.reserve(dom.size() + 1);
-
-  for (auto id : dom) {
-    self_shape.emplace_back(id->getMaybeExpandedExtent());
-  }
-  self_shape.emplace_back(IrBuilder::create<Int>(classes));
-  auto tv_self = zeros(self_shape, DataType::Int);
-  auto tv_idx = unsqueeze(x, -1);
-  auto tv_src = ones_like(tv_idx);
-
-  return scatter(tv_self, -1, tv_idx, tv_src);
-}
-
 } // namespace cuda
 } // namespace fuser
 } // namespace jit
