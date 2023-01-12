@@ -1369,15 +1369,15 @@ void initNvFuserPythonBindings(PyObject* module) {
         return output;
       },
       py::arg("arg"),
-      py::arg("dim"),
       py::arg("index"),
+      py::arg("dim"),
       py::return_value_policy::reference);
   nvf_ops.def(
       "gather",
       [](nvfuser::FusionDefinition::Operators& self,
          nvfuser::Tensor arg1,
-         int64_t dim,
-         nvfuser::Tensor arg3) -> nvfuser::Tensor {
+         nvfuser::Tensor arg3,
+	 int64_t dim) -> nvfuser::Tensor {
         FUSER_PERF_SCOPE("Operators.gather");
         nvfuser::FusionDefinition* fd = self.fusion_definition;
         nvfuser::Tensor output = fd->defineTensor(arg1.dims);
@@ -1391,8 +1391,8 @@ void initNvFuserPythonBindings(PyObject* module) {
         return output;
       },
       py::arg("arg1"),
-      py::arg("dim"),
       py::arg("arg3"),
+      py::arg("dim"),
       py::return_value_policy::reference);
   nvf_ops.def(
       "permute",

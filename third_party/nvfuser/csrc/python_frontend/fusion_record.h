@@ -1389,6 +1389,14 @@ struct TorchGatherOpRecord : RecordFunctor {
     fd.setFusionState(outputs_.at(0).index, output);
   }
 
+  void print(std::ostream& os, bool close_function = true) const final {
+    RecordFunctor::print(os, false);
+    os << ", dim=" << dim_;
+    if (close_function) {
+      os << ")";
+    }
+  }
+
  private:
   //! Dimension to select.
   int64_t dim_;
