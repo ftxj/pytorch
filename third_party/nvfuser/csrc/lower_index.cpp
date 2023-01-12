@@ -251,11 +251,6 @@ void IndexLowering::handle(const ScatterOp* sop) {
         UnaryOpType::Cast, lowered_index_cast, lowered_index);
   }
 
-  const std::unordered_map<IterDomain*, Val*> override_index_inp = {
-      {sop->getInputSelectAxis(), lowered_index}};
-  auto lowered_self =
-      lowerSrcIndex(sop->selfTv(), sop->output(0), override_index_inp);
-
   const std::unordered_map<IterDomain*, Val*> override_index_out = {
       {sop->getOutputSelectAxis(), lowered_index}};
   auto lowered_out = lowerDstIndex(sop->output(0), override_index_out);
@@ -263,12 +258,11 @@ void IndexLowering::handle(const ScatterOp* sop) {
   pushBack(IrBuilder::create<ScatterOp>(
       sop->getScatterOpType(),
       lowered_out,
-      lowered_self,
+      sop->selfTv(),
       sop->dim(),
       lowered_index,
       lowered_src,
-      sop->getOutputSelectAxis(),
-      sop->getInputSelectAxis()));
+      sop->getOutputSelectAxis()));
   GpuLower::current()->propagateExprInfo(sop, back());
 }
 

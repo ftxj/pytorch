@@ -717,7 +717,7 @@ void ComputeAtMap::build(Fusion* fusion) {
   buildUniqueExactExprMaps();
   buildConcreteIds();
   buildUniqueExactExprMaps();
-  updateForNonEqualExtentExprs(fusion);
+  updateForScatterOps(fusion);
 }
 
 void ComputeAtMap::validateAndPropagatePType() {
@@ -1646,7 +1646,7 @@ void ComputeAtMap::modiftyConcreteID(
   }
 }
 
-void ComputeAtMap::updateForNonEqualExtentExprs(Fusion* fusion) {
+void ComputeAtMap::updateForScatterOps(Fusion* fusion) {
   for (auto expr : ir_utils::getScatterOps(fusion)) {
     auto output_ids = ir_utils::allIDsOf(expr->output(0)->as<TensorView>());
     auto index_ids = ir_utils::allIDsOf(expr->indexTv());

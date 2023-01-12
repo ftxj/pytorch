@@ -237,8 +237,7 @@ ScatterOp::ScatterOp(
     int dim,
     Val* index,
     Val* src,
-    IterDomain* select_out_id,
-    IterDomain* select_inp_id)
+    IterDomain* select_out_id)
     : Expr(passkey) {
   addInput(self);
   addInput(index);
@@ -247,7 +246,6 @@ ScatterOp::ScatterOp(
   // we need to generate code like T_out[T_index[...]] = T_src[...], so we need
   // select_out_id as an attribute.
   addAttribute(select_out_id);
-  addAttribute(select_inp_id);
   addAttribute(IrBuilder::create<Attribute<int>>(passkey.ir_container_, dim));
   addAttribute(
       IrBuilder::create<Attribute<ScatterOpType>>(passkey.ir_container_, type));

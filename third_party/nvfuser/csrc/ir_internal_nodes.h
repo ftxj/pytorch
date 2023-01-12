@@ -156,8 +156,7 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
       int dim,
       Val* index,
       Val* src,
-      IterDomain* select_out_id,
-      IterDomain* select_inp_id);
+      IterDomain* select_out_id);
 
   NVFUSER_DECLARE_CLONE_AND_CREATE
 
@@ -196,9 +195,6 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
     attributes_[0] = mutated;
   }
 
-  IterDomain* getInputSelectAxis() const {
-    return attribute(1)->as<IterDomain>();
-  }
 };
 
 class TORCH_CUDA_CU_API ARangeOp : public Expr {

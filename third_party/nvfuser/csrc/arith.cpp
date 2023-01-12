@@ -597,7 +597,7 @@ TensorView* torch_gather(TensorView* inp, int dim, TensorView* index) {
 }
 
 // torch.scatter torch.scatter_add
-TensorView* scatter_base(
+TensorView* scatterOp(
     ScatterOpType type,
     TensorView* self,
     int dim,
@@ -640,7 +640,7 @@ TensorView* scatter_base(
       self->getDataType().value());
 
   IrBuilder::create<ScatterOp>(
-      type, out_tensor, self, dim, index, src, out_domain[dim], self_dom[dim]);
+      type, out_tensor, self, dim, index, src, out_domain[dim]);
   return out_tensor->as<TensorView>();
 }
 
@@ -649,7 +649,7 @@ TensorView* scatter_add(
     int dim,
     TensorView* index,
     TensorView* src) {
-  return scatter_base(ScatterOpType::Add, self, dim, index, src);
+  return scatterOp(ScatterOpType::Add, self, dim, index, src);
 }
 
 TensorView* scatter(
@@ -657,7 +657,7 @@ TensorView* scatter(
     int dim,
     TensorView* index,
     TensorView* src) {
-  return scatter_base(ScatterOpType::Set, self, dim, index, src);
+  return scatterOp(ScatterOpType::Set, self, dim, index, src);
 }
 
 // TENSOR FACTORIES
