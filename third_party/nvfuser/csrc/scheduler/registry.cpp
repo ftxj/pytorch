@@ -55,44 +55,44 @@ bool rejectScheduleForTorchGather(
 bool rejectScheduleForScatter(
     ScatterOp* op,
     ScheduleHeuristic schedule_stragety) {
-  if (!op->selfTv()->isFusionInput()) {
-    scheduler_debug_utils::canScheduleRejectReason(
-        schedule_stragety, "InputTv of ScatterOp must be fusion input.");
-    return true;
-  }
-  if (!op->output(0)->isFusionOutput()) {
-    scheduler_debug_utils::canScheduleRejectReason(
-        schedule_stragety, "OutputTv of ScatterOp must be fusion output.");
-    return true;
-  }
+  // if (!op->selfTv()->isFusionInput()) {
+  //   scheduler_debug_utils::canScheduleRejectReason(
+  //       schedule_stragety, "InputTv of ScatterOp must be fusion input.");
+  //   return true;
+  // }
+  // if (!op->output(0)->isFusionOutput()) {
+  //   scheduler_debug_utils::canScheduleRejectReason(
+  //       schedule_stragety, "OutputTv of ScatterOp must be fusion output.");
+  //   return true;
+  // }
 
-  if (op->srcTv()->isFusionOutput()) {
-    scheduler_debug_utils::canScheduleRejectReason(
-        schedule_stragety, "SrcTv of ScatterOp cannot be fusion output.");
-    return true;
-  }
-  if (op->selfTv()->isFusionOutput()) {
-    scheduler_debug_utils::canScheduleRejectReason(
-        schedule_stragety, "InputTv of ScatterOp cannot be fusion output.");
-    return true;
-  }
+  // if (op->srcTv()->isFusionOutput()) {
+  //   scheduler_debug_utils::canScheduleRejectReason(
+  //       schedule_stragety, "SrcTv of ScatterOp cannot be fusion output.");
+  //   return true;
+  // }
+  // if (op->selfTv()->isFusionOutput()) {
+  //   scheduler_debug_utils::canScheduleRejectReason(
+  //       schedule_stragety, "InputTv of ScatterOp cannot be fusion output.");
+  //   return true;
+  // }
 
-  for (auto used_op : op->srcTv()->uses()) {
-    if (!used_op->isA<ScatterOp>()) {
-      scheduler_debug_utils::canScheduleRejectReason(
-          schedule_stragety,
-          "srcTv of ScatterOp can only be used by ScatterOp");
-      return true;
-    }
-  }
-  for (auto used_op : op->selfTv()->uses()) {
-    if (!used_op->isA<ScatterOp>()) {
-      scheduler_debug_utils::canScheduleRejectReason(
-          schedule_stragety,
-          "selfTv of ScatterOp can only be used by ScatterOp");
-      return true;
-    }
-  }
+  // for (auto used_op : op->srcTv()->uses()) {
+  //   if (!used_op->isA<ScatterOp>()) {
+  //     scheduler_debug_utils::canScheduleRejectReason(
+  //         schedule_stragety,
+  //         "srcTv of ScatterOp can only be used by ScatterOp");
+  //     return true;
+  //   }
+  // }
+  // for (auto used_op : op->selfTv()->uses()) {
+  //   if (!used_op->isA<ScatterOp>()) {
+  //     scheduler_debug_utils::canScheduleRejectReason(
+  //         schedule_stragety,
+  //         "selfTv of ScatterOp can only be used by ScatterOp");
+  //     return true;
+  //   }
+  // }
   return false;
 }
 
@@ -1658,7 +1658,7 @@ class PointWiseScheduler : public SchedulerEntry {
     }
 
     for (auto op : ir_utils::getScatterOps(fusion)) {
-      if (rejectScheduleForScatter(op, ScheduleHeuristic::Transpose)) {
+      if (rejectScheduleForScatter(op, ScheduleHeuristic::PointWise)) {
         return false;
       }
     }

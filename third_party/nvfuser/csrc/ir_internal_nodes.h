@@ -180,7 +180,7 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
   }
 
   int dim() const {
-    return attribute(2)->as<Attribute<int>>()->value;
+    return attribute(1)->as<Attribute<int>>()->value;
   }
 
   IterDomain* getOutputSelectAxis() const {
@@ -188,7 +188,7 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
   }
 
   ScatterOpType getScatterOpType() const {
-    return attribute(3)->as<Attribute<ScatterOpType>>()->value;
+    return attribute(2)->as<Attribute<ScatterOpType>>()->value;
   }
 
   void updateOutputSelectAxis(Val* mutated) {

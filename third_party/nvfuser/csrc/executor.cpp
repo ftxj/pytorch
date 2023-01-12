@@ -221,7 +221,7 @@ void FusionExecutor::compileFusion(
     const LaunchParams& launch_constraints,
     const int maxrregcount) {
   FUSER_PERF_SCOPE("compileFusion");
-
+  std::cout << "compile fusion " << std::endl;
   TORCH_INTERNAL_ASSERT(
       !fusion->outputs().empty(), "No output found for this kernel, aborting.");
 

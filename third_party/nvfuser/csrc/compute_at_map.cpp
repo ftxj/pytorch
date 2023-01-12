@@ -1650,14 +1650,21 @@ void ComputeAtMap::updateForScatterOps(Fusion* fusion) {
   for (auto expr : ir_utils::getScatterOps(fusion)) {
     auto output_ids = ir_utils::allIDsOf(expr->output(0)->as<TensorView>());
     auto index_ids = ir_utils::allIDsOf(expr->indexTv());
+    auto src_ids = ir_utils::allIDsOf(expr->srcTv());
 
     for (int i = 0; i < output_ids.size(); ++i) {
       auto out_id = output_ids[i];
       auto idx_id = index_ids[i];
+      auto src_id = src_ids[i];
       modiftyConcreteID(out_id, idx_id, IdMappingMode::LOOP);
       modiftyConcreteID(out_id, idx_id, IdMappingMode::ALMOSTEXACT);
       modiftyConcreteID(out_id, idx_id, IdMappingMode::EXACT);
       modiftyConcreteID(out_id, idx_id, IdMappingMode::PERMISSIVE);
+
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::LOOP);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::ALMOSTEXACT);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::EXACT);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::PERMISSIVE);
     }
   }
 }

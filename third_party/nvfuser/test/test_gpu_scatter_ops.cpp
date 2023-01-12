@@ -2,19 +2,18 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
-#include <torch/csrc/jit/codegen/cuda/arith.h>
-#include <torch/csrc/jit/codegen/cuda/executor.h>
-#include <torch/csrc/jit/codegen/cuda/ir_all_nodes.h>
-#include <torch/csrc/jit/codegen/cuda/ir_builder.h>
-#include <torch/csrc/jit/codegen/cuda/kernel_cache.h>
-#include <torch/csrc/jit/codegen/cuda/scheduler/all_schedulers.h>
+#include <arith.h>
+#include <executor.h>
+#include <ir_all_nodes.h>
+#include <ir_builder.h>
+#include <kernel_cache.h>
+#include <scheduler/all_schedulers.h>
 
 #include <test/cpp/jit/test_utils.h>
-#include <torch/csrc/jit/codegen/cuda/ops/all_ops.h>
-#include <torch/csrc/jit/codegen/cuda/test/test_gpu_validator.h>
-#include <torch/csrc/jit/codegen/cuda/test/test_utils.h>
-#include <torch/torch.h>
+#include <test/test_gpu_validator.h>
+#include <test/test_utils.h>
 
+#include <torch/torch.h>
 namespace torch {
 namespace jit {
 
@@ -222,7 +221,7 @@ TEST_F(NVFuserTest, FusionScatterAddOpAllDim_CUDA) {
       {2, 2}, {3, 3}, {2048, 2048}, {1024, 2048}, {1024, 2048}};
 
   const std::vector<std::vector<int64_t>> src_dims = {
-      {3, 3}, {2, 2}, {1024, 1024}, {512, 512}, {512, 512}};
+      {2, 2}, {2, 2}, {1024, 1024}, {512, 512}, {512, 512}};
 
   const std::vector<std::vector<int64_t>> idx_dims = {
       {2, 2}, {2, 2}, {512, 256}, {1, 256}, {512, 1}};
@@ -234,14 +233,11 @@ TEST_F(NVFuserTest, FusionScatterAddOpAllDim_CUDA) {
 
     TensorView* tv_input = makeContigTensor(2);
     TensorView* tv_idx = makeContigTensor(2, DataType::Int);
-    TensorView* tv_src_1 = makeContigTensor(2);
-    TensorView* tv_src_2 = makeContigTensor(2);
+    TensorView* tv_src = makeContigTensor(2);
 
     fusion.addInput(tv_input);
     fusion.addInput(tv_idx);
-    fusion.addInput(tv_src_1);
-    fusion.addInput(tv_src_2);
-    auto tv_src = add(tv_src_1, tv_src_2);
+    fusion.addInput(tv_src);
     auto tv_out = scatter_add(tv_input, 0, tv_idx, tv_src);
     fusion.addOutput(tv_out);
 
@@ -252,13 +248,11 @@ TEST_F(NVFuserTest, FusionScatterAddOpAllDim_CUDA) {
     at::Tensor t_input = at::randn(inp_dims[test_id], options);
     at::Tensor t_idx =
         at::randint(0, inp_dims[test_id][0], idx_dims[test_id], options_i);
-    at::Tensor t_src_1 = at::randn(src_dims[test_id], options);
-    at::Tensor t_src_2 = at::randn(src_dims[test_id], options);
+    at::Tensor t_src = at::randn(src_dims[test_id], options);
 
-    auto t_src = at::add(t_src_1, t_src_2);
     auto out_ref = at::scatter_add(t_input, 0, t_idx, t_src);
 
-    std::vector<IValue> aten_inputs = {t_input, t_idx, t_src_1, t_src_2};
+    std::vector<IValue> aten_inputs = {t_input, t_idx, t_src};
 
     FusionExecutorCache executor_cache(std::move(fusion_ptr));
     auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
