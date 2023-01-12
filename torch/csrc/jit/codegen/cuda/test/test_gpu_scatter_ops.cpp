@@ -350,6 +350,58 @@ TEST_F(NVFuserTest, FusionScatterAddOpAllDim_CUDA) {
   }
 }
 
+TEST_F(NVFuserTest, FusionPerfTest_CUDA) {
+  const std::vector<int64_t> inp_dims = {6909, 4};
+
+  const std::vector<int64_t> src_dims = {54024, 4};
+
+  const std::vector<int64_t> idx_dims = {54024, 4};
+  at::manual_seed(0);
+
+  auto fusion_ptr = std::make_unique<Fusion>();
+  Fusion& fusion = *fusion_ptr.get();
+  FusionGuard fg(&fusion);
+
+  TensorView* tv_input = makeContigTensor(2);
+  TensorView* tv_idx = makeContigTensor(2, DataType::Int);
+  TensorView* tv_src_1 = makeContigTensor(2);
+  TensorView* tv_2 = makeContigTensor(2);
+
+  fusion.addInput(tv_input);
+  fusion.addInput(tv_idx);
+  fusion.addInput(tv_src_1);
+  fusion.addInput(tv_2);
+
+  auto tv_1 = scatter_add(tv_input, 0, tv_idx, tv_src_1);
+  auto tv_out = add(tv_1, tv_2);
+  
+  fusion.addOutput(tv_out);
+
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+  auto options_i =
+      torch::TensorOptions().dtype(torch::kLong).device(at::kCUDA, 0);
+
+  at::Tensor t_input = at::randn(inp_dims, options);
+  at::Tensor t_idx =
+      at::randint(0, inp_dims[0], idx_dims, options_i);
+  at::Tensor t_src_1 = at::randn(src_dims, options);
+  at::Tensor t_2 = at::randn(inp_dims, options);
+  // at::Tensor t_src_2 = at::randn(src_dims, options);
+
+  // auto t_src = at::add(t_src_1, t_src_2);
+  auto out_1 = at::scatter_add(t_input, 0, t_idx, t_src_1);
+  auto out_ref = at::add(out_1, t_2);
+
+  std::vector<IValue> aten_inputs = {t_input, t_idx, t_src_1, t_2};
+
+  FusionExecutorCache executor_cache(std::move(fusion_ptr));
+  auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
+  auto cg_outputs2 = executor_cache.runFusionWithInputs(aten_inputs);
+
+  testValidate(
+      &fusion, cg_outputs2, aten_inputs, {out_ref}, __LINE__, __FILE__);
+}
+
 } // namespace jit
 } // namespace torch
 #endif // #if defined(USE_CUDA)

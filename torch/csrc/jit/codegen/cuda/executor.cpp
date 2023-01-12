@@ -484,6 +484,7 @@ at::Tensor inferAndAlloc(
   c10::IntArrayRef isizes(inferred_sizes);
 
   if (zero_init) {
+    std::cout << "alloc zeros" << std::endl;
     auto zeros = at::zeros(isizes, tensor_options);
     if (expanded_dim) {
       return zeros.expand(expanded_sizes);
@@ -492,6 +493,8 @@ at::Tensor inferAndAlloc(
   } else {
     // Non Variable type guard for empty_cuda call
     at::AutoDispatchBelowADInplaceOrView non_variable_type_mode;
+    FUSER_PERF_SCOPE("alloc empty 1");
+    std::cout << "alloc empty 1" << std::endl;
     auto empty = at::empty(isizes, tensor_options);
     if (shouldFillAllocationWithNan()) {
       fillTensorWithNan(empty);
@@ -837,6 +840,7 @@ std::vector<at::Tensor> FusionExecutor::allocOutputs(
       c10::Device device(c10::DeviceType::CUDA, args.getDeviceIndex());
       const auto tensor_options =
           at::TensorOptions().dtype(at::kFloat).device(device);
+      std::cout << "alloc empty 2" << std::endl;
       outputs.emplace_back(at::empty({0}, tensor_options));
     } else {
       TORCH_INTERNAL_ASSERT(
@@ -1051,6 +1055,8 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
             allocated_outputs.push_back(allocateAndInitOutputUsingAnotherTensor(
                 selectInputTensorUsingTv(filled, args, lowered_->kernel())));
           } else {
+            FUSER_PERF_SCOPE("ExecutorRunFusion::OutputAlloc stage 1");
+            std::cout << "alloc empty 3" << std::endl;
             allocated_outputs.push_back(at::native::empty_strided_cuda(
                 executor_entry->output_sizes[i],
                 executor_entry->output_strides[i],
@@ -1065,6 +1071,7 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
         }
         // Note: aliased output is not returned as output. But we still need it
         // for kernel execution, so would need to push them to args
+        FUSER_PERF_SCOPE("ExecutorRunFusion::OutputAlloc stage 2");
         for (const auto& entry : executor_entry->io_alias_indices) {
           auto aliased_output_index = entry.first;
           auto aliased_input_index = entry.second;
@@ -1089,6 +1096,7 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
         FUSER_PERF_SCOPE("ExecutorRunFusion::IntermediateBufferAlloc");
         for (const auto i : c10::irange(executor_entry->buffer_sizes.size())) {
           if (executor_entry->buffer_zero_init[i]) {
+            std::cout << "alloc zeros" << std::endl;
             global_buffers.buffers.push_back(at::zeros(
                 executor_entry->buffer_sizes[i],
                 at::TensorOptions()
@@ -1096,6 +1104,7 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
                     .device(options_.device)));
             global_buffers.zero_init.push_back(true);
           } else {
+            std::cout << "alloc empty 4" << std::endl;
             global_buffers.buffers.push_back(at::native::empty_cuda(
                 executor_entry->buffer_sizes[i],
                 executor_entry->buffer_types[i],
