@@ -1652,7 +1652,7 @@ void ComputeAtMap::updateForScatterOps(Fusion* fusion) {
     auto index_ids = ir_utils::allIDsOf(expr->indexTv());
     auto src_ids = ir_utils::allIDsOf(expr->srcTv());
 
-    for (int i = 0; i < output_ids.size(); ++i) {
+    for (int i = 0; i < (int)output_ids.size(); ++i) {
       auto out_id = output_ids[i];
       auto idx_id = index_ids[i];
       auto src_id = src_ids[i];
@@ -1665,6 +1665,7 @@ void ComputeAtMap::updateForScatterOps(Fusion* fusion) {
       modiftyConcreteID(src_id, idx_id, IdMappingMode::ALMOSTEXACT);
       modiftyConcreteID(src_id, idx_id, IdMappingMode::EXACT);
       modiftyConcreteID(src_id, idx_id, IdMappingMode::PERMISSIVE);
+
     }
   }
 }

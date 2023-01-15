@@ -332,7 +332,6 @@ std::vector<at::Tensor> FusionKernelRuntime::runKernelWithInput(
     KernelArgumentHolder& args,
     SegmentedGroup* sg) {
   FUSER_PERF_SCOPE("FusionKernelRuntime::runKernelWithInput");
-
   std::lock_guard<std::mutex> guard(mutex_);
   // This function will be called once on un-segmented fusion,
   //  for segmented fusion, this function will be called on each segment
@@ -358,11 +357,7 @@ std::vector<at::Tensor> FusionKernelRuntime::runKernelWithInput(
     //  make a fusion to run from segmented fusion
     fusion_to_run = segmented_fusion_->makeFusion(sg);
     FusionGuard fg(fusion_to_run.get());
-    std::cout << "before" << std::endl;
-    std::cout << fusion_to_run.get() << std::endl;
     scheduler_entry->schedule(fusion_to_run.get());
-    std::cout << "after" << std::endl;
-    std::cout << fusion_to_run.get() << std::endl;
     launch_params = scheduler_entry->params()->lparams;
     maxrregcount = scheduler_entry->params()->maxrregcount;
     executors_[group_id].compileFusion(
@@ -547,7 +542,7 @@ KernelArgumentHolder FusionKernelRuntime::compileKernel(
   //   is complied and run
   TORCH_INTERNAL_ASSERT(sg, "compileKernel: need valid group to run");
   auto group_id = sg->groupId();
-  std::cout << "Compile Kernel" << std::endl;
+
   LaunchParams launch_params;
 
   auto scheduler_entry = schedulers()[group_id].get();

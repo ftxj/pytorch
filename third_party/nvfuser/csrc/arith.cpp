@@ -615,7 +615,7 @@ TensorView* scatterOp(
     dim += self_dom.size();
   }
   TORCH_CHECK(
-      dim >= 0 && dim < self_dom.size(),
+      dim >= 0 && dim < (int)self_dom.size(),
       "Scatter on invalid axis, received: ",
       dim,
       " however tensor view only has ",

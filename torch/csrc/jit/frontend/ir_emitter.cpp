@@ -5410,7 +5410,6 @@ std::vector<Function*> CompilationUnit::define(
         shouldMangle,
         CompilationUnit::FunctionType::Method,
         operator_set_version);
-
     record_function(std::move(fn));
   }
 
