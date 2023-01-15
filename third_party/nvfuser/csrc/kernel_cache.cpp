@@ -102,11 +102,7 @@ InputsIdLookup::IdLookupReturn InputsIdLookup::lookupId(
 }
 
 FusionExecutorCache::FusionExecutorCache(std::unique_ptr<Fusion> fusion)
-    : fusion_(std::move(fusion)) {
-  for (const auto& indices : fusion_->getOutputAliasIndices()) {
-    aliased_output_indices_.insert(indices);
-  }
-}
+    : fusion_(std::move(fusion)) {}
 
 KernelArgumentHolder FusionExecutorCache::prepareInputs(
     const at::ArrayRef<IValue>& inputs) {
@@ -218,7 +214,9 @@ std::vector<at::Tensor> FusionExecutorCache::runFusionWithInputs(
   // by fusion. It is not semantically correct to actually return them as
   // outputs from fusion.
   int offset = 0;
-  for (const auto& v : aliased_output_indices_) {
+  const auto& indices = fusion_->getOutputAliasIndices();
+  std::set<int> aliased_output_indices(indices.begin(), indices.end());
+  for (const auto& v : aliased_output_indices) {
     outputs.erase(outputs.begin() + v - offset);
     offset++;
   }
@@ -311,7 +309,7 @@ FusionKernelRuntime::FusionKernelRuntime(
         SegmentCandidateFinder::segment(std::move(fusion_copy), args);
   } else {
     segmented_fusion_ = SegmentedFusion::fromCompleteFusion(
-        std::move(fusion_copy), maybe_complete_fusion_heuristic.value());
+        std::move(fusion_copy), maybe_complete_fusion_heuristic.value(), args);
   }
 
   heuristics_ = segmented_fusion_->makeInitialHeuristics(args);

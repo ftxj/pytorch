@@ -132,7 +132,9 @@ list(APPEND NVFUSER_SRCS
 )
 
 add_library(${NVFUSER_CODEGEN} SHARED ${NVFUSER_SRCS})
-torch_compile_options(${NVFUSER_CODEGEN})
+# Note: for some reason, torch_compile_options gives us segfaults when we run test_jit
+#torch_compile_options(${NVFUSER_CODEGEN})
+target_compile_options(${NVFUSER_CODEGEN} PRIVATE -Wall)
 
 if(NOT USE_ROCM)
   target_compile_options(${NVFUSER_CODEGEN} PRIVATE "-DTORCH_CUDA_BUILD_MAIN_LIB")
@@ -159,7 +161,6 @@ else()
   target_include_directories(${NVFUSER_CODEGEN} PRIVATE ${Caffe2_HIP_INCLUDE})
 endif()
 if(NOT MSVC)
-  target_compile_options(${NVFUSER_CODEGEN} PRIVATE -Wno-unused-variable)
   target_compile_options(${NVFUSER_CODEGEN} PRIVATE -Werror)
 endif()
 target_include_directories(${NVFUSER_CODEGEN} PUBLIC
@@ -214,7 +215,6 @@ if(BUILD_PYTHON)
   # avoid using Python3_add_library, copied from functorch
   set_target_properties(${NVFUSER} PROPERTIES PREFIX "" DEBUG_POSTFIX "")
   if(NOT MSVC)
-    target_compile_options(${NVFUSER} PRIVATE -Wno-unused-variable)
     target_compile_options(${NVFUSER} PRIVATE -Werror)
     set_target_properties(${NVFUSER} PROPERTIES SUFFIX ".so")
   else()
@@ -352,7 +352,6 @@ if(BUILD_TEST)
   target_include_directories(${NVFUSER_TESTS} PRIVATE "${NVFUSER_ROOT}" "${TORCH_ROOT}/torch/csrc/api/include/")
   target_link_libraries(${NVFUSER_TESTS} PRIVATE ${NVFUSER_CODEGEN} torch ${TORCHLIB_FLAVOR} gtest_main gmock_main)
   if(NOT MSVC)
-    target_compile_options(${NVFUSER_TESTS} PRIVATE -Wno-unused-variable)
     set_property(SOURCE ${JIT_TEST_SRCS} APPEND PROPERTY COMPILE_OPTIONS "-Werror")
   endif()
 
@@ -397,7 +396,6 @@ if(BUILD_NVFUSER_BENCHMARK)
   target_include_directories(${NVFUSER_BENCHMARK} PRIVATE ${NVFUSER_ROOT})
   if(NOT MSVC)
     target_compile_options_if_supported(nvfuser_bench -Werror)
-    target_compile_options_if_supported(nvfuser_bench -Wno-unused-variable)
     target_compile_options_if_supported(nvfuser_bench -Wno-deprecated-copy)
   endif()
 

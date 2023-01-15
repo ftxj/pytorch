@@ -554,7 +554,8 @@ void validateAlignedVectorizeExtents(
       " and ",
       info.producer_tv->toString());
 
-  int64_t vectorized_merged_domain_extent = 1;
+  // TODO: Rewrite validation of the vectorized dimension
+  // int64_t vectorized_merged_domain_extent = 1;
   for (auto id : info.contig_root_ids) {
     auto extent_val = expr_eval.evaluate(id->extent());
     TORCH_INTERNAL_ASSERT(
@@ -564,7 +565,8 @@ void validateAlignedVectorizeExtents(
         " as the extent of a vectorized root domain, ",
         id->toString(),
         ", is unknown.");
-    vectorized_merged_domain_extent *= extent_val->as<int64_t>();
+    // TODO: Rewrite validation of the vectorized dimension
+    // vectorized_merged_domain_extent *= extent_val->as<int64_t>();
   }
 
   // TODO: Rewrite validation of the vectorized dimension, we can't just used a
@@ -1108,9 +1110,11 @@ std::pair<NvrtcFunction, std::string> nvrtcCompile(
   std::vector<void*> option_vals;
   std::vector<char> info_log;
   unsigned int log_size = 8196;
-
+  const bool isWarnRegisterSpill =
+      isOptionEnabled(EnableOption::WarnRegisterSpill);
   if (isDebugDumpEnabled(DebugDumpOption::PrintPtxasLog) ||
-      isDebugDumpEnabled(DebugDumpOption::PerfDebugVerbose)) {
+      isDebugDumpEnabled(DebugDumpOption::PerfDebugVerbose) ||
+      isWarnRegisterSpill) {
     // show register usage in compilation log
     if (compile_to_sass) {
       args.push_back("--ptxas-options");
@@ -1164,7 +1168,6 @@ std::pair<NvrtcFunction, std::string> nvrtcCompile(
   if (max_register.has_value()) {
     if (compile_to_sass) {
       max_register_usage += std::to_string(*max_register);
-      args.push_back("--ptxas-options");
       args.push_back(max_register_usage.c_str());
     } else {
       // TODO: Why max register is set when compiled to PTX?
@@ -1247,6 +1250,43 @@ std::pair<NvrtcFunction, std::string> nvrtcCompile(
         std::cout << log.data() << std::endl;
       }
       AT_CUDA_NVRTC_CHECK(result);
+
+      if (isWarnRegisterSpill) {
+        auto getRegisterSpillInfo = [&log](const char* subStr) {
+          auto it_end =
+              std::search(
+                  log.begin(), log.end(), subStr, subStr + strlen(subStr)) -
+              1;
+          auto it_beg = it_end - 1;
+          while (!std::isspace(*(it_beg - 1))) {
+            it_beg--;
+          }
+          std::string str(it_beg, it_end);
+          return std::stoi(str);
+        };
+
+        const char* str_stack = "bytes stack frame";
+        const char* str_store = "bytes spill stores";
+        const char* str_load = "bytes spill loads";
+        int stack_count = getRegisterSpillInfo(str_stack);
+        int store_count = getRegisterSpillInfo(str_store);
+        int load_count = getRegisterSpillInfo(str_load);
+        auto optionArgs =
+            getEnableOptionArguments(EnableOption::WarnRegisterSpill);
+        int allowed_spill = 0;
+        if (optionArgs.size() > 0) {
+          try {
+            allowed_spill = std::stoi(optionArgs[0]);
+          } catch (const std::exception& e) {
+            std::cout << "skip invalid argument for WarnRegisterSpill, arg = "
+                      << optionArgs[0] << std::endl;
+          }
+        }
+        if (stack_count > allowed_spill || store_count > allowed_spill ||
+            load_count > allowed_spill) {
+          std::cout << ptxas_log.str() << std::endl;
+        }
+      }
     }
 
     const char* lowered_kernel_name = nullptr;

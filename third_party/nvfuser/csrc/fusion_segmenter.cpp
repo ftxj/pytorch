@@ -257,8 +257,14 @@ std::string toString(const SegmentedEdge* edge) {
 
 std::unique_ptr<SegmentedFusion> SegmentedFusion::fromCompleteFusion(
     std::unique_ptr<Fusion> fusion_ptr,
-    ScheduleHeuristic heuristic) {
+    ScheduleHeuristic heuristic,
+    const KernelArgumentHolder& runtime_inputs) {
   auto fusion = fusion_ptr.get();
+
+  // convert Welford to two-pass
+  SegmentCandidateFinderOptions scfo;
+  if (scfo.run_translate_welford)
+    SegmentCandidateFinder::TranslateWelfordInFusion(fusion, runtime_inputs);
 
   auto segmented_fusion_ptr =
       std::make_unique<SegmentedFusion>(std::move(fusion_ptr));
@@ -1844,8 +1850,8 @@ bool TranslateApplicableWelford::isValidPersistentFusion(
 
   auto scheduler = SchedulerEntry::makeEntry(
       ScheduleHeuristic::Persistent, translated_fusion, runtime_info);
-
-  return scheduler->reductionParams().persistent_kernel;
+  return scheduler->reductionParams().persistent_kernel &&
+      scheduler->reductionParams().fastest_dim;
 }
 
 bool TranslateApplicableWelford::wouldTranslateToPersistent(
@@ -1853,6 +1859,14 @@ bool TranslateApplicableWelford::wouldTranslateToPersistent(
     SegmentedGroup* group) {
   if (orignal_welfords.empty()) {
     return false;
+  }
+
+  // Make sure all welford inputs are not already statistics, e.g.
+  // FusionSqueezeOnlyWelford_CUDA
+  for (auto welford : orignal_welfords) {
+    if (!welford->inN()->isOneInt()) {
+      return false;
+    }
   }
 
   // Make sure all welford ops come from the same complete fusion
@@ -2071,7 +2085,6 @@ class CombineReductions {
   CombineReductions(SegmentCandidateFinder* segment_candidate_finder)
       : segment_candidate_finder_(segment_candidate_finder) {
     // Run pass over the segments
-
     // Collect segmented groups with reductions in them,
     //  Assuming running before any merge happened, so
     //  should see exactly one reduction in each group
@@ -2637,7 +2650,6 @@ SegmentCandidateFinder::SegmentCandidateFinder(
 void SegmentCandidateFinder::findSegments() {
   FUSER_PERF_SCOPE("Finding valid fusion segment solutions");
   // TODO: Make traversal items local to this function.
-
   // Need this for initialization of the DAG that is process
   std::unordered_map<Expr*, SegmentedGroup*> expr2group;
 
