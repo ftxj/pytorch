@@ -1592,7 +1592,7 @@ class IrParser {
               if (auto tensor_type =
                       node->inputs()[0]->type()->cast<TensorType>()) {
                 // torch.gather doesn't support 0-dim tensors
-                if (tensor_type->dim() == 0) {
+                if (tensor_type->dim() == 0u) {
                   return false;
                 }
               }

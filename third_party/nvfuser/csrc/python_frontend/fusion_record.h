@@ -26,6 +26,7 @@ enum class RecordType {
   End,
   FullOp,
   IndexSelectOp,
+  TorchGatherOp,
   Op,
   Output,
   PermuteOp,
@@ -37,11 +38,6 @@ enum class RecordType {
   TensorSizes,
   VarianceOp,
   VarianceMeanOp,
-  ViewOp,
-  PermuteOp,
-  IndexSelectOp,
-  TorchGatherOp,
-  FullOp,
   ViewOp
 };
 
@@ -1391,6 +1387,14 @@ struct TorchGatherOpRecord : RecordFunctor {
 
     Nvf::Val* output = Nvf::torch_gather(arg1, dim_, arg3);
     fd.setFusionState(outputs_.at(0).index, output);
+  }
+
+  void print(std::ostream& os, bool close_function = true) const final {
+    RecordFunctor::print(os, false);
+    os << ", dim=" << dim_;
+    if (close_function) {
+      os << ")";
+    }
   }
 
  private:
