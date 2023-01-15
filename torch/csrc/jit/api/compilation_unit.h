@@ -58,13 +58,8 @@ struct TORCH_API CompilationUnit {
   CompilationUnit(const CompilationUnit&) = delete;
 
   Function* find_function(const c10::QualifiedName& name) const {
-    std::cout << "we want to find " << name.name() << std::endl;
     auto it = dict_.find(name);
-    for(auto x : dict_) {
-      std::cout << x.first.name() << std::endl;
-    }
     if (it == dict_.end()) {
-      std::cout << "we cannot find" << std::endl;
       return nullptr;
     }
     return functions_[it->second].get();
@@ -320,7 +315,6 @@ struct TORCH_API CompilationUnit {
         "' already defined.");
     functions_.emplace_back(std::move(fn));
     dict_[functions_.back()->qualname()] = functions_.size() - 1;
-    std::cout << "register " << functions_.back()->qualname().name() << std::endl;
     return *functions_.back();
   }
   std::vector<std::unique_ptr<Function>> functions_;
