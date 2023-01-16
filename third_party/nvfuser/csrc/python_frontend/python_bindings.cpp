@@ -1377,7 +1377,7 @@ void initNvFuserPythonBindings(PyObject* module) {
       [](nvfuser::FusionDefinition::Operators& self,
          nvfuser::Tensor arg1,
          nvfuser::Tensor arg3,
-	 int64_t dim) -> nvfuser::Tensor {
+         int64_t dim) -> nvfuser::Tensor {
         FUSER_PERF_SCOPE("Operators.gather");
         nvfuser::FusionDefinition* fd = self.fusion_definition;
         nvfuser::Tensor output = fd->defineTensor(arg1.dims);
