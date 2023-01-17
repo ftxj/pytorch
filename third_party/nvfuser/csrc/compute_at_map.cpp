@@ -1665,7 +1665,6 @@ void ComputeAtMap::updateForScatterOps(Fusion* fusion) {
       modiftyConcreteID(src_id, idx_id, IdMappingMode::ALMOSTEXACT);
       modiftyConcreteID(src_id, idx_id, IdMappingMode::EXACT);
       modiftyConcreteID(src_id, idx_id, IdMappingMode::PERMISSIVE);
-
     }
   }
 }

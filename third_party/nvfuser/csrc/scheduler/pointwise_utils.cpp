@@ -30,7 +30,8 @@ DomainMap::DomainMap(Fusion* fusion) : fusion_(fusion), ca_map_(fusion) {
       select_ids_.emplace(id);
     }
     auto self = select->selfTv()->as<TensorView>();
-    auto self_domain = TensorDomain::noReductions(self->getMaybeRFactorDomain());
+    auto self_domain =
+        TensorDomain::noReductions(self->getMaybeRFactorDomain());
     for (auto id : self_domain) {
       select_ids_.emplace(id);
     }

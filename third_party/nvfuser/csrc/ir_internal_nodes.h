@@ -194,7 +194,6 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
   void updateOutputSelectAxis(Val* mutated) {
     attributes_[0] = mutated;
   }
-
 };
 
 class TORCH_CUDA_CU_API ARangeOp : public Expr {

@@ -737,7 +737,8 @@ int TransformReplay::getMatchedLeafPosWithoutReplayPasC(
     int consumer_pos) {
   FUSER_PERF_SCOPE("transform_replay.cpp::getMatchedLeafPosWithoutReplayPasC");
 
-  const auto pairwise_map = PairwiseRootDomainMap(producer, consumer, false, false);
+  const auto pairwise_map =
+      PairwiseRootDomainMap(producer, consumer, false, false);
   id_map c2p_root_map = pairwise_map.mapConsumerToProducer(
       consumer->domain(), producer->domain());
 

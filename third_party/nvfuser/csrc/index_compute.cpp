@@ -1341,7 +1341,8 @@ std::vector<Val*> Index::getGlobalProducerStridedIndices(
 
   // Replay producer to look like consumer so we can index on producer since
   // our loop nests look like consumer
-  auto pairwise_map = PairwiseRootDomainMap(producer_tv, consumer_tv, false, true);
+  auto pairwise_map =
+      PairwiseRootDomainMap(producer_tv, consumer_tv, false, true);
 
   TensorDomain* producerAsC =
       TransformReplay::replayPasC(producer_tv, consumer_tv, -1, pairwise_map)
