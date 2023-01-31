@@ -1046,8 +1046,7 @@ void ExprSegmentationSorter::initializeForLoopDependencies() {
       }
 
       // Loops after tv_id are dependent on tv_id
-      dependencies.emplace(GpuLower::current()->caMap()->getConcreteMappedID(
-          tv_id, IdMappingMode::LOOP));
+      dependencies.emplace(concrete_id);
     }
   }
 
