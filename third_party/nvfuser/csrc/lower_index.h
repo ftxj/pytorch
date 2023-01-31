@@ -86,8 +86,8 @@ class TORCH_CUDA_CU_API IndexLowering : private OptOutConstDispatch {
 
   Val* lowerDstIndex(
       Val* dst,
-      bool cvta_smem_address = false,
-      const std::unordered_map<IterDomain*, Val*>& override_index = {}) const;
+      const std::unordered_map<IterDomain*, Val*>& override_index = {},
+      bool cvta_smem_address = false) const;
 
   void handleBlockReduction(const ReductionOp* rop, Val* out, Val* in);
   void handleGridReduction(const ReductionOp* rop, Val* out, Val* in);

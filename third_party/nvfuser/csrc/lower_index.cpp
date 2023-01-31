@@ -33,8 +33,8 @@ Val* IndexLowering::lowerSrcIndex(
 
 Val* IndexLowering::lowerDstIndex(
     Val* dst,
-    bool cvta_smem_address,
-    const std::unordered_map<IterDomain*, Val*>& override_index) const {
+    const std::unordered_map<IterDomain*, Val*>& override_index,
+    bool cvta_smem_address) const {
   if (auto tv = dynamic_cast<TensorView*>(dst)) {
     return Index::getConsumerIndex(
         tv, for_loops_, override_index, cvta_smem_address);
@@ -1167,7 +1167,7 @@ void IndexLowering::handleGroupedGridWelford(
 
 void IndexLowering::handle(const LoadStoreOp* ldst) {
   const auto in = lowerSrcIndex(ldst->in(), ldst->out(), {}, true);
-  const auto out = lowerDstIndex(ldst->out(), true);
+  const auto out = lowerDstIndex(ldst->out(), {}, true);
   auto new_ldst = IrBuilder::create<LoadStoreOp>(ldst->opType(), out, in)
                       ->withPredicate(ldst->predicate());
   pushBack(new_ldst);
