@@ -37,7 +37,7 @@ Val* IndexLowering::lowerDstIndex(
     const std::unordered_map<IterDomain*, Val*>& override_index) const {
   if (auto tv = dynamic_cast<TensorView*>(dst)) {
     return Index::getConsumerIndex(
-        tv, for_loops_, cvta_smem_address, override_index);
+        tv, for_loops_, override_index, cvta_smem_address);
   } else {
     return dst;
   }

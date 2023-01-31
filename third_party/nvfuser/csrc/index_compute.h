@@ -362,8 +362,8 @@ class Index {
   static kir::TensorIndex* getConsumerIndex(
       TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops,
-      bool cvta_smem_address = false,
-      const std::unordered_map<IterDomain*, Val*>& override_index = {});
+      const std::unordered_map<IterDomain*, Val*>& override_index = {},
+      bool cvta_smem_address = false);
 
   //! Returns a vector of strided indices mapped onto the (rfactor)
   //! root domain of a producer tensor. The size of the returned
@@ -383,8 +383,8 @@ class Index {
   static Val* getConsumerStridedIndices(
       TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops,
-      bool cvta_smem_address = false,
-      const std::unordered_map<IterDomain*, Val*>& override_index = {});
+      const std::unordered_map<IterDomain*, Val*>& override_index = {},
+      bool cvta_smem_address = false);
 
   //! Returns the logical index linearized from a multi-dimension address into a
   //! linear memory address a consumer tensor. The returned index is intended to
