@@ -622,7 +622,7 @@ TensorView* scatterOp(
       self_dom.size(),
       " non-reduction dims.");
 
-  // The shape of output tensor is same as input tensor.
+  // The shape of output tensor is same as self tensor.
   std::vector<IterDomain*> out_domain;
   for (const auto i : c10::irange(self_dom.size())) {
     out_domain.push_back(
