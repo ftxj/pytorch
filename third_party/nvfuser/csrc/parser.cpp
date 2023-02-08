@@ -1563,6 +1563,47 @@ class IrParser {
     {
       if (isOptionEnabled(EnableOption::GraphOp)) {
         auto ptr_op = getOperatorForLiteral(
+            "aten::index.Tensor(Tensor self, Tensor?[] indices) -> Tensor");
+        REGISTER_PARSE_RULE(
+            ptr_op,
+            {
+              MemoryFormat format;
+              std::list<Val*> list_val;
+              std::tie(format, list_val) = getPWFormatValues(
+                  MemoryFormat::Contiguous(),
+                  value_map[node->inputs()[0]->unique()],
+                  value_map[node->inputs()[1]->unique()]);
+              auto input = list_val.front();
+              list_val.pop_front();
+              auto index = list_val.front();
+              list_val.pop_front();
+              Val* out = index_select(
+                  input->as<TensorView>(), 0, index->as<TensorView>());
+              value_map.emplace(
+                  node->output()->unique(), ValueHolder(out, format));
+            },
+            [](const Node* node) -> bool {
+              if (auto tensor_type =
+                      node->inputs()[0]->type()->cast<TensorType>()) {
+                // index_select doesn't support 0-dim tensors
+                if (tensor_type->dim() == 0u) {
+                  return false;
+                }
+              }
+              for (const auto& val : node->inputs()) {
+                auto tensor_type = val->type()->cast<TensorType>();
+                if (tensor_type && is_zero_sized_tensor(tensor_type)) {
+                  return false;
+                }
+              }
+              return true;
+            },
+            nullptr);
+      }
+    }
+    {
+      if (isOptionEnabled(EnableOption::GraphOp)) {
+        auto ptr_op = getOperatorForLiteral(
             "aten::gather(Tensor self, int dim, Tensor index, *, bool sparse_grad=False) -> Tensor");
         REGISTER_PARSE_RULE(
             ptr_op,

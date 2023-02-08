@@ -628,6 +628,26 @@ class TestNvFuserFrontend(TestCase):
         eager_out = torch.gather(inputs[0] + inputs[1], 0, inputs[2])
         self.assertEqual(eager_out, nvf_out[0])
 
+    def test_index(self):
+        inputs = [
+            torch.randn(8, 16, device='cuda'),
+            torch.randn(8, 16, device='cuda'),
+            torch.randint(0, 8, (4, ), device="cuda").to(dtype=torch.long)
+        ]
+
+        def fusion_func(fd: FusionDefinition) :
+            t0 = fd.from_pytorch(inputs[0])
+            t1 = fd.from_pytorch(inputs[1])
+            t2 = fd.from_pytorch(inputs[2])
+            t3 = fd.ops.add(t0, t1)
+            t4 = fd.ops.index(t3, t2)
+            fd.add_output(t4)
+
+        nvf_out, _ = self.exec_nvfuser(fusion_func, inputs)
+        tmp = inputs[0] + inputs[1]
+        eager_out = tmp[inputs[2]]
+        self.assertEqual(eager_out, nvf_out[0])
+
     def test_index_select(self):
         inputs = [
             torch.randn(8, 16, device='cuda'),

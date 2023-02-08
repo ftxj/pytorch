@@ -1347,6 +1347,26 @@ void initNvFuserPythonBindings(PyObject* module) {
       py::arg("dim"),
       py::return_value_policy::reference);
   nvf_ops.def(
+      "index",
+      [](nvfuser::FusionDefinition::Operators& self,
+         nvfuser::Tensor arg,
+         nvfuser::Tensor index) -> nvfuser::Tensor {
+        FUSER_PERF_SCOPE("Operators.index");
+        nvfuser::FusionDefinition* fd = self.fusion_definition;
+        nvfuser::Tensor output = fd->defineTensor(arg.dims);
+        fd->defineRecord(new nvfuser::IndexSelectOpRecord(
+            {
+                fd->recordingState(arg()),
+                fd->recordingState(index()),
+            },
+            {fd->recordingState(output())},
+            0));
+        return output;
+      },
+      py::arg("arg"),
+      py::arg("index"),
+      py::return_value_policy::reference);
+  nvf_ops.def(
       "gather",
       [](nvfuser::FusionDefinition::Operators& self,
          nvfuser::Tensor arg1,
