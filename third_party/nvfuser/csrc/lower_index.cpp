@@ -245,6 +245,25 @@ void IndexLowering::handle(const TorchGatherOp* top) {
   GpuLower::current()->propagateExprInfo(top, back());
 }
 
+void IndexLowering::handle(const ScatterOp* sop) {
+  auto lowered_index = lowerSrcIndex(sop->indexTv(), sop->output(0));
+  auto lowered_src = lowerSrcIndex(sop->srcTv(), sop->output(0));
+
+  const std::unordered_map<IterDomain*, Val*> override_index_out = {
+      {sop->getOutputSelectAxis(), lowered_index}};
+  auto lowered_out = lowerDstIndex(sop->output(0), override_index_out);
+
+  pushBack(IrBuilder::create<ScatterOp>(
+      sop->getScatterOpType(),
+      lowered_out,
+      sop->selfTv(),
+      sop->dim(),
+      lowered_index,
+      lowered_src,
+      sop->getOutputSelectAxis()));
+  GpuLower::current()->propagateExprInfo(sop, back());
+}
+
 void IndexLowering::handle(const SelectOp* sop) {
   const auto input = lowerSrcIndex(
       sop->input(0), sop->output(0), sop->getIndexOverridingMap());

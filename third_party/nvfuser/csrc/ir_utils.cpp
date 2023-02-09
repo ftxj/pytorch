@@ -420,6 +420,18 @@ std::vector<TorchGatherOp*> getTorchGatherOps(Fusion* fusion) {
   return torch_gather_ops;
 }
 
+std::vector<ScatterOp*> getScatterOps(Fusion* fusion) {
+  std::vector<ScatterOp*> scatter_ops;
+
+  for (auto expr : fusion->exprs()) {
+    if (expr->isA<ScatterOp>()) {
+      scatter_ops.push_back(expr->as<ScatterOp>());
+    }
+  }
+
+  return scatter_ops;
+}
+
 std::vector<SelectOp*> getSelectOps(Fusion* fusion) {
   std::vector<SelectOp*> select_ops;
 
@@ -464,6 +476,14 @@ class ValReplacementMutator : private OptOutMutator {
 
     for (auto stmt : more_stmts) {
       mutate(stmt);
+    }
+    // Original update order: input_tv, expr(including attribute), output_tv. In
+    // this order, the attribute select_out_id in ScatterOp will not updated. So
+    // we re-update.
+    auto scatter_ops = getScatterOps(fusion);
+    for (auto stmt : scatter_ops) {
+      auto attr_output = stmt->getOutputSelectAxis();
+      stmt->updateOutputSelectAxis(maybeMutated(attr_output));
     }
   }
 

@@ -2172,7 +2172,8 @@ Val* Index::getConsumerStridedIndices(
   }
 
   if (consumer->getMemoryType() == MemoryType::Global) {
-    return sumVals(getGlobalConsumerStridedIndices(consumer, loops));
+    return sumVals(
+        getGlobalConsumerStridedIndices(consumer, loops, override_index));
   } else {
     auto index = sumVals(getNonGlobalConsumerStridedIndices(consumer, loops));
     if (cvta_smem_address && consumer->getMemoryType() == MemoryType::Shared) {
