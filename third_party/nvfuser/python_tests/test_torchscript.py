@@ -4218,6 +4218,8 @@ class TestCudaFuser(JitTestCase):
         jit_o = t_jit(x, y, ind)
         jit_o = t_jit(x, y, ind)
         o = t(x, y, ind)
+        g = torch.jit.last_executed_optimized_graph()
+        FileCheck().check("prim::infer_index_select_size").run(g)
         self.assertEqual(o, jit_o)
 
     @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
