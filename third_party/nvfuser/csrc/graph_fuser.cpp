@@ -1088,6 +1088,11 @@ struct CudaGraphFuser {
         TORCH_INTERNAL_ASSERT(
             shape_of.count(n->input(0)) > 0,
             "buildShapeExpressions failed at accessing input shapes");
+        TORCH_INTERNAL_ASSERT(
+            n->inputs().size() == 3, "aten::index_select expects three inputs");
+        TORCH_INTERNAL_ASSERT(
+            n->input(1)->node()->kind() == prim::Constant,
+            "only supports selected_dim being constant");
         Node* dim_const = graph->createClone(n->input(1)->node(), map_inputs);
         graph->insertNode(dim_const);
 
