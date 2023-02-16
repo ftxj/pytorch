@@ -190,10 +190,6 @@ class TORCH_CUDA_CU_API ScatterOp : public Expr {
   ScatterOpType getScatterOpType() const {
     return attribute(2)->as<Attribute<ScatterOpType>>()->value;
   }
-
-  void updateOutputSelectAxis(Val* mutated) {
-    attributes_[0] = mutated;
-  }
 };
 
 class TORCH_CUDA_CU_API IotaOp : public Expr {

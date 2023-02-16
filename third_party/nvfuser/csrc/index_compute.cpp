@@ -1920,7 +1920,7 @@ std::vector<Val*> Index::getRootIndices(
 std::vector<Val*> Index::getGlobalConsumerStridedIndices(
     const TensorView* consumer_tv,
     const std::vector<kir::ForLoop*>& loops,
-    const std::unordered_map<IterDomain*, Val*>& override_index) {
+    const std::unordered_map<int, Val*>& override_index) {
   FUSER_PERF_SCOPE("GpuLower::Lower::getGlobalConsumerIndex");
 
   auto index_from_id_graph = getTensorIndexFromIdGraph(loops, consumer_tv);
@@ -1938,7 +1938,7 @@ std::vector<Val*> Index::getGlobalConsumerStridedIndices(
   std::vector<Val*> strided_inds(
       root_inds.size(), GpuLower::current()->kernel()->zeroVal());
   for (const auto i : c10::irange(root_inds.size())) {
-    auto override_it = override_index.find(root_dom[i]);
+    auto override_it = override_index.find(i);
     if (override_it != override_index.end()) {
       root_inds[i] = override_it->second;
     }
@@ -2164,7 +2164,7 @@ kir::TensorIndex* Index::getProducerIndex(
 Val* Index::getConsumerStridedIndices(
     TensorView* consumer,
     const std::vector<kir::ForLoop*>& loops,
-    const std::unordered_map<IterDomain*, Val*>& override_index,
+    const std::unordered_map<int, Val*>& override_index,
     bool cvta_smem_address) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getConsumerStridedIndices");
   if (consumer->domain()->noReductions().size() == 0) {
@@ -2194,7 +2194,7 @@ Val* Index::getConsumerStridedIndices(
 kir::TensorIndex* Index::getConsumerIndex(
     TensorView* consumer,
     const std::vector<kir::ForLoop*>& loops,
-    const std::unordered_map<IterDomain*, Val*>& override_index,
+    const std::unordered_map<int, Val*>& override_index,
     bool cvta_smem_address) {
   auto index = getConsumerStridedIndices(
       consumer, loops, override_index, cvta_smem_address);

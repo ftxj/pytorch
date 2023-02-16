@@ -340,7 +340,7 @@ class Index {
   static std::vector<Val*> getGlobalConsumerStridedIndices(
       const TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops,
-      const std::unordered_map<IterDomain*, Val*>& override_index = {});
+      const std::unordered_map<int, Val*>& override_index = {});
 
   // Indexing functions
   // Consumer = Producer
@@ -362,7 +362,7 @@ class Index {
   static kir::TensorIndex* getConsumerIndex(
       TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops,
-      const std::unordered_map<IterDomain*, Val*>& override_index = {},
+      const std::unordered_map<int, Val*>& override_index = {},
       bool cvta_smem_address = false);
 
   //! Returns a vector of strided indices mapped onto the (rfactor)
@@ -383,7 +383,7 @@ class Index {
   static Val* getConsumerStridedIndices(
       TensorView* consumer,
       const std::vector<kir::ForLoop*>& loops,
-      const std::unordered_map<IterDomain*, Val*>& override_index = {},
+      const std::unordered_map<int, Val*>& override_index = {},
       bool cvta_smem_address = false);
 
   //! Returns the logical index linearized from a multi-dimension address into a
