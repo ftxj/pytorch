@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <arith.h>
 #include <expr_simplifier.h>
 #include <ops/all_ops.h>
 #include <test/test_gpu_validator.h>
@@ -164,6 +163,11 @@ TEST_F(NVFuserTest, FusionEliminateTrivialComputation_CUDA) {
   // a && false -> false
   TORCH_CHECK(simplifyExpr(IrBuilder::andExpr(b, f))->sameAs(f));
 
+  // a && a -> a
+  TORCH_CHECK(simplifyExpr(IrBuilder::andExpr(b, b))->sameAs(b));
+  // a || a -> a
+  TORCH_CHECK(simplifyExpr(IrBuilder::orExpr(b, b))->sameAs(b));
+
   // true || a -> true
   TORCH_CHECK(simplifyExpr(IrBuilder::orExpr(t, b))->sameAs(t));
   // a || true -> true
@@ -181,6 +185,11 @@ TEST_F(NVFuserTest, FusionEliminateTrivialComputation_CUDA) {
   TORCH_CHECK(simplifyExpr(cpp_div(i0, tdimx))->sameAs(i0));
   // a % 1 -> 0
   TORCH_CHECK(simplifyExpr(mod(i, i1))->sameAs(i0));
+
+  // -(-a) -> a
+  TORCH_CHECK(simplifyExpr(neg(neg(i)))->sameAs(i));
+  TORCH_CHECK(simplifyExpr(notOp(notOp(i)))->sameAs(i));
+  TORCH_CHECK(simplifyExpr(notOp(notOp(b)))->sameAs(b));
 
   // Test constant folding
   TORCH_CHECK(simplifyExpr(add(add(i1, i), i1))->sameAs(add(i, i2)));
@@ -458,6 +467,26 @@ TEST_F(NVFuserTest, FusionDistributeMul_CUDA) {
   TORCH_CHECK(isEquivalent(mul(a, add(b, c)), add(mul(a, b), mul(a, c))));
   TORCH_CHECK(isEquivalent(
       mul(a, add(add(b, c), d)), add(add(mul(a, b), mul(a, c)), mul(a, d))));
+}
+
+TEST_F(NVFuserTest, FusionFundamentalDivisionWithRemainderProperty_CUDA) {
+  auto fusion_ptr = std::make_unique<Fusion>();
+  Fusion& fusion = *fusion_ptr.get();
+  FusionGuard fg(&fusion);
+
+  auto a = IrBuilder::create<NamedScalar>("a", DataType::Int);
+  auto b = IrBuilder::create<NamedScalar>("b", DataType::Int);
+  auto c = IrBuilder::create<NamedScalar>("T1.size[0]", DataType::Int);
+  auto d = IrBuilder::create<NamedScalar>("T1.size[1]", DataType::Int);
+
+  TORCH_CHECK(isEquivalent(add(mul(cpp_div(a, c), c), mod(a, c)), a));
+  TORCH_CHECK(
+      isEquivalent(add(add(b, mul(cpp_div(a, c), c)), mod(a, c)), add(a, b)));
+  TORCH_CHECK(isEquivalent(
+      add(mul(cpp_div(a, c), mul(c, d)), mul(d, mod(a, c))), mul(a, d)));
+  TORCH_CHECK(isEquivalent(
+      add(add(b, mul(cpp_div(a, c), mul(c, d))), mul(d, mod(a, c))),
+      add(mul(a, d), b)));
 }
 
 } // namespace jit

@@ -1,7 +1,6 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
-#include <arith.h>
 #include <codegen.h>
 #include <disjoint_set.h>
 #include <executor.h>
@@ -1751,20 +1750,22 @@ TEST_F(NVFuserTest, FusionIndexHoist3_CUDA) {
 
   const std::string expected_kernel = R"(
 __global__ void CUDAGeneratedKernel(Tensor<float, 2> T0, Tensor<float, 2> T2) {
+  int64_t i36;
+  i36 = ((nvfuser_index_t)blockIdx.x) * 256;
   int64_t i37;
-  i37 = (((nvfuser_index_t)blockIdx.x) * 256) + ((nvfuser_index_t)threadIdx.x);
+  i37 = i36 + ((nvfuser_index_t)threadIdx.x);
   int64_t i7;
   i7 = T0.size[0] * T0.size[1];
-  bool b68;
-  b68 = i37 < i7;
+  bool b73;
+  b73 = ((nvfuser_index_t)threadIdx.x) < (i7 - i36);
   float f8;
   f8 = (float)(i7);
   float T1[1];
-  if (b68) {
+  if (b73) {
     T1[0]
        = sinf(T0[i37]);
   }
-  if (b68) {
+  if (b73) {
     T2[i37]
       = T1[0]
       + f8;
@@ -7487,6 +7488,110 @@ TEST_F(NVFuserTest, FusionFloatConstantWhere_CUDA) {
   // testValidate does not check that dtypes match
   TORCH_CHECK(cg_outputs[0].dtype() == ref.dtype());
   testValidate(&fusion, cg_outputs, inputs, {ref}, __LINE__, __FILE__);
+}
+
+TEST_F(NVFuserTest, FusionCpAsyncCommitWait_CUDA) {
+  // Repro for https://github.com/csarofeen/pytorch/issues/2463
+  Fusion fusion;
+  FusionGuard fg(&fusion);
+
+  auto tv0 = makeContigConcreteTensor({12800, 8, 8, 8}, DataType::Half);
+  auto tv1 = set(tv0);
+  fusion.addInput(tv0);
+  fusion.addOutput(tv1);
+
+  tv1->axis(1)->parallelize(ParallelType::TIDy);
+  tv1->axis(2)->parallelize(ParallelType::TIDx);
+
+  auto tv2 = tv0->cacheAfter(LoadStoreOpType::CpAsync);
+  tv2->axis(-1)->parallelize(ParallelType::Vectorize);
+  tv2->axis(1)->parallelize(ParallelType::TIDx);
+  tv2->axis(2)->parallelize(ParallelType::TIDy);
+  tv2->setMemoryType(MemoryType::Shared);
+
+  tv2->inlineAt(1);
+  tv2->circularBuffer(8);
+
+  auto options = at::TensorOptions().dtype(kHalf).device(at::kCUDA, 0);
+
+  at::Tensor t0 = at::randn({12800, 8, 8, 8}, options);
+
+  FusionExecutor fe;
+  fe.compileFusion(&fusion, {t0});
+
+  auto cg_outputs = fe.runFusion({t0});
+  testValidate(fe.kernel(), cg_outputs, {t0}, {t0}, __LINE__, __FILE__);
+}
+
+// Repro of issue #2459
+TEST_F(NVFuserTest, FusionClearThreadPredicateByRAWSync_CUDA) {
+  Fusion fusion;
+  FusionGuard fg(&fusion);
+
+  auto tv0 = makeSymbolicTensor(2);
+  fusion.addInput(tv0);
+
+  auto tv1 = sum(tv0, {1});
+  auto tv2 = set(tv1);
+  auto tv3 = sum(tv2, {0});
+  fusion.addOutput(tv3);
+
+  // test with gmem
+  auto tv4 = sum(tv0, {1});
+  auto tv5 = set(tv4);
+  auto tv6 = set(tv5);
+  fusion.addOutput(tv6);
+
+  // tv1 is predicated with tidx
+  tv1->axis(0)->parallelize(ParallelType::TIDy);
+  tv1->axis(1)->parallelize(ParallelType::TIDx);
+
+  // Upload to shmem. Still predicated with tidx, so only the threads
+  // with tidx == 0 should be active.
+  tv2->axis(0)->parallelize(ParallelType::TIDy);
+  tv2->setMemoryType(MemoryType::Shared);
+
+  // Remap the parallelization from tidy to tidx. This should work as
+  // tv2 is in shared memory and SyncMap should correctly insert a RAW
+  // sync between tv2 and tv3. However, ThreadPredicateMap still marks
+  // tv3 as predicated by tidx, and since it is invalid to parallelize
+  // by a predicated parallel type, this resulted in an error (#2459).
+  tv3->axis(0)->parallelize(ParallelType::TIDx);
+
+  // Test with gmem
+  tv4->split(0, 4);
+  tv5->split(0, 4);
+  tv6->split(0, 4);
+
+  // Make tv4 predicated with tidx
+  tv4->axis(0)->parallelize(ParallelType::BIDx);
+  tv4->axis(1)->parallelize(ParallelType::TIDy);
+  tv4->axis(2)->parallelize(ParallelType::TIDx);
+
+  // Upload to gmem
+  tv5->axis(0)->parallelize(ParallelType::BIDx);
+  tv5->axis(1)->parallelize(ParallelType::TIDy);
+  tv5->setMemoryType(MemoryType::Global);
+
+  // RAW sync should be inserted after tv5
+
+  tv6->axis(0)->parallelize(ParallelType::BIDy);
+  tv6->axis(1)->parallelize(ParallelType::TIDx);
+
+  auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
+  at::manual_seed(0);
+  at::Tensor t0 = at::randn({10, 11}, options);
+
+  std::vector<IValue> inputs = {t0};
+
+  FusionExecutor fe;
+  fe.compileFusion(&fusion, inputs);
+  auto cg_outputs = fe.runFusion(inputs);
+
+  auto t3 = t0.sum({1}).sum({0});
+  auto t6 = t0.sum({1});
+
+  testValidate(fe.kernel(), cg_outputs, inputs, {t3, t6}, __LINE__, __FILE__);
 }
 
 // Test file size should be up to 10K LoC. Create a new file for more tests.

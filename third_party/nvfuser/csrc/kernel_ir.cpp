@@ -219,6 +219,8 @@ BlockSync::BlockSync(IrBuilderPasskey passkey, bool war_sync) : Expr(passkey) {
       "IR type only valid for Kernel container.");
   addAttribute(
       IrBuilder::create<Attribute<bool>>(passkey.ir_container_, war_sync));
+  addAttribute(
+      IrBuilder::create<Attribute<bool>>(passkey.ir_container_, false));
 }
 
 std::string BlockSync::toString(int indent_size) const {
@@ -366,11 +368,13 @@ std::string Scope::toString(int indent_size) const {
   return ss.str();
 }
 
-void Scope::insert(std::vector<Expr*>::const_iterator pos, Expr* expr) {
-  exprs_.insert(pos, expr);
+std::vector<Expr*>::iterator Scope::insert(
+    std::vector<Expr*>::const_iterator pos,
+    Expr* expr) {
+  return exprs_.insert(pos, expr);
 }
 
-void Scope::insert_before(Expr* ref, Expr* expr) {
+std::vector<Expr*>::iterator Scope::insert_before(Expr* ref, Expr* expr) {
   const auto it = std::find(exprs_.begin(), exprs_.end(), ref);
   TORCH_INTERNAL_ASSERT(
       it != exprs_.end(),
@@ -379,10 +383,10 @@ void Scope::insert_before(Expr* ref, Expr* expr) {
       " before the reference: ",
       ref,
       " however the reference was not found in this scope.");
-  insert(it, expr);
+  return insert(it, expr);
 }
 
-void Scope::insert_after(Expr* ref, Expr* expr) {
+std::vector<Expr*>::iterator Scope::insert_after(Expr* ref, Expr* expr) {
   const auto it = std::find(exprs_.begin(), exprs_.end(), ref);
   TORCH_INTERNAL_ASSERT(
       it != exprs_.end(),
@@ -391,12 +395,12 @@ void Scope::insert_after(Expr* ref, Expr* expr) {
       " after the reference: ",
       ref,
       " however the reference was not found in this scope.");
-  insert(it + 1, expr);
+  return insert(it + 1, expr);
 }
 
-void Scope::insert(size_t pos, Expr* expr) {
+std::vector<Expr*>::iterator Scope::insert(size_t pos, Expr* expr) {
   const auto it = exprs_.begin() + pos;
-  insert(it, expr);
+  return insert(it, expr);
 }
 
 void Scope::erase(std::vector<Expr*>::const_iterator pos) {

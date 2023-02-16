@@ -55,6 +55,7 @@ enum class DebugDumpOption {
   PrintPtxasLog, //!< Print the ptxas verbose log including register usage
   BufferReuseInfo, //!< Dump the analysis details of local/shared buffer re-use
   SchedulerDebug, //! Dump scheduler heuristic parameters
+  SchedulerVerbose, //! Dump detailed scheduler logging
   ParallelDimensions, //!< Dump known parallel dimensions
   Halo, //! Halo information of tensors
   PerfDebugVerbose, //! When running kernels, print verbose information
@@ -257,13 +258,34 @@ std::vector<KeyType> getSortedKeys(
   return keys;
 }
 
-// If std::stringstream << is defined for T, then use << to get its string
+// Based on https://stackoverflow.com/a/9154394
+template <typename T>
+static auto hasToStringHelper(int) -> decltype(
+    std::declval<typename std::remove_pointer<T>::type>().toString(),
+    std::true_type{});
+
+template <typename>
+static auto hasToStringHelper(long) -> std::false_type;
+
+template <class T>
+struct hasToString : decltype(hasToStringHelper<T>(0)) {};
+
+// If T::toString() is defined, use the toString() to get its
+// string. If std::stringstream << is defined for T, then use <<.
 // otherwise, just returns a "<attr>"
 
 template <typename T>
 struct Printer {
   static std::string toString(const T& value) {
-    return "<attr>";
+    if constexpr (hasToString<T>()) {
+      if constexpr (std::is_pointer<T>::value) {
+        return value->toString();
+      } else {
+        return value.toString();
+      }
+    } else {
+      return "<attr>";
+    }
   }
 };
 
@@ -332,7 +354,7 @@ std::string toDelimitedString(
     if (!first_val) {
       ss << delim;
     }
-    ss << *it;
+    ss << Printer<typename Iterator::value_type>::toString(*it);
     first_val = false;
   }
   return ss.str();
