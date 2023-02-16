@@ -993,6 +993,8 @@ std::vector<std::pair<TensorView*, TensorView*>> cacheAndForkOutputs(
   // For intermediate outputs, apply cacheFork
   for (auto output : ir_utils::filterByType<TensorView>(fusion->outputs())) {
     if (output->definition() == nullptr ||
+        // the output of ScatterOp must on the global memory due to the random
+        // or atomic access.
         output->definition()->isA<ScatterOp>()) {
       continue;
     }
