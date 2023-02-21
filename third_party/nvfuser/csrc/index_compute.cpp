@@ -1876,24 +1876,14 @@ std::vector<Val*> Index::getStrides(const TensorView* tv) {
 std::vector<Val*> Index::getRootIndices(
     const TensorView* tv,
     const std::vector<kir::ForLoop*>& loops,
-    const IndexFromIdGraph& index_from_id_graph,
-    bool from_concrete) {
+    const IndexFromIdGraph& index_from_id_graph) {
   auto root_dom = tv->getMaybeRFactorDomain();
-  // when from_concrete is true, we can generate root indices separately. For
-  // example, when generate index for  T1[I0, I1], if from_concrete is false,
-  // the result of this method is {0, I0 * S1 + I1}; if from_concrete is true,
-  // the result of this method is {I0 * S1, I1}.
-  auto indexing = from_concrete ? index_from_id_graph.concrete_index
-                                : index_from_id_graph.index;
+  auto indexing = index_from_id_graph.index;
 
   std::vector<Val*> root_inds(
       root_dom.size(), GpuLower::current()->kernel()->zeroVal());
   for (const auto i : c10::irange(root_dom.size())) {
     // See a comment in indexing to root domains in getGlobalProducerIndex.
-    if (from_concrete) {
-      root_dom[i] = GpuLower::current()->caMap()->getConcreteMappedID(
-          root_dom[i], IdMappingMode::EXACT);
-    }
     if (root_dom[i]->isReduction() || root_dom[i]->isBroadcast() ||
         root_dom[i]->isStride()) {
       continue;
@@ -1928,8 +1918,7 @@ std::vector<Val*> Index::getGlobalConsumerStridedIndices(
   auto strides = getStrides(consumer_tv);
   // if we need to override index, we need to generate the index from each
   // root axis firstly.
-  auto root_inds = getRootIndices(
-      consumer_tv, loops, index_from_id_graph, override_index.size() > 0);
+  auto root_inds = getRootIndices(consumer_tv, loops, index_from_id_graph);
   auto root_dom = consumer_tv->getMaybeRFactorDomain();
 
   // Global striding
