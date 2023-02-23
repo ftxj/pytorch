@@ -25,10 +25,7 @@
 #include <cmath>
 #include <fstream>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 int FusionExecutor::fusion_id_counter_ = 0; // NOLINT
 
@@ -40,6 +37,17 @@ bool shouldFillAllocationWithNan() {
 
 void setFillAllocationWithNan(bool value) {
   fill_allocation_with_nan_ = value;
+}
+
+bool assert_out_of_bound_ = false;
+
+bool shouldAssertOutOfBound() {
+  return isDebugDumpEnabled(DebugDumpOption::AssertMemoryViolation) ||
+      assert_out_of_bound_;
+}
+
+void setAssertOutOfBound(bool value) {
+  assert_out_of_bound_ = value;
 }
 
 namespace {
@@ -101,21 +109,13 @@ static const std::string& includeStdComplex() {
 std::string FusionExecutor::getStructuredCode(const std::string& kernel) {
   // generating cuda code;
   std::string code = "";
-#ifdef USE_ROCM
-#if ROCM_VERSION < 40200
-  code += std::string("#include <hip/hip_runtime.h>\n") +
-      std::string("#include <hip/hip_bf16.h>\n") +
-      std::string("#include <hip/hip_fp16.h>\n");
-#endif
-  code += std::string("#pragma clang force_cuda_host_device begin\n");
-#endif
+  if (shouldAssertOutOfBound()) {
+    code += "#define ASSERT_OUT_OF_BOUND 1";
+  }
   code += includeStdComplex();
   code += std::string("namespace ") + FusionExecutor::kernelNamespace() +
       " {\n" + defineIntegerTypes() + defineIndexMode(options_.index_mode) +
       defineComplexTypes() + executor_utils::kernelPreamble() + kernel + "}\n";
-#ifdef USE_ROCM
-  code += std::string("#pragma clang force_cuda_host_device end\n");
-#endif
 
   if (isDebugDumpEnabled(DebugDumpOption::CudaKernel)) {
     std::cout << "\n======= Codegen output for kernel: " << kernelName()
@@ -864,7 +864,7 @@ KernelArgumentHolder FusionExecutor::evaluateOutputSizes(
   ret.setDeviceIndex(args.getDeviceIndex());
 
   CompileOptions meta_options = options_;
-  meta_options.device = c10::Device(DeviceType::Meta, 0);
+  meta_options.device = c10::Device(c10::DeviceType::Meta, 0);
 
   for (const auto out_i : c10::irange(kernel->outputs().size())) {
     // If the output is just trivially the input, just "copy" it over, see note
@@ -1452,7 +1452,4 @@ float FusionExecutor::runRtc(
   return kernel_time_ms;
 }
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

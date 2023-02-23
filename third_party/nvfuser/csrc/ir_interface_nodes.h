@@ -17,10 +17,7 @@
 //! Nodes in here are intended to be "user facing" users in this sense being
 //! those that want to be able to generate CUDA code.
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 class WelfordResult;
 class ViewTransform;
@@ -48,7 +45,7 @@ template <typename UnderlyingType>
 class TORCH_CUDA_CU_API Scalar : public Val {
  public:
   using ScalarType = UnderlyingType;
-  static constexpr DataType kDefaultDataType =
+  static constexpr PrimDataType kDefaultDataType =
       NativeTypeToDataType<UnderlyingType>::type;
 
   explicit Scalar(IrBuilderPasskey passkey, DataType dtype = kDefaultDataType)
@@ -225,7 +222,7 @@ class TORCH_CUDA_CU_API TensorView : public Val {
 
   explicit TensorView(
       IrBuilderPasskey passkey,
-      const std::shared_ptr<Value>& jit_value);
+      const std::shared_ptr<torch::jit::Value>& jit_value);
 
   TensorView(const TensorView* src, IrCloner* ir_cloner);
 
@@ -663,7 +660,4 @@ class TORCH_CUDA_CU_API TensorViewBuilder {
   std::vector<bool> expanded_;
 };
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

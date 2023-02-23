@@ -15,10 +15,7 @@
 #include <typeinfo>
 #include <vector>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 namespace codegen {
 
 namespace {
@@ -162,7 +159,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     // The type of an integer literal is automatically picked from
     // int, long int, and long long int, so no suffix should be
     // required. https://en.cppreference.com/w/cpp/language/integer_literal
-    switch (dtype) {
+    switch (std::get<PrimDataType>(dtype.type)) {
       case DataType::Float:
         return "f";
       default:
@@ -522,7 +519,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
     if (is_cg) {
       indent() << "Ampere::cpAsyncCg";
     } else {
-      indent() << "Ampere::cpAsync";
+      indent() << "Ampere::cpAsyncCa";
     }
 
     if (ldst->predicate() == nullptr) {
@@ -1316,7 +1313,7 @@ class CudaKernelGenerator : private OptOutConstDispatch {
             vectorize_op, "LdMatrix: Vectorization required: ", ldst);
         genLdMatrix(ldst, vector_word_size);
         break;
-      case LoadStoreOpType::CpAsync:
+      case LoadStoreOpType::CpAsyncCa:
       case LoadStoreOpType::CpAsyncCg:
         genCpAsync(ldst, vector_word_size);
         break;
@@ -2792,7 +2789,4 @@ std::string generateCudaKernel(
 }
 
 } // namespace codegen
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

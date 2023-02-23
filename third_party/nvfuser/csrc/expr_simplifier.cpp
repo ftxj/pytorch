@@ -19,10 +19,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 namespace debug_print {
 
@@ -372,9 +369,9 @@ bool isIdentity(Val* v, BinaryOpType type) {
   }
   switch (type) {
     case BinaryOpType::Add:
-      return v->getInt() == 0 || v->getDouble() == 0.0;
+      return v->isZero();
     case BinaryOpType::Mul:
-      return v->getInt() == 1 || v->getDouble() == 1.0;
+      return v->isOne();
     case BinaryOpType::And:
       return v->getBool() == true;
     case BinaryOpType::Or:
@@ -1906,7 +1903,4 @@ Val* simplifyExpr(Val* value, const std::list<VarInfo>& variables) {
 
 #undef RUN_PASS
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

@@ -11,10 +11,7 @@
 
 #include <sstream>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 namespace {
 
@@ -278,7 +275,13 @@ std::unique_ptr<SegmentedFusion> SegmentedFusion::fromCompleteFusion(
   // convert Welford to two-pass
   SegmentCandidateFinderOptions scfo;
   if (scfo.run_translate_welford) {
-    SegmentCandidateFinder::translateWelfordInFusion(fusion, runtime_inputs);
+    if (SegmentCandidateFinder::translateWelfordInFusion(
+            fusion, runtime_inputs)) {
+      // only translated if a persistent scheduler can be used after translate
+      // need set to persistent explicitly as in some cases, e.g. var_mean,
+      // there is no persistent buffer and the initial heuristic is reduction
+      heuristic = ScheduleHeuristic::Persistent;
+    }
   }
 
   auto segmented_fusion_ptr =
@@ -3709,7 +3712,4 @@ std::string toString(const SegmentCandidateFinderOptions& segment_options) {
   return ss.str();
 }
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

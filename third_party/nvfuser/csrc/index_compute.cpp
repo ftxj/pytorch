@@ -21,10 +21,7 @@
 #include <transform_iter.h>
 #include <transform_replay.h>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 namespace {
 
@@ -2681,7 +2678,7 @@ bool canOmitStopPredicate(
   // Stop predicate: stop_index + stop_offset < extent, where
   // stop_index ranges from 0 to (extent + halo), so this can be
   // omitted if extent + halo + stop_offset < extent, i.e., halo +
-  // stop_offset <= 0.
+  // stop_offset < 0.
 
   auto stop_offset_val = stop_offset->as<Int>()->value();
 
@@ -2699,7 +2696,7 @@ bool canOmitStopPredicate(
       ? gpu_lower->haloInfo()->getRootAxisInfo(contig_id).width()
       : 0;
 
-  if (halo_ext + stop_offset_val.value() > 0) {
+  if (halo_ext + stop_offset_val.value() >= 0) {
     return false;
   }
 
@@ -2932,7 +2929,4 @@ Val* Index::eye(
   return result;
 }
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

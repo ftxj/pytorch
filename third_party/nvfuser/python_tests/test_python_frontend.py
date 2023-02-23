@@ -726,6 +726,61 @@ class TestNvFuserFrontend(TestCase):
         from nvfuser.nvfuser_version import Version
         self.assertTrue(version() > '0.0.0')
         self.assertTrue(version() > Version('0.0.0'))
+    
+    def test_def_and_sched_func_errors (self) :
+        inputs = [
+            torch.randn(4, 4, 4, device='cuda'),
+        ]
+
+        class DefError(FusionDefinition):
+            def definition(self) :
+                t0 = self.from_pytorch(inputs[0])
+                t1 = self.ops.tanh(t0)
+                self.add_output(t1)
+                self.sched.merge(t1, 1)
+
+        try:
+            fd = DefError()
+            out = fd.execute(inputs)
+        except RuntimeError:
+            pass
+        
+        class SchedError(FusionDefinition):
+            def definition(self) :
+                self.t0 = self.from_pytorch(inputs[0])
+                self.t1 = self.ops.tanh(self.t0)
+                self.add_output(self.t1)
+
+            def schedule(self) :
+                self.t2 = self.ops.relu(self.t1)
+
+        try:
+            fd = SchedError()
+            out = fd.execute(inputs)
+        except RuntimeError:
+            pass
+    
+    def test_basic_user_schedule (self) :
+        inputs = [
+            torch.randn(4, 4, 4, device='cuda'),
+            torch.randn(4, 4, 4, device='cuda'),
+        ]
+
+        class UserDefSched(FusionDefinition):
+            def definition(self):
+                self.t0 = self.from_pytorch(inputs[0])
+                self.t1 = self.from_pytorch(inputs[1])
+                self.t2 = self.ops.add(self.t0, self.t1)
+                self.add_output(self.t2)
+
+            def schedule(self):
+                self.sched.split(self.t2, 1, 2)
+                self.sched.merge(self.t2, -2)
+
+        fd = UserDefSched()
+        nvf_user_out = fd.execute(inputs)
+        nvf_out = fd.execute(inputs, override_user_schedule=True)
+        self.assertEqual(nvf_user_out, nvf_out)
 
     def test_where_dtypes(self):
         inputs = [
@@ -892,6 +947,45 @@ class TestNvFuserFrontend(TestCase):
 
         self.assertEqual(at_rfloat, rfloat)
         self.assertEqual(at_rdouble, rdouble)
+
+    def test_all_dim_var_mean(self):
+        inputs = [
+            torch.randn(2, 2, 2, device='cuda')
+        ]
+
+        def fuser_function(correction):
+            with FusionDefinition() as fd:
+                t0 = fd.from_pytorch(inputs[0])
+                t1,t2 = fd.ops.var_mean(t0, [0, 1, 2], correction)
+                fd.add_output(t1)
+                fd.add_output(t2)
+            return fd.execute(inputs)
+        list_of_test_cases = [0, 1]
+        for correction in list_of_test_cases:
+            fuser_result = fuser_function(correction)
+            torch_result = torch.var_mean(inputs[0], [0, 1, 2], bool(correction))
+            self.assertEqual(fuser_result, torch_result)
+
+    def test_scalar_only_inputs(self):
+        # We don't allow scalar outputs, currently,
+        # so a tensor has to be returned
+        def fusion_func(fd: FusionDefinition):
+            s0 = fd.define_scalar()
+            s1 = fd.define_scalar()
+            s2 = fd.ops.add(s0, s1)
+            c0 = fd.define_constant(1.0, DataType.Float)
+            t3 = fd.ops.full(size=[2, 2], arg=c0, dtype=DataType.Float)
+            t4 = fd.ops.mul(t3, s2)
+            fd.add_output(t4)
+
+        with FusionDefinition() as fd:
+            fusion_func(fd)
+
+        # TODO: full is broken and does not print its proper definition
+        # Issue: https://github.com/csarofeen/pytorch/issues/2502
+        nvf_out = fd.execute([2.0, 3.0])
+        eager_out = torch.full([2, 2], 1.0) * 5.0
+        self.assertEqual(eager_out, nvf_out[0]) 
 
 if __name__ == '__main__':
     run_tests()

@@ -7,10 +7,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 namespace ops {
 
 TensorView* maybe_broadcast_inner_to_rank(TensorView* t, size_t rank) {
@@ -107,7 +104,7 @@ Val* newScalar(ValType vtype, DataType dtype) {
   switch (vtype) {
     case (ValType::NamedScalar):
     case (ValType::Scalar):
-      switch (dtype) {
+      switch (std::get<PrimDataType>(dtype.type)) {
         case DataType::Bool:
           return IrBuilder::create<Bool>();
         case DataType::Float:
@@ -323,7 +320,7 @@ Val* newValLike(Val* val, DataType dtype) {
 //   lowest value for integer type;
 //   false for bool.
 Val* getMinimumValue(DataType v) {
-  switch (v) {
+  switch (std::get<PrimDataType>(v.type)) {
     case (DataType::Double):
       return IrBuilder::create<Double>(
           -std::numeric_limits<double>::infinity());
@@ -360,7 +357,7 @@ Val* getMinimumValue(DataType v) {
 //   highest value for integer type;
 //   true for bool.
 Val* getMaximumValue(DataType v) {
-  switch (v) {
+  switch (std::get<PrimDataType>(v.type)) {
     case (DataType::Double):
       return IrBuilder::create<Double>(std::numeric_limits<double>::infinity());
       break;
@@ -392,7 +389,4 @@ Val* getMaximumValue(DataType v) {
 }
 
 } // namespace ops
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

@@ -7,15 +7,12 @@
 
 #include <iostream>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 namespace {
 
 bool equals(const Val* value, const EvaluatorValue& concrete_value) {
-  switch (value->getDataType().value()) {
+  switch (std::get<PrimDataType>(value->getDataType()->type)) {
     case DataType::Int: {
       if (!concrete_value.isInt()) {
         return false;
@@ -182,7 +179,4 @@ void ExpressionEvaluator::print() const {
   std::cout << "--------------------\n\n";
 }
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

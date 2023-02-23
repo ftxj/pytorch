@@ -10,10 +10,7 @@
 #include <bitset>
 #include <unordered_map>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 //! Unroll pass
 //!
@@ -62,7 +59,7 @@ class TORCH_CUDA_CU_API UnrollPass : kir::ExprMutator {
   static bool canOmitElseClause(kir::ForLoop* fl);
 
  private:
-  void registerReplace(Expr* reference, Expr* new_expr, kir::Scope* scope);
+  void registerReplace(Expr* reference, Expr* new_expr);
 
   // Generate the for Expr replacement map
   UnrollPass(const std::vector<Expr*>& exprs);
@@ -71,7 +68,7 @@ class TORCH_CUDA_CU_API UnrollPass : kir::ExprMutator {
     return expr_replacement_map_;
   }
 
-  using OptOutDispatch::handle;
+  using kir::ExprMutator::handle;
 
   void handle(kir::ForLoop* fl) final;
 
@@ -93,7 +90,4 @@ class TORCH_CUDA_CU_API UnrollPass : kir::ExprMutator {
   bool non_trivial_pred_found_ = false;
 };
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

@@ -11,10 +11,7 @@
 #include <transform_iter.h>
 #include <transform_replay.h>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 namespace {
 
@@ -988,7 +985,7 @@ Val* PredicateElimination::getInitValue(TensorView* tv) const {
   if (init_val == nullptr) {
     // No reduction restriction. Just use zero
     auto dtype = *tv->getDataType();
-    if (isVectorType(dtype)) {
+    if (std::holds_alternative<ArrayOf>(dtype.type)) {
       return IrBuilder::create<NamedScalar>("{}", dtype);
     }
     return GpuLower::current()->kernel()->zeroVal();
@@ -1020,7 +1017,4 @@ std::string PredicateElimination::toString() const {
   return ss.str();
 }
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

@@ -3,10 +3,7 @@
 #include <ops/composite.h>
 #include <transform_view.h>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 ForwardDropoutResult dropout(TensorView* x, Val* prob) {
   auto p1m = sub(IrBuilder::create<Double>(x->container(), 1.), prob);
@@ -217,12 +214,10 @@ TensorView* view_as_real(TensorView* x) {
       isComplexType(input_type),
       "Operand of view_as_real must have complex type");
 
-  auto vec_type = getVectorType(getTypeFromComplexType(input_type), 2);
+  auto vec_type = ArrayOf{
+      std::make_shared<DataType>(getTypeFromComplexType(input_type)), 2};
   auto tv_vector = bitCastOp(vec_type, x);
   return viewAsScalar(tv_vector);
 }
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

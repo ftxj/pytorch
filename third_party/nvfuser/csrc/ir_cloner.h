@@ -4,13 +4,12 @@
 #include <dispatch.h>
 #include <ir_builder.h>
 
+#include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 class IrContainer;
 
@@ -31,6 +30,10 @@ class TORCH_CUDA_CU_API IrCloner {
 
   Statement* clone(const Statement* statement);
 
+  int64_t clone(int64_t x) {
+    return x;
+  }
+
   template <class T>
   T* clone(const T* node) {
     return node ? clone(node->template as<Statement>())->template as<T>()
@@ -38,14 +41,31 @@ class TORCH_CUDA_CU_API IrCloner {
   }
 
   template <class T>
-  std::vector<T*> clone(const std::vector<T*>& container) {
+  std::vector<T> clone(const std::vector<T>& container) {
     // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
-    std::vector<T*> copy;
+    std::vector<T> copy;
     copy.reserve(container.size());
     for (auto p : container) {
       copy.push_back(clone(p));
     }
     return copy;
+  }
+
+  template <class T>
+  std::unordered_set<T> clone(const std::unordered_set<T>& container) {
+    std::unordered_set<T> copy;
+    copy.reserve(container.size());
+    for (auto p : container) {
+      copy.insert(clone(p));
+    }
+    return copy;
+  }
+
+  template <typename... Ts>
+  std::tuple<Ts...> clone(const std::tuple<Ts...>& tup) {
+    return std::apply(
+        [this](auto&... x) { return std::make_tuple<Ts...>(clone(x)...); },
+        tup);
   }
 
   IrContainer* container() const {
@@ -117,7 +137,4 @@ T* IrBuilder::clone(const T* src, IrCloner* ir_cloner) {
 template <typename T>
 NVFUSER_DEFINE_CLONE(Attribute<T>)
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

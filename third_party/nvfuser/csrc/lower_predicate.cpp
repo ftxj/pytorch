@@ -13,10 +13,7 @@
 #include <transform_iter.h>
 #include <transform_replay.h>
 
-namespace torch {
-namespace jit {
-namespace fuser {
-namespace cuda {
+namespace nvfuser {
 
 namespace {
 
@@ -62,10 +59,9 @@ class ConditionalFromPredicateModifier : public kir::ExprMutator {
               "Vectorize predicate exprs only supported on tensor view operations.");
           if (!vec_expr->inputs()[0]->isConstScalar()) {
             conditional = SimplifyingIrBuilder::andExpr(
-                              conditional,
-                              GpuLower::current()->threadPredMap().getPredicate(
-                                  ir_utils::getTvOutput(vec_expr)))
-                              ->as<Bool>();
+                conditional,
+                GpuLower::current()->threadPredMap().getPredicate(
+                    ir_utils::getTvOutput(vec_expr)));
           }
         } else {
           TORCH_INTERNAL_ASSERT(lower_utils::supportInlinePredicate(expr));
@@ -74,10 +70,9 @@ class ConditionalFromPredicateModifier : public kir::ExprMutator {
           TORCH_INTERNAL_ASSERT(
               thread_pred->isConst() && thread_pred->value().value());
           conditional = SimplifyingIrBuilder::andExpr(
-                            conditional,
-                            GpuLower::current()->threadPredMap().getPredicate(
-                                ir_utils::getTvOutput(expr)))
-                            ->as<Bool>();
+              conditional,
+              GpuLower::current()->threadPredMap().getPredicate(
+                  ir_utils::getTvOutput(expr)));
         }
       }
       TORCH_INTERNAL_ASSERT(conditional != nullptr);
@@ -227,7 +222,4 @@ std::vector<Expr*> generateConditionalFromPredicate(
   return ConditionalFromPredicateModifier::fillPredicates(exprs);
 }
 
-} // namespace cuda
-} // namespace fuser
-} // namespace jit
-} // namespace torch
+} // namespace nvfuser

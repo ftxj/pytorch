@@ -21,10 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
-// Tests go in torch::jit
-namespace torch::jit {
-
-using namespace torch::jit::fuser::cuda;
+namespace nvfuser {
 
 // Make a tensor that is known to be fully contiguous of dimensionality=ndims,
 // but unknown sizes
@@ -374,6 +371,8 @@ class NVFuserTest : public ::testing::Test {
       GTEST_SKIP() << "skipping tests on pre-PASCAL GPUs";
     }
     setFillAllocationWithNan(true);
+    // This is failing ?!
+    // setAssertOutOfBound(true);
   }
 };
 
@@ -470,4 +469,4 @@ std::pair<at::Tensor, at::Tensor> fp16MatmulAtInput(
 // Disable magic zero
 constexpr CompileParams matmul_cparams{DataType::Int32, 255, false};
 
-} // namespace torch::jit
+} // namespace nvfuser
