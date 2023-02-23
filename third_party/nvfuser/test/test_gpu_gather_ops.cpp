@@ -101,7 +101,7 @@ TEST_F(NVFuserTest, FusionScatter1DIndexZerosSelfTvSameShape_CUDA) {
     auto t_index = at::add(idx_1, idx_2);
     auto out_ref = at::scatter(input, 0, t_index, src);
 
-    std::vector<IValue> aten_inputs = {input, idx_1, idx_2, src};
+    std::vector<c10::IValue> aten_inputs = {input, idx_1, idx_2, src};
 
     FusionExecutorCache executor_cache(std::move(fusion_ptr));
     auto cg_outputs = executor_cache.runFusionWithInputs(aten_inputs);
