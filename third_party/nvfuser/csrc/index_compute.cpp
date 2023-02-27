@@ -1886,6 +1886,14 @@ std::vector<Val*> Index::getRootIndices(
       continue;
     }
 
+    if (root_dom[i]->isGatherScatter()) {
+      root_dom[i] = GpuLower::current()->caMap()->getConcreteMappedID(
+          root_dom[i], IdMappingMode::EXACT);
+      indexing = index_from_id_graph.concrete_index;
+    } else {
+      indexing = index_from_id_graph.index;
+    }
+
     TORCH_INTERNAL_ASSERT(
         indexing.indexMap().find(root_dom[i]) != indexing.indexMap().end(),
         "Couldn't find root mapping for ",
@@ -2797,7 +2805,11 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     if (contig_id->isBroadcast()) {
       continue;
     }
-
+    if (consumer_tv->definition() &&
+        consumer_tv->definition()->isA<ScatterOp>()) {
+      contig_id = gpu_lower->caMap()->getConcreteMappedID(
+          contig_id, IdMappingMode::ALMOSTEXACT);
+    }
     auto root_ids = contig_id_entry.covered_ids;
 
     const auto consumer_stop_indexing_it =
@@ -2883,8 +2895,10 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     } else {
       auto offsetted_stop_index =
           SimplifyingIrBuilder::addExpr(stop_index, stop_offset);
+      auto extent_id = gpu_lower->caMap()->getConcreteMappedID(
+          contig_id, IdMappingMode::EXACT);
       auto stop_pred = SimplifyingIrBuilder::ltExpr(
-                           offsetted_stop_index, contig_id->extent())
+                           offsetted_stop_index, extent_id->extent())
                            ->as<Bool>();
       info.stop_predicate_ = stop_pred;
     }

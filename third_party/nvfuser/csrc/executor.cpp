@@ -41,6 +41,30 @@ void setFillAllocationWithNan(bool value) {
 
 bool assert_out_of_bound_ = false;
 
+// for scatter operator, we need initialize output tensor using self tensor.
+TensorView* getOutputTensorForFillWithInputTensor(Val* output) {
+  if (output->definition() && output->definition()->isA<ScatterOp>()) {
+    return output->definition()->as<ScatterOp>()->selfTv();
+  }
+  return nullptr;
+}
+
+at::Tensor getTensorForFillAnotherTensor(
+    TensorView* tv,
+    const KernelArgumentHolder& arg,
+    kir::Kernel* kernel) {
+  for (const auto i : c10::irange(kernel->inputs().size())) {
+    if (kernel->inputs()[i] == kernel->inputsOf(tv)[0]) {
+      return dynamic_cast<const TensorArgAbstract*>(arg[i])
+          ->getTensor()
+          .clone()
+          .detach();
+    }
+  }
+  TORCH_INTERNAL_ASSERT(
+      false, "can't select input tensor to initiallize output tensor");
+}
+
 bool shouldAssertOutOfBound() {
   return isDebugDumpEnabled(DebugDumpOption::AssertMemoryViolation) ||
       assert_out_of_bound_;
@@ -833,9 +857,13 @@ std::vector<at::Tensor> FusionExecutor::allocOutputs(
           kernel->outputs()[out_i]->isA<TensorView>(),
           "Cannot allocate outputs that are not tensors.");
       auto output = kernel->outputs()[out_i]->as<TensorView>();
-      if (alias_indices.count(out_i) != 0) {
-        // aliasing to inputs, no need to allocate real output, just push empty
-        // tensor here.
+      if (auto need_fill =
+              getOutputTensorForFillWithInputTensor(kernel->outputs()[out_i])) {
+        outputs.push_back(
+            getTensorForFillAnotherTensor(need_fill, args, kernel));
+      } else if (alias_indices.count(out_i) != 0) {
+        // aliasing to inputs, no need to allocate real output, just push
+        // empty tensor here.
         outputs.emplace_back();
       } else {
         outputs.push_back(
@@ -867,8 +895,8 @@ KernelArgumentHolder FusionExecutor::evaluateOutputSizes(
   meta_options.device = c10::Device(c10::DeviceType::Meta, 0);
 
   for (const auto out_i : c10::irange(kernel->outputs().size())) {
-    // If the output is just trivially the input, just "copy" it over, see note
-    // [trivial forwarding]
+    // If the output is just trivially the input, just "copy" it over, see
+    // note [trivial forwarding]
     if (kernel->outputs()[out_i]->isFusionInput()) {
       for (auto inp_i : c10::irange(kernel->inputs().size())) {
         if (kernel->inputs()[inp_i] == kernel->outputs()[out_i]) {
@@ -923,8 +951,8 @@ KernelArgumentHolder FusionExecutor::inferOutputSizes(
       "compile kernel shouldn't hit a pre-existing cache");
   FUSER_PERF_SCOPE("ExecutorRunFusion::ValidateAndInitialize");
   // TODO: validate kernel inputs currently won't be happy, since our fusion
-  // args are mapped with `meta` tensor instead of `cuda` tensor, check if this
-  // would be resolved with FakeTensor
+  // args are mapped with `meta` tensor instead of `cuda` tensor, check if
+  // this would be resolved with FakeTensor
   // executor_utils::validateKernelInputs(fusion_, args, options_.device);
 
   if (!evaluator_precomputed_values_) {
@@ -936,8 +964,8 @@ KernelArgumentHolder FusionExecutor::inferOutputSizes(
   evaluator_precomputed_values_->bindInputs(args);
   expr_eval.precomputedValues() = evaluator_precomputed_values_.get();
 
-  // I think this binds something to expr_eval, so even though we are not using
-  // launch_params_, we still need this in order to infer output shapes.
+  // I think this binds something to expr_eval, so even though we are not
+  // using launch_params_, we still need this in order to infer output shapes.
   launch_params_ =
       computeLaunchParams(launch_constraints, expr_eval, warp_size_);
 
@@ -1044,8 +1072,8 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
             fillTensorWithNan(allocated_outputs.back());
           }
         }
-        // Note: aliased output is not returned as output. But we still need it
-        // for kernel execution, so would need to push them to args
+        // Note: aliased output is not returned as output. But we still need
+        // it for kernel execution, so would need to push them to args
         for (const auto& entry : executor_entry->io_alias_indices) {
           auto aliased_output_index = entry.first;
           auto aliased_input_index = entry.second;
@@ -1111,8 +1139,8 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
     launch_params_ =
         computeLaunchParams(launch_constraints, expr_eval, warp_size_);
 
-    // Recompile the kernel if the number of threads in the block has increased
-    // or maxrregcount has changed
+    // Recompile the kernel if the number of threads in the block has
+    // increased or maxrregcount has changed
     if (launch_params_.nThreads() > block_size_high_water_mark ||
         compile_params.maxrregcount != maxrregcount_high_water_mark) {
       const auto kernel = lowered_->kernel();
@@ -1224,8 +1252,8 @@ std::vector<at::Tensor> FusionExecutor::runFusion(
       rand_offset = (kernel()->summary().max_rng_offsets + 1) * 4;
     }
 
-    // This is the entry when we have provided `opt_code` but the entry has not
-    // been initialized yet.
+    // This is the entry when we have provided `opt_code` but the entry has
+    // not been initialized yet.
     if (executor_entry) {
       FUSER_PERF_SCOPE("ExecutorRunFusion::FillCacheEntry");
       // record the the short-cut executor entry for the given input set;

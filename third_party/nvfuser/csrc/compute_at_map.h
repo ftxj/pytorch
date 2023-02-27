@@ -311,6 +311,7 @@ class TORCH_CUDA_CU_API ComputeAtMap {
       IterDomain*>
       concrete_id_cache_;
 
+  std::unordered_map<IterDomain*, IterDomain*> concrete_id_map_;
   // Unique expressions operating on exact disjoint set. For each IterDomain in
   // each exact disjoint set will log its definition in the std::vector<Expr*>.
   // If another expression is already in the set where inputs and outputs
