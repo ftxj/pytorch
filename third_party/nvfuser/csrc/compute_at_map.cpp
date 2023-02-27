@@ -714,6 +714,7 @@ void ComputeAtMap::build(Fusion* fusion) {
   buildUniqueExactExprMaps();
   buildConcreteIds();
   buildUniqueExactExprMaps();
+  updateForScatterOps(fusion);
 }
 
 void ComputeAtMap::validateAndPropagatePType() {
@@ -1080,6 +1081,10 @@ IterDomain* ComputeAtMap::computeConcreteId(
       "No concrete_id found for disjoint set ",
       disjoint_set_shared_ptr->toString());
 
+  if (concrete_id_map_.find(concrete_id) != concrete_id_map_.end() &&
+      disjoint_set_shared_ptr->has(concrete_id_map_[concrete_id])) {
+    concrete_id = concrete_id_map_[concrete_id];
+  }
   return concrete_id;
 }
 
@@ -1088,12 +1093,30 @@ void ComputeAtMap::buildConcreteIds() {
   // same size, it doesn't matter which is selected. This should be run-to-run
   // deterministic but which ID gets selected her depends on the traversal order
   // generating the set (compute at map build).
+  for (auto expr : ir_utils::getScatterOps(fusion_)) {
+    auto output_ids = ir_utils::allIDsOf(expr->output(0)->as<TensorView>());
+    auto index_ids = ir_utils::allIDsOf(expr->indexTv());
+    auto src_ids = ir_utils::allIDsOf(expr->srcTv());
+
+    for (size_t i = 0; i < output_ids.size(); ++i) {
+      auto out_id = output_ids[i];
+
+      auto idx_id = index_ids[i];
+      auto src_id = src_ids[i];
+      concrete_id_map_[out_id] = idx_id;
+      concrete_id_map_[src_id] = idx_id;
+    }
+  }
+
   for (const auto& disjoint_set_shared_ptr :
        id_graph_.exactNodes().disjointSets()) {
     TORCH_INTERNAL_ASSERT(
         disjoint_set_shared_ptr->vector().size(),
         "Cannot compute concrete id of empty set.");
     auto first_id = disjoint_set_shared_ptr->vector().front();
+    if (concrete_id_map_.find(first_id) != concrete_id_map_.end()) {
+      first_id = concrete_id_map_[first_id];
+    }
     concrete_id_cache_[disjoint_set_shared_ptr] = first_id;
   }
 
@@ -1106,6 +1129,9 @@ void ComputeAtMap::buildConcreteIds() {
         "Cannot compute concrete id of empty set.");
     auto first_id = disjoint_set_shared_ptr->vector().front();
     auto concrete_id = computeConcreteId(first_id, IdMappingMode::PERMISSIVE);
+    if (concrete_id_map_.find(concrete_id) != concrete_id_map_.end()) {
+      concrete_id = concrete_id_map_[concrete_id];
+    }
     concrete_id_cache_[disjoint_set_shared_ptr] = concrete_id;
   }
 
@@ -1117,6 +1143,9 @@ void ComputeAtMap::buildConcreteIds() {
         "Cannot compute concrete id of empty set.");
     auto first_id = disjoint_set_shared_ptr->vector().front();
     auto concrete_id = computeConcreteId(first_id, IdMappingMode::ALMOSTEXACT);
+    if (concrete_id_map_.find(concrete_id) != concrete_id_map_.end()) {
+      concrete_id = concrete_id_map_[concrete_id];
+    }
     concrete_id_cache_[disjoint_set_shared_ptr] = concrete_id;
   }
 
@@ -1127,6 +1156,9 @@ void ComputeAtMap::buildConcreteIds() {
         "Cannot compute concrete id of empty set.");
     auto first_id = disjoint_set_shared_ptr->vector().front();
     auto concrete_id = computeConcreteId(first_id, IdMappingMode::LOOP);
+    if (concrete_id_map_.find(concrete_id) != concrete_id_map_.end()) {
+      concrete_id = concrete_id_map_[concrete_id];
+    }
     concrete_id_cache_[disjoint_set_shared_ptr] = concrete_id;
   }
 }
@@ -1626,7 +1658,44 @@ void ComputeAtMap::updateComputeWith(TensorView* compute_with_tv) {
         "Cannot compute concrete id of empty set.");
     auto first_id = disjoint_set_shared_ptr->vector().front();
     auto concrete_id = computeConcreteId(first_id, IdMappingMode::LOOP);
+    if (concrete_id_map_.find(concrete_id) != concrete_id_map_.end()) {
+      concrete_id = concrete_id_map_[concrete_id];
+    }
     concrete_id_cache_[disjoint_set_shared_ptr] = concrete_id;
+  }
+}
+void ComputeAtMap::modiftyConcreteID(
+    IterDomain* old_id,
+    IterDomain* new_id,
+    IdMappingMode mode) {
+  if (getIdSets(mode).mappingExists(old_id)) {
+    auto entry = disjointSetOf(old_id, mode);
+    if (entry->has(new_id) || new_id->isBroadcast()) {
+      concrete_id_cache_[entry] = new_id;
+    }
+  }
+}
+
+void ComputeAtMap::updateForScatterOps(Fusion* fusion) {
+  for (auto expr : ir_utils::getScatterOps(fusion)) {
+    auto output_ids = ir_utils::allIDsOf(expr->output(0)->as<TensorView>());
+    auto index_ids = ir_utils::allIDsOf(expr->indexTv());
+    auto src_ids = ir_utils::allIDsOf(expr->srcTv());
+
+    for (int i = 0; i < (int)output_ids.size(); ++i) {
+      auto out_id = output_ids[i];
+      auto idx_id = index_ids[i];
+      auto src_id = src_ids[i];
+      modiftyConcreteID(out_id, idx_id, IdMappingMode::LOOP);
+      modiftyConcreteID(out_id, idx_id, IdMappingMode::ALMOSTEXACT);
+      modiftyConcreteID(out_id, idx_id, IdMappingMode::EXACT);
+      modiftyConcreteID(out_id, idx_id, IdMappingMode::PERMISSIVE);
+
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::LOOP);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::ALMOSTEXACT);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::EXACT);
+      modiftyConcreteID(src_id, idx_id, IdMappingMode::PERMISSIVE);
+    }
   }
 }
 

@@ -1886,6 +1886,14 @@ std::vector<Val*> Index::getRootIndices(
       continue;
     }
 
+    if (root_dom[i]->isGatherScatter()) {
+      root_dom[i] = GpuLower::current()->caMap()->getConcreteMappedID(
+          root_dom[i], IdMappingMode::EXACT);
+      indexing = index_from_id_graph.concrete_index;
+    } else {
+      indexing = index_from_id_graph.index;
+    }
+
     TORCH_INTERNAL_ASSERT(
         indexing.indexMap().find(root_dom[i]) != indexing.indexMap().end(),
         "Couldn't find root mapping for ",
@@ -2777,7 +2785,7 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
       : stop_indexing_from_idgraph;
   const auto consumer_start_indexing = start_indexing_from_idgraph.index;
   const auto& consumer_start_index_map = consumer_start_indexing.indexMap();
-
+  std::cout << "generate = " << consumer_start_indexing.toString() << std::endl;
   // Get the contiguous ids we need to generate predicates for
   auto contig_id_infos =
       getPredicateContigIds(consumer_tv, consumer_stop_index_map);
@@ -2796,6 +2804,11 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     // No predicates needed for braodcasted indices.
     if (contig_id->isBroadcast()) {
       continue;
+    }
+    if (consumer_tv->definition() &&
+        consumer_tv->definition()->isA<ScatterOp>()) {
+      contig_id = gpu_lower->caMap()->getConcreteMappedID(
+          contig_id, IdMappingMode::ALMOSTEXACT);
     }
 
     auto root_ids = contig_id_entry.covered_ids;
@@ -2840,7 +2853,11 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
 
     auto stop_index = consumer_stop_indexing_it->second;
     auto start_index = consumer_start_index_map.at(contig_id);
-
+    std::cout << "start = " << start_index->toString() << std::endl;
+    if (start_index->definition()) {
+      std::cout << "start definition = "
+                << start_index->definition()->toString() << std::endl;
+    }
     IndexMagicZeroInfo start_magic_zero_info;
     IndexMagicZeroInfo stop_magic_zero_info;
 
@@ -2883,8 +2900,10 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     } else {
       auto offsetted_stop_index =
           SimplifyingIrBuilder::addExpr(stop_index, stop_offset);
+      auto extent_id = gpu_lower->caMap()->getConcreteMappedID(
+          contig_id, IdMappingMode::EXACT);
       auto stop_pred = SimplifyingIrBuilder::ltExpr(
-                           offsetted_stop_index, contig_id->extent())
+                           offsetted_stop_index, extent_id->extent())
                            ->as<Bool>();
       info.stop_predicate_ = stop_pred;
     }

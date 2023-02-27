@@ -265,7 +265,11 @@ class TORCH_CUDA_CU_API ComputeAtMap {
   // of_id.
   VectorOfUniqueEntries<std::shared_ptr<VectorOfUniqueEntries<IterDomain*>>>
   getInputDisjointSetsOf(IterDomain* of_id, bool stop_at_rfactor = true);
-
+  void updateForScatterOps(Fusion* fusion);
+  void modiftyConcreteID(
+      IterDomain* old_id,
+      IterDomain* new_id,
+      IdMappingMode mode);
   // Traverses through definitions of exact maps (unique_exact_definitions_) to
   // all input ID's from provided exact_sets. Returns all the exact map concrete
   // IDs of all the exact sets that on the path to and including the inputs
@@ -310,6 +314,7 @@ class TORCH_CUDA_CU_API ComputeAtMap {
       std::shared_ptr<VectorOfUniqueEntries<IterDomain*>>,
       IterDomain*>
       concrete_id_cache_;
+  std::unordered_map<IterDomain*, IterDomain*> concrete_id_map_;
 
   // Unique expressions operating on exact disjoint set. For each IterDomain in
   // each exact disjoint set will log its definition in the std::vector<Expr*>.

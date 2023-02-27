@@ -156,6 +156,17 @@ class IndexCompute : public BackwardVisitor {
   std::unordered_map<IterDomain*, Val*> permissive_index_map_;
 
  public:
+  std::string toString() const {
+    std::stringstream ss;
+    ss << "index_map = {\n";
+    for (auto v : indexMap()) {
+      ss << "  " << v.first->toString() << " : " << v.second->toString()
+         << ";\n";
+    }
+    ss << "}\n";
+    return ss.str();
+  }
+
   const std::unordered_map<IterDomain*, Val*>& indexMap() const {
     return index_map_;
   }

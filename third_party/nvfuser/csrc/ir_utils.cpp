@@ -429,6 +429,18 @@ std::vector<SelectOp*> getSelectOps(Fusion* fusion) {
   return select_ops;
 }
 
+std::vector<ScatterOp*> getScatterOps(Fusion* fusion) {
+  std::vector<ScatterOp*> scatter_ops;
+
+  for (auto expr : fusion->exprs()) {
+    if (expr->isA<ScatterOp>()) {
+      scatter_ops.push_back(expr->as<ScatterOp>());
+    }
+  }
+
+  return scatter_ops;
+}
+
 namespace {
 
 class ValReplacementMutator : private OptOutMutator {

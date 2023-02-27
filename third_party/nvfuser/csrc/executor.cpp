@@ -39,6 +39,30 @@ void setFillAllocationWithNan(bool value) {
   fill_allocation_with_nan_ = value;
 }
 
+// for scatter operator, we need initialize output tensor using self tensor.
+TensorView* getOutputTensorForFillWithInputTensor(Val* output) {
+  if (output->definition() && output->definition()->isA<ScatterOp>()) {
+    return output->definition()->as<ScatterOp>()->selfTv();
+  }
+  return nullptr;
+}
+
+at::Tensor getTensorForFillAnotherTensor(
+    TensorView* tv,
+    const KernelArgumentHolder& arg,
+    kir::Kernel* kernel) {
+  for (const auto i : c10::irange(kernel->inputs().size())) {
+    if (kernel->inputs()[i] == kernel->inputsOf(tv)[0]) {
+      return dynamic_cast<const TensorArgAbstract*>(arg[i])
+          ->getTensor()
+          .clone()
+          .detach();
+    }
+  }
+  TORCH_INTERNAL_ASSERT(
+      false, "can't select input tensor to initiallize output tensor");
+}
+
 bool assert_out_of_bound_ = false;
 
 bool shouldAssertOutOfBound() {
@@ -833,7 +857,11 @@ std::vector<at::Tensor> FusionExecutor::allocOutputs(
           kernel->outputs()[out_i]->isA<TensorView>(),
           "Cannot allocate outputs that are not tensors.");
       auto output = kernel->outputs()[out_i]->as<TensorView>();
-      if (alias_indices.count(out_i) != 0) {
+      if (auto need_fill =
+              getOutputTensorForFillWithInputTensor(kernel->outputs()[out_i])) {
+        outputs.push_back(
+            getTensorForFillAnotherTensor(need_fill, args, kernel));
+      } else if (alias_indices.count(out_i) != 0) {
         // aliasing to inputs, no need to allocate real output, just push empty
         // tensor here.
         outputs.emplace_back();
