@@ -1080,10 +1080,6 @@ IterDomain* ComputeAtMap::computeConcreteId(
       "No concrete_id found for disjoint set ",
       disjoint_set_shared_ptr->toString());
 
-  if (concrete_id_map_.find(concrete_id) != concrete_id_map_.end() &&
-      disjoint_set_shared_ptr->has(concrete_id_map_[concrete_id])) {
-    concrete_id = concrete_id_map_[concrete_id];
-  }
   return concrete_id;
 }
 
@@ -1127,9 +1123,6 @@ void ComputeAtMap::buildConcreteIds() {
         "Cannot compute concrete id of empty set.");
     auto first_id = disjoint_set_shared_ptr->vector().front();
     auto concrete_id = computeConcreteId(first_id, IdMappingMode::PERMISSIVE);
-    if (concrete_id_map_.find(concrete_id) != concrete_id_map_.end()) {
-      concrete_id = concrete_id_map_[concrete_id];
-    }
     concrete_id_cache_[disjoint_set_shared_ptr] = concrete_id;
   }
 
