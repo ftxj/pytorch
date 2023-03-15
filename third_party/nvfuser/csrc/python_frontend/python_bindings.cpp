@@ -248,7 +248,7 @@ void initNvFuserPythonBindings(PyObject* module) {
               duplicate_check |= 1 << v;
             }
             TORCH_CHECK(
-                duplicate_check == (1 << stride_order.size()) - 1,
+                (int)duplicate_check == (int)(1 << stride_order.size()) - 1,
                 "duplicated elements in stride_order detected!");
             self.defineRecord(new OutputRecord<TensorView>(
                 {self.recordingState(output())}, stride_order));
