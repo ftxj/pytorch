@@ -111,11 +111,11 @@ TEST_F(NVFuserTest, FusionScatter1DIndexZerosSelfTvSameShape_CUDA) {
 }
 
 TEST_F(NVFuserTest, FusionScatter2DZerosSelfTvFusion_CUDA) {
-  const std::vector<std::vector<int64_t>> input_dims = {{4, 3}, {3, 3}};
+  const std::vector<std::vector<int64_t>> input_dims = {{22, 20}};
 
-  const std::vector<std::vector<int64_t>> src_dims = {{3, 2}, {2, 2}};
+  const std::vector<std::vector<int64_t>> src_dims = {{20, 18}};
 
-  const std::vector<std::vector<int64_t>> idx_dims = {{2, 2}, {2, 2}};
+  const std::vector<std::vector<int64_t>> idx_dims = {{20, 18}};
   auto options = at::TensorOptions().dtype(at::kFloat).device(at::kCUDA, 0);
   auto options_i =
       torch::TensorOptions().dtype(torch::kLong).device(at::kCUDA, 0);

@@ -294,6 +294,8 @@ class GraphLowering(torch.fx.Interpreter):
 
             try:
                 out = lowerings[target](*args, **kwargs)
+                if config.debug:
+                    print('graph=', out)
                 return out
             except Exception as e:
                 raise LoweringException(e, target, args, kwargs) from e
