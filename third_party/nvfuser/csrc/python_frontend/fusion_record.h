@@ -1192,7 +1192,7 @@ struct OutputRecord : RecordFunctor {
     if (!stride_order.empty()) {
       bool requires_permutation = false;
       for (const auto i : c10::irange(stride_order.size())) {
-        if (stride_order[i] != i) {
+        if ((int)stride_order[i] != (int)i) {
           requires_permutation = true;
           break;
         }
@@ -1271,7 +1271,7 @@ struct OutputRecord : RecordFunctor {
             duplicate_check |= 1 << stride_order_[i];
           }
           TORCH_CHECK(
-              duplicate_check == (1 << reverse_perm.size()) - 1,
+              int(duplicate_check) == int(1 << reverse_perm.size()) - 1,
               "duplicated elements in stride_order detected!");
           tv_output = permute(tv_output, reverse_perm);
           fd.addOutput(tv_output, stride_order_);

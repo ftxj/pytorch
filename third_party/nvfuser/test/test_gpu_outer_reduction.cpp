@@ -1381,7 +1381,7 @@ bool shouldBePersistent(
       (is_bwd ? 2 : 1); // Two tensors are cached in the backward batchnorm
 
   // The scheduler sets aside (pb_factor + 35) registers
-  return req_reg_count <= 255 - (pb_factor + 35);
+  return int(req_reg_count) <= int(255 - (pb_factor + 35));
 }
 
 } // namespace
