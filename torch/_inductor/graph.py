@@ -359,6 +359,8 @@ class GraphLowering(torch.fx.Interpreter):
 
         try:
             out = lowerings[target](*args, **kwargs)
+            if config.debug:
+                print('triton_graph=', out)
             return out
         except Exception as e:
             raise LoweringException(e, target, args, kwargs).with_traceback(
