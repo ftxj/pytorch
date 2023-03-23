@@ -1056,6 +1056,10 @@ class TritonKernel(Kernel):
             line = f"tl.store({var} + ({index}), {value}, {mask})"
         elif mode == "atomic_add":
             line = f"tl.atomic_add({var} + ({index}), {value}, {mask})"
+        elif mode == "atomic_max":
+            line = f"tl.atomic_max({var} + ({index}), {value}, {mask})"
+        elif mode == "atomic_min":
+            line = f"tl.atomic_min({var} + ({index}), {value}, {mask})"
         else:
             raise NotImplementedError(f"store mode={mode}")
         self.stores.writeline(name, line)

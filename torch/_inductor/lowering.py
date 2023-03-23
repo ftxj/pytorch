@@ -2090,8 +2090,8 @@ def scatter(x, dim: int, index, src, **kwargs):
 def scatter_fallback(
     fn, self, dim: int, index, src, *, reduce: str = None, include_self: bool = True
 ):
-    if reduce not in {None, "sum"} or (
-        reduce == "sum" and self.get_dtype() in {torch.bool, torch.int64}
+    if reduce not in {None, "sum", "amax"} or (
+        (reduce == "sum" or reduce == "amax") and self.get_dtype() in {torch.bool, torch.int64}
     ):
         self.realize()
         return fallback_handler(fn)(
@@ -2189,6 +2189,10 @@ def scatter_reduce_(self, dim: int, index, src, reduce, *, include_self: bool = 
     def backend_reduce_str(reduce):
         if reduce == "sum":
             return "atomic_add"
+        elif reduce == "amax":
+            return "atomic_max"
+        elif reduce == "amin":
+            return "atomic_min"
         else:
             # TODO: Need to support more reduction type
             assert reduce is None
