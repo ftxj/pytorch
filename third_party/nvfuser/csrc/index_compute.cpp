@@ -2752,7 +2752,14 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     kir::ForLoop* unswitch_or_vec_loop,
     bool shift_padding) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getReferenceRootPredicates");
-
+  if (consumer_tv->definition() &&
+      consumer_tv->definition()->isA<ScatterOp>()) {
+    return getReferenceRootPredicates(
+        consumer_tv->definition()->as<ScatterOp>()->srcTv(),
+        loops,
+        unswitch_or_vec_loop,
+        shift_padding);
+  }
   const auto gpu_lower = GpuLower::current();
 
   const bool is_unswitch = unswitch_or_vec_loop != nullptr;
@@ -2805,13 +2812,8 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     if (contig_id->isBroadcast()) {
       continue;
     }
-    if (consumer_tv->definition() &&
-        consumer_tv->definition()->isA<ScatterOp>()) {
-      contig_id = gpu_lower->caMap()->getConcreteMappedID(
-          contig_id, IdMappingMode::ALMOSTEXACT);
-    }
-    auto root_ids = contig_id_entry.covered_ids;
 
+    auto root_ids = contig_id_entry.covered_ids;
     const auto consumer_stop_indexing_it =
         consumer_stop_index_map.find(contig_id);
 

@@ -9189,7 +9189,9 @@ __global__ void kernel1(Tensor<float, 2> T0, Tensor<int64_t, 2> T1, Tensor<int64
     T6[0]
        = T0[i104];
   }
-  T5[((i104 % T1.size[1]) + (T0.size[1] * T4[0]))] = T9[0];
+  if (b279) {
+    T5[((i104 % T1.size[1]) + (T0.size[1] * T4[0]))] = T9[0];
+  }
 }
 }
 
