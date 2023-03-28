@@ -2751,6 +2751,7 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     kir::ForLoop* unswitch_or_vec_loop,
     bool shift_padding) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getReferenceRootPredicates");
+
   // For ScatterOp, the Predicates should keep the same as the index.
   if (consumer_tv->definition() &&
       consumer_tv->definition()->isA<ScatterOp>()) {
@@ -2814,6 +2815,7 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     }
 
     auto root_ids = contig_id_entry.covered_ids;
+
     const auto consumer_stop_indexing_it =
         consumer_stop_index_map.find(contig_id);
 
