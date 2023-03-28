@@ -258,6 +258,10 @@ class TORCH_CUDA_CU_API ComputeAtMap {
   // Update the LOOP map with resolved computeWith
   void updateComputeWith(TensorView* compute_with_tv);
 
+  std::unordered_map<IterDomain*, IterDomain*> idMap() const {
+    return concrete_id_map_;
+  }
+
  private:
   // Traverses through definitions of exact maps (unique_exact_definitions_) to
   // input ID's from provided ID. Returns all the exact map concrete IDs of the

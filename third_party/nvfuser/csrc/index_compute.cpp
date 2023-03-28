@@ -436,6 +436,12 @@ void IndexCompute::handle(Merge* merge) {
     return;
   }
 
+  auto id_map = GpuLower::current()->caMap()->idMap();
+  // For ScatterOp, the extend of outputTv should be the extend of indexTv.
+  // id_map store this info.
+  if (id_map.find(inner_id) != id_map.end()) {
+    inner_id = id_map[inner_id];
+  }
   Val* inner_extent = getExtent(inner_id);
 
   // When the reference has halo extent for inner_id, that extent needs to
@@ -1886,14 +1892,7 @@ std::vector<Val*> Index::getRootIndices(
       continue;
     }
 
-    if (root_dom[i]->isGatherScatter()) {
-      root_dom[i] = GpuLower::current()->caMap()->getConcreteMappedID(
-          root_dom[i], IdMappingMode::EXACT);
-      indexing = index_from_id_graph.concrete_index;
-    } else {
-      indexing = index_from_id_graph.index;
-    }
-
+    indexing = index_from_id_graph.index;
     TORCH_INTERNAL_ASSERT(
         indexing.indexMap().find(root_dom[i]) != indexing.indexMap().end(),
         "Couldn't find root mapping for ",
@@ -2752,10 +2751,11 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     kir::ForLoop* unswitch_or_vec_loop,
     bool shift_padding) {
   FUSER_PERF_SCOPE("GpuLower::Lower::Index::getReferenceRootPredicates");
+  // For ScatterOp, the Predicates should keep the same as the index.
   if (consumer_tv->definition() &&
       consumer_tv->definition()->isA<ScatterOp>()) {
     return getReferenceRootPredicates(
-        consumer_tv->definition()->as<ScatterOp>()->srcTv(),
+        consumer_tv->definition()->as<ScatterOp>()->indexTv(),
         loops,
         unswitch_or_vec_loop,
         shift_padding);
@@ -2897,10 +2897,12 @@ std::vector<RootPredicateInfo> Index::getReferenceRootPredicates(
     } else {
       auto offsetted_stop_index =
           SimplifyingIrBuilder::addExpr(stop_index, stop_offset);
-      auto extent_id = gpu_lower->caMap()->getConcreteMappedID(
-          contig_id, IdMappingMode::EXACT);
+      auto id_map = gpu_lower->caMap()->idMap();
+      if (id_map.find(contig_id) != id_map.end()) {
+        contig_id = id_map[contig_id];
+      }
       auto stop_pred = SimplifyingIrBuilder::ltExpr(
-                           offsetted_stop_index, extent_id->extent())
+                           offsetted_stop_index, contig_id->extent())
                            ->as<Bool>();
       info.stop_predicate_ = stop_pred;
     }
