@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-present NVIDIA CORPORATION & AFFILIATES.
-# All rights reserved.
-# SPDX-License-Identifier: BSD-3-Clause
 # Owner(s): ["module: nvfuser"]
 
 import unittest
@@ -61,10 +58,7 @@ class TestNvFuserDynamo(TestCase):
     @unittest.skipIf(not is_networkx_available(), "networkx not available")
     def test_min_cut(self):
         from functorch.compile import default_partition
-        try:
-            from torch._dynamo.backends.nvfuser import nvprims_fw_bw_partition_fn
-        except ImportError:
-            from torch._dynamo.optimizations.training import nvprims_fw_bw_partition_fn
+        from torch._dynamo.backends.nvfuser import nvprims_fw_bw_partition_fn
 
         def get_fw_bw_graph(f, inps, partitioner):
             from functorch.compile import aot_function
@@ -114,7 +108,6 @@ class TestNvFuserDynamo(TestCase):
         self.assertEqual(get_num_ins_outs(fw_graph), (1, 2))
         self.assertEqual(get_num_ins_outs(bw_graph), (2, 1))
 
-    @unittest.skip("patched in upstream. we'll skip it here for now")
     def test_batch_norm_implicit_dtype_promotion(self):
         input1 = make_tensor((2, 3, 4, 5), device="cuda", dtype=torch.float32)
         input2 = make_tensor((5, 5), device="cuda", dtype=torch.float32)
