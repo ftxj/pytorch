@@ -4,30 +4,31 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_proto_library")
 cc_library(
     name = "caffe2_pb",
     hdrs = ["caffe2_pb.h"],
+    visibility = [
+        "//:__pkg__",
+    ],
     deps = [
-        ":caffe2_protos",
+        ":cc_proto",
         "//c10/core:base",
         "//c10/util:base",
     ],
-    visibility = [
-        "//:__pkg__",
-        "//caffe2:__subpackages__",
-        "//torch/csrc/jit/serialization:__pkg__",
-    ],
-)
-
-proto_library(
-    name = "caffe2_proto_source",
-    srcs = glob([
-        "*.proto",
-    ]),
-    visibility = ["//visibility:public"],
 )
 
 cc_proto_library(
-    name = "caffe2_protos",
-    deps = [":caffe2_proto_source"],
-    # Legacy, this should probably be restricted to the targets that
-    # actually need this.
+    name = "cc_proto",
     visibility = ["//:__pkg__"],
+    deps = [":proto"],
+)
+
+proto_library(
+    name = "proto",
+    srcs = [
+        "caffe2.proto",
+        "caffe2_legacy.proto",
+        "hsm.proto",
+        "metanet.proto",
+        "predictor_consts.proto",
+        "prof_dag.proto",
+        "torch.proto",
+    ],
 )
