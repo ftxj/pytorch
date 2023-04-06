@@ -260,12 +260,16 @@ def compile_fx_inner(
 
 
 def clone_preserve_strides(x):
+    if config.debug:
+        torch.cuda.nvtx.range_push("inductor-clone")
     needed_size = (
         sum((shape - 1) * stride for shape, stride in zip(x.size(), x.stride())) + 1
     )
     buffer = torch.as_strided(x, (needed_size,), (1,)).clone()
-    return torch.as_strided(buffer, x.size(), x.stride())
-
+    tmp = torch.as_strided(buffer, x.size(), x.stride())
+    if config.debug:
+        torch.cuda.nvtx.range_pop()
+    return tmp
 
 def align_inputs(model, inputs, static_input_idxs=()):
     def is_aligned(storage_offset, dtype):
